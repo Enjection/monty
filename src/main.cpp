@@ -3,7 +3,12 @@
 
 using namespace monty;
 
-int main ([[maybe_unused]] int argc, [[maybe_unused]] char const** argv) {
+#ifdef MAIN
+MAIN
+#else
+int main ([[maybe_unused]] int argc, [[maybe_unused]] char const** argv)
+#endif
+{
     arch::init(12*1024);
 #ifndef NDEBUG
     printf("main\n");
