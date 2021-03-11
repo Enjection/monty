@@ -1,9 +1,10 @@
-#include "monty.h"
+#include <monty.h>
+#include <extend.h>
 #include "jet.h"
-#include <cassert>
 
 using namespace monty;
-using namespace jet;
+
+//CG: module jet
 
 void Gadget::marker () const {
     // ...
@@ -22,14 +23,14 @@ void Flow::marker () const {
 
 Type Flow::info ("jet.flow");
 
+//CG1 bind flow
 static auto f_flow (ArgVec const& args) -> Value {
-    assert(args.num == 0);
+    //CG: args
     return new Flow;
 }
 
-static Lookup::Item const lo_jet [] = {
-    { "flow", f_flow },
+//CG1 wrappers
+static Lookup::Item const jet_map [] = {
 };
 
-static Lookup const ma_jet (lo_jet, sizeof lo_jet);
-extern Module m_jet (ma_jet);
+//CG: module-end
