@@ -1,5 +1,5 @@
 # see https://www.pyinvoke.org
 
-@task(flash, mrfs, runner, serial, default=True)
+@task(flash, mrfs, runner, default=True)
 def all(c):
-    """compile and test the "minimal" demo"""
+    """compile upload tests to the "bluepill" board"""
