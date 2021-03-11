@@ -441,3 +441,141 @@ constant table in the last file processed by the code generator: `qstr.cpp`.
 
 ?> No pre-processor defines were used or harmed in this design. It's all
 `codegen.py` and C++17 ...
+
+## PlatformIO
+
+All the actual compilation, linking, uploading, and C++ testing is taken care of
+by [PlatformIO](https://platformio.org). It's highly configurable through its
+`platformio.ini` file, and perhaps most importantly: it supports a wide range of
+platforms and auto-installs/-updates all the tools and toolchains as needed.
+
+The trick is to get `invoke`, `codegen`, and `pio` to work together smoothly,
+with maximal flexibility and minimal surprises. There are many aspects to this,
+first of all the two main configuration files:
+
+* **`platformio.ini`** is the main config file, located in the root of Monty's
+  source tree - it has several sections, and defines build settings for `native`
+  (i.e. MacOS or Linux) and for the Nucleo-L432 embedded µC board. This file is
+  not intended to be changed, but ...
+
+* **`monty-pio.ini`** is a file included by `platformio.ini`, if it exists. The
+  key here is that the file is searched in the _current working directory_,
+  whereas `platformio.ini` is part of Monty. All the sections and settings in
+  this file either replace or extend the ones in `platformio.ini`.
+
+See the
+[documentation](https://docs.platformio.org/en/latest/projectconf/index.html) on
+the PIO site for all the details. There is a lot to go through, but then again,
+covering a wide range of µC architectures and their respective toolchains is a
+complex topic.
+
+This configuration is re-used and extended in Monty, as **`inv`** will
+read the (merged) configuration and look for sections named `[invoke]` and
+`[codegen]` (these are simply ignored by PIO):
+
+* **`[invoke]`** lists configuration settings which can affect some
+  tasks - currently these are only `python_skip` and `remote_skip`,
+  which list tests to be omitted when running `inv all`.
+
+* **`[codegen]`** defines which directories are to be included in a build - the
+  `all` setting lists code to included in all builds, the other settings are for
+  platform-specific code.
+
+!> Each directory listed in the `[codegen]` section is searched _first_ relative
+to the current working directory and _then_ relative to the Monty source tree.
+This is why and how a custom build can include its own code or override (i.e.
+replace) any part of Monty.
+
+Here are the default settings for these two sections, as defined in
+`platformio.ini`:
+
+```text
+[invoke]
+python_skip =
+runner_skip = gcoll s_rf69
+
+[codegen]
+all = lib/extend/ lib/pyvm/
+native = lib/arch-native/
+stm32 = lib/arch-stm32/ lib/mrfs/
+```
+
+In custom builds, these can be adjusted at will. For example, to remove the
+STM32 build altogether, adding this `monty-pio.ini` will do the trick:
+
+```text
+[codegen]
+stm32 =
+```
+
+(note that the other sections still apply, this _only_ clears out the `stm32`
+build)
+
+This would add an extra platform-independent module:
+
+```text
+[codegen]
+all = lib/extend/ lib/pyvm/ lib/my-mod/
+```
+
+(again, note that all the original directories have to be listed to be included)
+
+If the list gets a bit long, it can be split across multiple lines:
+
+```text
+[codegen]
+all =
+  lib/extend/
+  lib/pyvm/
+  lib/my-mod/
+```
+
+The `examples/module/` directory illustrates how to set up a custom build with
+such a new module.
+
+### The magic
+
+There are some conventions involved to make this all work - as if my magic (if
+all goes well). The challenge is to play as nicely along with PIO's conventions
+as possible. To be able to locate source code for a specific build request, PIO
+has an elaborate _Library Dependency Finder_ (see the
+[docs](https://docs.platformio.org/en/latest/librarymanager/ldf.html)).
+
+There's quite a bit going on, as this can also automatically fetch libraries
+from PIO's very extensions [library registry](https://platformio.org/lib). In a
+nutshell, this is how Monty ties into PIOs library system:
+
+* the `main.cpp` file must include the `<monty.h>` and `<arch.h>` headers
+* library sources must be placed in folder inside `lib/` (see PIO's `lib_dir`
+  config)
+* the code generator will insert includes into `arch.h` for all the directories
+  it has scanned
+* for this to work, a directory named `lib/foo-bar/` _must_ include a file named
+  `foo-bar.h`
+* these header files may be empty, but they still have to exist to be included
+  in PIO's builds
+
+In short: PIO scans `main.cpp`, finds the headers, and follows the include chain
+via `arch.h`. Since everything else is listed there (using `//CG wrappers`), it
+will include all those areas in the build.
+
+### Platform-specific code
+
+_Well, if only it were so simple ..._ not all source code is needed (or will
+even compile) on all platforms. This is handled by setting PIO's library search
+setting to `lib_compat_mode = strict`, which tells PIO to only include libraries
+which match a _specific_ platform, and therefore ...
+
+* `/lib/arch-native/library.json` contains this one line: `{ "platforms":
+"native" }`
+* `/lib/arch-stm32/library.json` contains this one line: `{ "platforms":
+"ststm32" }`
+
+Both directories contain a header file named `arch.h`, but since their platform
+info will only allow at most one of these areas to match, a _single_ area will
+automatically be included by PIO.
+
+For other platforms, this needs to be replicated: include a
+`lib/arch-myarch/library.json` file with PIO's name for that architecture, and
+include a `lib/arch-myarch/arch.h` for use from `main`, with at least the `//CG
+wrappers` code generator directive in it.
