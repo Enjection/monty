@@ -469,13 +469,13 @@ the PIO site for all the details. There is a lot to go through, but then again,
 covering a wide range of µC architectures and their respective toolchains is a
 complex topic.
 
-This configuration is re-used and extended in Monty, as **`inv`** will
-read the (merged) configuration and look for sections named `[invoke]` and
-`[codegen]` (these are simply ignored by PIO):
+This configuration is re-used and extended in Monty, as **`inv`** will read the
+(merged) configuration and look for sections named `[invoke]` and `[codegen]`
+(these are simply ignored by PIO):
 
-* **`[invoke]`** lists configuration settings which can affect some
-  tasks - currently these are only `python_skip` and `remote_skip`,
-  which list tests to be omitted when running `inv all`.
+* **`[invoke]`** lists configuration settings which can affect some tasks -
+  currently these are only `python_skip` and `runner_skip`, which list tests to
+  be omitted when running `inv all`.
 
 * **`[codegen]`** defines which directories are to be included in a build - the
   `all` setting lists code to included in all builds, the other settings are for
@@ -567,9 +567,9 @@ setting to `lib_compat_mode = strict`, which tells PIO to only include libraries
 which match a _specific_ platform, and therefore ...
 
 * `/lib/arch-native/library.json` contains this one line: `{ "platforms":
-"native" }`
+  "native" }`
 * `/lib/arch-stm32/library.json` contains this one line: `{ "platforms":
-"ststm32" }`
+  "ststm32" }`
 
 Both directories contain a header file named `arch.h`, but since their platform
 info will only allow at most one of these areas to match, a _single_ area will
