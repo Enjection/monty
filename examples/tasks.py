@@ -21,25 +21,6 @@ root = os.environ["MONTY_ROOT"]
 def inRoot(f):
     return os.path.join(root, f)
 
-@task(help={"name": "name of the new directory"})
-def init(c, name):
-    """intialise a new Monty-based project"""
-    orig = os.path.join(root, "examples/template/")
-    c.run("mkdir %s" % name)
-    c.run("cp -a %s %s" % (orig, name))
-    base = os.path.relpath(root, name)
-    if not dry:
-        with open(os.path.join(name, "monty-pio.ini"), "w") as f:
-            for s in [
-                "[platformio]",
-                "src_dir = %s" % os.path.join(base, "src"),
-                "",
-                "[env]",
-                "lib_extra_dirs = %s" % os.path.join(base, "lib"),
-            ]:
-                print(s, file=f)
-        print("Ready, the next step is: cd %s && inv -l" % name)
-
 if os.path.isfile("tasks.py"):
 
     @task(default=True)
@@ -52,6 +33,25 @@ if os.path.isfile("tasks.py"):
           For source code and discussion, see https://github.com/jeelabs/monty
         """.split("\n"):
             print(" ", s.strip())
+
+    @task(help={"name": "name of the new directory"})
+    def init(c, name):
+        """intialise a new Monty-based project"""
+        orig = os.path.join(root, "examples/template/")
+        c.run("mkdir %s" % name)
+        c.run("cp -a %s %s" % (orig, name))
+        base = os.path.relpath(root, name)
+        if not dry:
+            with open(os.path.join(name, "monty-pio.ini"), "w") as f:
+                for s in [
+                    "[platformio]",
+                    "src_dir = %s" % os.path.join(base, "src"),
+                    "",
+                    "[env]",
+                    "lib_extra_dirs = %s" % os.path.join(base, "lib"),
+                ]:
+                    print(s, file=f)
+            print("Ready, the next step is: cd %s && inv -l" % name)
 
 else: # only define the other tasks if inside project (i.e. sub-) directories
 
