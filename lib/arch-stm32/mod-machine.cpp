@@ -184,6 +184,12 @@ static auto f_ticks (ArgVec const& args) -> Value {
     return msNow();
 }
 
+//CG1 bind cycles
+static auto f_cycles (ArgVec const& args) -> Value {
+    // args are ignored, this also avoid the overhead
+    return jeeh::DWT::count() & 0x3FFFFFFF; // keep it positive in Value
+}
+
 //CG1 bind dog
 static auto f_dog (ArgVec const& args) -> Value {
     // TODO optional args

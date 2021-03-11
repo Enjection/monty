@@ -191,4 +191,26 @@ namespace jeeh {
             disable();
         }
     };
+
+    // cycle counts, see https://stackoverflow.com/questions/11530593/
+    // TODO remove from JeeH's F1/F3/H7 - looks like they're all the same
+
+    namespace DWT {
+        constexpr uint32_t dwt   = 0xE0001000;
+        enum { ctrl=0x0, cyccnt=0x4, lar=0xFB0 };
+
+        static void init () {
+            constexpr uint32_t scb_demcr = 0xE000EDFC;
+            MMIO32(dwt+lar) = 0xC5ACCE55;
+            MMIO32(scb_demcr) |= (1<<24); // set TRCENA in DEMCR
+        }
+
+        // return count since previous call (1st result is bogus)
+        auto count () -> uint32_t {
+            auto n = MMIO32(dwt+cyccnt);
+            MMIO32(dwt+ctrl) |= 1<<0;
+            MMIO32(dwt+cyccnt) = 0;
+            return n;
+        }
+    };
 }
