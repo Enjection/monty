@@ -478,7 +478,7 @@ This configuration is re-used and extended in Monty, as **`inv`** will read the
   be omitted when running `inv all`.
 
 * **`[codegen]`** defines which directories are to be included in a build - the
-  `all` setting lists code to included in all builds, the other settings are for
+  `all` setting lists code to include in all builds, the other settings are for
   platform-specific code.
 
 !> Each directory listed in the `[codegen]` section is searched _first_ relative
@@ -535,14 +535,14 @@ such a new module.
 
 ### The magic
 
-There are some conventions involved to make this all work - as if my magic (if
+There are some conventions involved to make this all work - as if by magic (if
 all goes well). The challenge is to play as nicely along with PIO's conventions
 as possible. To be able to locate source code for a specific build request, PIO
 has an elaborate _Library Dependency Finder_ (see the
 [docs](https://docs.platformio.org/en/latest/librarymanager/ldf.html)).
 
 There's quite a bit going on, as this can also automatically fetch libraries
-from PIO's very extensions [library registry](https://platformio.org/lib). In a
+from PIO's very extensive [library registry](https://platformio.org/lib). In a
 nutshell, this is how Monty ties into PIOs library system:
 
 * the `main.cpp` file must include the `<monty.h>` and `<arch.h>` headers
@@ -554,17 +554,19 @@ nutshell, this is how Monty ties into PIOs library system:
   `foo-bar.h`
 * these header files may be empty, but they still have to exist to be included
   in PIO's builds
+* external libraries can be pulled in using PIO's `lib_deps` config setting, as
+  always
 
 In short: PIO scans `main.cpp`, finds the headers, and follows the include chain
-via `arch.h`. Since everything else is listed there (using `//CG wrappers`), it
-will include all those areas in the build.
+via `arch.h`. Since everything else is listed there (using `//CG includes`), it
+will add all those areas to the build.
 
 ### Platform-specific code
 
-_Well, if only it were so simple ..._ not all source code is needed (or will
+_Ahhh, if only it were so simple ..._ not all source code is needed (or will
 even compile) on all platforms. This is handled by setting PIO's library search
-setting to `lib_compat_mode = strict`, which tells PIO to only include libraries
-which match a _specific_ platform, and therefore ...
+mode using `lib_compat_mode = strict`, which tells PIO to only include libraries
+that match a _specific_ platform, and therefore ...
 
 * `/lib/arch-native/library.json` contains this one line: `{ "platforms":
   "native" }`
@@ -572,10 +574,10 @@ which match a _specific_ platform, and therefore ...
   "ststm32" }`
 
 Both directories contain a header file named `arch.h`, but since their platform
-info will only allow at most one of these areas to match, a _single_ area will
-automatically be included by PIO.
+info will only allow at most one of these areas to match, the _apropriate_ area
+will automatically be included by PIO.
 
 For other platforms, this needs to be replicated: include a
 `lib/arch-myarch/library.json` file with PIO's name for that architecture, and
 include a `lib/arch-myarch/arch.h` for use from `main`, with at least the `//CG
-wrappers` code generator directive in it.
+includes` code generator directive in it.
