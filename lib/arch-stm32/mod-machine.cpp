@@ -186,7 +186,7 @@ static auto f_ticks (ArgVec const& args) -> Value {
 
 //CG1 bind cycles
 static auto f_cycles (ArgVec const& args) -> Value {
-    // args are ignored, this also avoid the overhead
+    (void) args; // args are ignored (also avoids the checking overhead)
     return jeeh::DWT::count() & 0x3FFFFFFF; // keep it positive in Value
 }
 
