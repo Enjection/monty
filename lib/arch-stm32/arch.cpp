@@ -16,6 +16,8 @@ const auto mrfsSize = 32*1024;
 
 #if STM32L432xx
 UartBufDev< PinA<2>, PinA<15>, 100 > console;
+#elif STM32F4
+UartBufDev< PinA<2>, PinA<3>, 100 > console;
 #else
 UartBufDev< PinA<9>, PinA<10>, 100 > console;
 #endif
@@ -209,7 +211,16 @@ struct HexSerial : LineSerial {
     }
 
     void saveToFlash (uint32_t off, void const* buf, int len) {
-#if STM32L4
+#if STM32F1
+        if (off % 1024 == 0) // TODO hard-coded for Blue Pill
+            Flash::erasePage((void*) off);
+        auto words = (uint32_t const*) buf;
+        for (int i = 0; i < len; i += 4)
+            Flash::write32((void const*) (off+i), words[i/4]);
+        Flash::finish();
+#elif STM32F4
+        (void) off; (void) buf; (void) len; // TODO
+#elif STM32L4
         if (off % 2048 == 0) // TODO STM32L4-specific
             Flash::erasePage((void*) off);
         auto words = (uint32_t const*) buf;
@@ -252,15 +263,15 @@ static void di_cmd () {
     // the 0x1F... addresses are cpu-family specific
 #if STM32F1
     printf("cpuid 0x%08x, %d kB flash, %d kB ram, package type %d\n",
-            MMIO32(0xE000ED00),
+            (int) MMIO32(0xE000ED00),
             MMIO16(0x1FFFF7E0),
             (_estack - _sdata) >> 8,
-            MMIO32(0x1FFFF700) & 0x1F); // FIXME wrong!
-    printf("clock %d kHz, devid %p-%p-%p\n",
-            MMIO32(0xE000E014) + 1,
-            MMIO32(0x1FFFF7E8),
-            MMIO32(0x1FFFF7EC),
-            MMIO32(0x1FFFF7F0));
+            (int) MMIO32(0x1FFFF700) & 0x1F); // FIXME wrong!
+    printf("clock %d kHz, devid %08x-%08x-%08x\n",
+            (int) MMIO32(0xE000E014) + 1,
+            (int) MMIO32(0x1FFFF7E8),
+            (int) MMIO32(0x1FFFF7EC),
+            (int) MMIO32(0x1FFFF7F0));
 #elif STM32L4
     printf("cpuid 0x%08x, %d kB flash, %d kB ram, package type %d\n",
             (int) MMIO32(0xE000ED00),
@@ -276,7 +287,9 @@ static void di_cmd () {
 }
 
 static void pd_cmd () {
+#if !STM32F4
     powerDown();
+#endif
 }
 
 static void wd_cmd (char const* cmd) {
@@ -284,8 +297,10 @@ static void wd_cmd (char const* cmd) {
     if (strlen(cmd) > 3)
         count = atoi(cmd+3);
 
+#if !STM32F4
     static Iwdg dog;
     dog.reload(count);
+#endif
     printf("%d ms\n", 8 * count);
 }
 
@@ -350,7 +365,11 @@ auto monty::vmImport (char const* name) -> uint8_t const* {
 
 void arch::init (int size) {
     console.init();
+#if STM32F4
+    console.baud(115200, fullSpeedClock()/4);
+#else
     console.baud(115200, fullSpeedClock());
+#endif
 
     printf("\n"); // TODO yuck, the uart TX sends a 0xFF junk char after reset
 

@@ -194,15 +194,19 @@ static auto f_dog (ArgVec const& args) -> Value {
     if (args.size() > 0 && args[0].isInt())
         count = args[0];
 
+#if !STM32F4
     static Iwdg dog;
     dog.reload(count);
+#endif
     return {};
 }
 
 //CG1 bind kick
 static auto f_kick (ArgVec const& args) -> Value {
     //CG: args
+#if !STM32F4
     Iwdg::kick();
+#endif
     return {};
 }
 
