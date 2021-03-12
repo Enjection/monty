@@ -66,7 +66,8 @@ def generate(c, strip=False, verbose=False, norun=False):
 @task(call(generate, strip=True))
 def clean(c):
     """delete all build results"""
-    c.run("rm -rf .pio examples/*/.pio kcov-out/ src/__pycache__ verify/*.mpy")
+    c.run("rm -rf .pio kcov-out/ src/__pycache__ verify/*.mpy")
+    c.run("rm -rf examples/*/.pio examples/*/*/.pio")
 
 @task(generate, default=not root,
       help={"file": "name of the .py or .mpy file to run"})

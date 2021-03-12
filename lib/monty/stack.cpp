@@ -217,7 +217,7 @@ auto Stacklet::runLoop () -> bool {
     while (true) {
         INNER_HOOK
 
-        auto flags = allPending();
+        auto flags = clearAllPending();
         for (auto& e : Event::triggers)
             if (flags != 0) {
                 if ((flags & 1) && e.isObj())

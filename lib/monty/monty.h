@@ -760,21 +760,16 @@ namespace monty {
 
         // see https://en.cppreference.com/w/c/atomic and
         // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
-        static auto setPending (uint32_t n) -> bool {
-            auto prev = __atomic_fetch_or(&pending, 1<<n, __ATOMIC_RELAXED);
-            return (prev >> n) & 1;
+        static void setPending (uint32_t n) {
+            __atomic_fetch_or(&pending, 1<<n, __ATOMIC_RELAXED);
         }
-        static auto clearPending (uint32_t n) -> bool {
-            auto prev = __atomic_fetch_and(&pending, ~(1<<n), __ATOMIC_RELAXED);
-            return (prev >> n) & 1;
-        }
-        static auto allPending () -> uint32_t {
-            return __atomic_fetch_and(&pending, 0, __ATOMIC_RELAXED); // clears
+        static auto clearAllPending () -> uint32_t {
+            return __atomic_fetch_and(&pending, 0, __ATOMIC_RELAXED);
         }
 
         static List ready;
-        static volatile uint32_t pending;
         static Stacklet* current;
+        static volatile uint32_t pending;
     };
 
     //CG1 type <module>
