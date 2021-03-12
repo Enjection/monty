@@ -72,19 +72,19 @@ namespace monty {
     };
 
     void gcSetup (void* base, uint32_t size); // configure the memory pool
-    auto gcMax () -> uint32_t; // return free space between objects & vectors
-    auto gcCheck () -> bool;   // true when it's time to collect the garbage
-    void gcReport ();          // print a brief gc summary with statistics
+    auto gcMax () -> int;    // return free space between objects & vectors
+    auto gcCheck () -> bool; // true when it's time to collect the garbage
+    void gcReport ();        // print a brief gc summary with statistics
 
     union GCStats {
         struct {
-            uint32_t
+            int
                 checks, sweeps, compacts,
                 toa, tob, tva, tvb, // totalObjAllocs/Bytes,totalVecAllocs/Bytes
                 coa, cob, cva, cvb, // currObjAllocs/Bytes,currVecAllocs/Bytes
                 moa, mob, mva, mvb; // maxObjAllocs/Bytes,maxVecAllocs/Bytes
         };
-        uint32_t v [15];
+        int v [15];
     };
     extern GCStats gcStats;
 

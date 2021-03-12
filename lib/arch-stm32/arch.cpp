@@ -189,7 +189,8 @@ struct HexSerial : LineSerial {
                             if (offset != 0) {
                                 // TODO verify proper flashing
                                 saveToFlash(offset, persist+4, last);
-                                printf("offset %x last %d\n", offset, last);
+                                printf("offset %x last %d\n",
+                                        (int) offset, (int) last);
                                 *persist = 0;
                                 offset = 0;
                                 break;
@@ -250,7 +251,7 @@ static void di_cmd () {
             g_pfnVectors, _sidata, _sdata, _ebss, _estack);
     // the 0x1F... addresses are cpu-family specific
 #if STM32F1
-    printf("cpuid 0x%p, %d kB flash, %d kB ram, package type %d\n",
+    printf("cpuid 0x%08x, %d kB flash, %d kB ram, package type %d\n",
             MMIO32(0xE000ED00),
             MMIO16(0x1FFFF7E0),
             (_estack - _sdata) >> 8,
@@ -261,16 +262,16 @@ static void di_cmd () {
             MMIO32(0x1FFFF7EC),
             MMIO32(0x1FFFF7F0));
 #elif STM32L4
-    printf("cpuid 0x%p, %d kB flash, %d kB ram, package type %d\n",
-            MMIO32(0xE000ED00),
+    printf("cpuid 0x%08x, %d kB flash, %d kB ram, package type %d\n",
+            (int) MMIO32(0xE000ED00),
             MMIO16(0x1FFF75E0),
             (_estack - _sdata) >> 8,
-            MMIO32(0x1FFF7500) & 0x1F);
-    printf("clock %d kHz, devid %p-%p-%p\n",
-            MMIO32(0xE000E014) + 1,
-            MMIO32(0x1FFF7590),
-            MMIO32(0x1FFF7594),
-            MMIO32(0x1FFF7598));
+            (int) MMIO32(0x1FFF7500) & 0x1F);
+    printf("clock %d kHz, devid %08x-%08x-%08x\n",
+            (int) MMIO32(0xE000E014) + 1,
+            (int) MMIO32(0x1FFF7590),
+            (int) MMIO32(0x1FFF7594),
+            (int) MMIO32(0x1FFF7598));
 #endif
 }
 

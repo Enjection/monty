@@ -364,13 +364,13 @@ namespace monty {
         D( printf("setup: start %p limit %p\n", start, limit); )
     }
 
-    auto gcMax () -> uint32_t {
+    auto gcMax () -> int {
         return (uintptr_t) objLow - (uintptr_t) vecHigh;
     }
 
     auto gcCheck () -> bool {
         ++gcStats.checks;
-        auto total = (uintptr_t) limit - (uintptr_t) start;
+        auto total = (intptr_t) limit - (intptr_t) start;
         return gcMax() < total / 4; // TODO crude
     }
 

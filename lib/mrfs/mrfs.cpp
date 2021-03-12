@@ -162,8 +162,9 @@ void mrfs::dump () {
     auto p = base + skip;
     while (p < last && p->valid()) {
         printf("%04d:%6d  %6d.%04d  %s\n",
-                (int) (p - base), p->size,
-                p->tail()->time/10000, p->tail()->time%10000, p->tail()->name);
+                (int) (p - base), (int) p->size,
+                (int) p->tail()->time/10000, (int) p->tail()->time%10000,
+                p->tail()->name);
         p = p->tail() + 1;
     }
 }
