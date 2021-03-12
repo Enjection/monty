@@ -1,12 +1,9 @@
 #include <monty.h>
+#include "arch.h"
+
 #include "esp_common.h"
 
-#include <cassert>
 #include <unistd.h>
-
-//CG2 if dir extend
-#define HAS_ARRAY 1
-#include <extend.h>
 
 using namespace monty;
 
@@ -36,18 +33,14 @@ static auto msNow () -> Value {
 static auto f_ticker (ArgVec const& args) -> Value {
     //CG: args ? arg:i
     if (arg > 0) {
-        assert(args.size() == 1 && args[0].isInt());
         ms = arg;
         start = msNow(); // set first timeout relative to now
         last = 0;
         tickerId = tickEvent.regHandler();
-        assert(tickerId > 0);
-
         // TODO
     } else {
         // TODO
         tickEvent.deregHandler();
-        assert(tickerId > 0);
     }
     return tickEvent;
 }

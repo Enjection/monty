@@ -114,12 +114,12 @@ auto Event::regHandler () -> uint32_t {
     return _id;
 }
 
-auto Event::unop (UnOp op) const -> Value {
+auto Event::unop ([[maybe_unused]] UnOp op) const -> Value {
     assert(op == UnOp::Boln);
     return Value::asBool(*this);
 }
 
-auto Event::binop (BinOp op, Value rhs) const -> Value {
+auto Event::binop ([[maybe_unused]] BinOp op, Value rhs) const -> Value {
     assert(op == BinOp::Equal);
     return Value::asBool(rhs.isObj() && this == &rhs.obj());
 }

@@ -88,7 +88,7 @@ def KWARGS(block, *arg):
 
 # comment lines in or out, depending on a condition
 def IF(block, typ, arg):
-    include = typ == "dir" and arg in dirs
+    include = typ == "dir" and not strip and arg in dirs
     out = []
     for line in block:
         line = line.lstrip(" /")

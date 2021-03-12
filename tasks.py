@@ -12,10 +12,9 @@ def getMontyDir():
     d = path.relpath(path.dirname(f), os.getcwd())
     return "" if d == "." else d
 
-if "MONTY_ROOT" not in os.environ:
-    os.environ["MONTY_ROOT"] = getMontyDir()
-root = os.environ["MONTY_ROOT"]
+root = os.environ.get("MONTY_ROOT", "") or getMontyDir()
 if root:
+    os.environ["MONTY_ROOT"] = root
     sys.path.insert(0, root)
 
 import configparser
@@ -62,6 +61,9 @@ def generate(c, strip=False, verbose=False, norun=False):
             cmd += v.split()
     cmd += ["qstr.cpp"]
     c.run(" ".join(cmd))
+    if strip and not root: # don't forget to strip all the examples
+        c.run("""for d in `find examples -name monty-pio.ini`
+                    do (cd `dirname $d` && inv generate -s -v); done""")
 
 @task(call(generate, strip=True))
 def clean(c):
