@@ -1,4 +1,5 @@
 #include <monty.h>
+#include "arch.h"
 
 #include <jee.h>
 #include "jee-stm32.h"
@@ -6,10 +7,6 @@
 
 #include <cassert>
 #include <unistd.h>
-
-//CG2 if dir extend
-#define HAS_ARRAY 1
-#include <extend.h>
 
 using namespace monty;
 
