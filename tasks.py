@@ -269,25 +269,26 @@ if root == "": # the following tasks are not available for use out-of-tree
             os.chmod(fn, 0o755)
 
     @task(help={"name": "name of the new directory",
-                "symlink": "create a symlink to 'tasks.py' (default: true)"})
-    def init(c, name, symlink=True):
-        """intialise a new Monty-based project"""
+                "subdir": "subdir setup, omit symlink to 'tasks.py'"})
+    def init(c, name, subdir=False):
+        """intialise a new custom build area for Monty"""
         c.run("mkdir %s" % name)
         c.run("cp -a %s %s" % ("examples/template/", name))
-        base = path.relpath(".", name)
+        rel = path.relpath(".", name)
         if not dry:
             with open(path.join(name, "monty-pio.ini"), "w") as f:
                 for s in [
                     "[platformio]",
-                    "src_dir = %s" % path.join(base, "src"),
+                    "src_dir = %s" % path.join(rel, "src"),
                     "",
                     "[env]",
-                    "lib_extra_dirs = %s" % path.join(base, "lib"),
+                    "lib_extra_dirs = %s" % path.join(rel, "lib"),
                 ]:
                     print(s, file=f)
-            if symlink:
-                os.symlink(path.join(base, "tasks.py"), path.join(name, "tasks.py"))
-            print("Ready, the next step is: cd %s && inv -l" % name)
+            if not subdir:
+                t = "tasks.py"
+                os.symlink(path.join(rel, t), path.join(name, t))
+            print("Build area created, next step: cd %s && inv -l" % name)
 
     @task(post=[clean, test, call(python, python_skip),
                 upload, flash, mrfs, call(runner, runner_skip),
