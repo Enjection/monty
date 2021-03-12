@@ -1,7 +1,6 @@
 // builtin.cpp - exceptions and auto-generated built-in tables
 
 #include "monty.h"
-#include <cassert>
 
 //CG1 if dir extend
 #include <extend.h>
@@ -151,7 +150,6 @@ auto Exception::findId (Function const& f) -> int {
         if (&f == &e.v.obj())
             return &e - builtinsMap;
     // searches too many entries, but the assumption is that f will be found
-    assert(false);
     return -1;
 }
 

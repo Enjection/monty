@@ -186,10 +186,10 @@ namespace monty {
         auto asType () const -> T& { verify(T::info); return *(T*) _o; }
 
         auto tag () const {
-            return (_v&1) != 0 ? Int : // bit 0 set
-                       _v == 0 ? Nil : // all bits 0
-                   (_v&2) != 0 ? Str : // bit 1 set, ptr shifted 2 up
-                                 Obj;  // bits 0 and 1 clear, ptr stored as is
+            return _v == 0 ? Nil : // all bits 0
+                   _v & 1  ? Int : // bit 0 set
+                   _v & 2  ? Str : // bit 1 set, ptr shifted 2 up
+                             Obj;  // bits 0 and 1 clear, ptr stored as is
         }
 
         auto id () const { return _v; }
@@ -683,7 +683,7 @@ namespace monty {
     struct Super : Object {
         void marker () const override { _sclass.marker(); _sinst.marker(); }
     private:
-        Super (ArgVec const& args);
+        Super (Value sclass, Value sinst) : _sclass (sclass), _sinst (sinst) {}
 
         Value _sclass;
         Value _sinst;

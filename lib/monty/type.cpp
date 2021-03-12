@@ -34,7 +34,7 @@ auto ArgVec::parse (char const* desc, ...) const -> Value {
     for (int i = 0; desc[i] != 0; ++i) {
         switch (desc[i]) {
             case '?': optSkip = 1; continue; // following args are optional
-            case '*': return end()-args;     // extra args are ok
+            case '*': return end() - args;   // extra args are ok
         }
 
         if (i-optSkip >= size()) { // ran out of values
@@ -67,7 +67,7 @@ auto ArgVec::parse (char const* desc, ...) const -> Value {
     if (args < end())
         return {E::TypeError, "too many args", (int) (end()-args)};
 
-    return 0;
+    return end() - args;
 }
 
 
@@ -177,14 +177,14 @@ void Buffer::print (char const* fmt, ...) {
                     case 'p':
                         fill = '0';
                         width = 8;
-                        // fall through
+                        [[fallthrough]];
                     case 'x':
                         base = 16;
                         break;
                     case 'c':
                         putFiller(width - 1, fill);
                         c = va_arg(ap, int);
-                        // fall through
+                        [[fallthrough]];
                     case '%':
                         putc(c);
                         base = 1;
@@ -195,7 +195,7 @@ void Buffer::print (char const* fmt, ...) {
                         while (*s)
                             putc(*s++);
                         putFiller(width, fill);
-                        // fall through
+                        [[fallthrough]];
                     default:
                         if ('0' <= c && c <= '9')
                             width = 10 * width + c - '0';
@@ -256,8 +256,7 @@ auto Bytes::copy (Range const& r) const -> Value {
 }
 
 auto Bytes::create (ArgVec const& args, Type const*) -> Value {
-    assert(args.size() == 1);
-    Value v = args[0];
+    //CG: args v
     if (v.isInt()) {
         auto o = new Bytes ();
         o->insert(0, v);
@@ -347,8 +346,8 @@ auto Str::getAt (Value k) const -> Value {
 }
 
 auto Str::create (ArgVec const& args, Type const*) -> Value {
-    assert(args.size() == 1 && args[0].isStr());
-    return new Str (args[0]);
+    //CG: args arg:s
+    return new Str (arg);
 }
 
 void Str::repr (Buffer& buf) const {
@@ -464,7 +463,8 @@ auto Tuple::copy (Range const& r) const -> Value {
 }
 
 auto Tuple::create (ArgVec const& args, Type const*) -> Value {
-    return new Tuple (args.size() == 1 ? args[0] : Value {});
+    //CG: args ? arg
+    return new Tuple (arg);
 }
 
 void Tuple::printer (Buffer& buf, char const* sep) const {
@@ -518,7 +518,8 @@ auto List::store (Range const& r, Object const& v) -> Value {
 }
 
 auto List::create (ArgVec const& args, Type const*) -> Value {
-    return new List (args.size() == 1 ? args[0] : Value {});
+    //CG: args ? arg
+    return new List (arg);
 }
 
 void List::repr (Buffer& buf) const {
@@ -560,7 +561,8 @@ auto Set::setAt (Value k, Value v) -> Value {
 }
 
 auto Set::create (ArgVec const& args, Type const*) -> Value {
-    return new Set (args.size() == 1 ? args[0] : Value {});
+    //CG: args ? arg
+    return new Set (arg);
 }
 
 void Set::repr (Buffer& buf) const {
@@ -679,8 +681,7 @@ auto Type::noFactory (ArgVec const&, const Type*) -> Value {
 }
 
 auto Type::create (ArgVec const& args, Type const*) -> Value {
-    assert(args.size() == 1);
-    Value v = args[0];
+    //CG: args v
     switch (v.tag()) {
         case Value::Nil: break;
         case Value::Int: return "int";
@@ -714,14 +715,9 @@ void Class::repr (Buffer& buf) const {
     buf.print("<class %s>", (char const*) at("__name__"));
 }
 
-Super::Super (ArgVec const& args) {
-    assert(args.size() == 2);
-    _sclass = args[0];
-    _sinst = args[1];
-}
-
 auto Super::create (ArgVec const& args, Type const*) -> Value {
-    return new Super (args);
+    //CG: args sclass sinst
+    return new Super (sclass, sinst);
 }
 
 void Super::repr (Buffer& buf) const {

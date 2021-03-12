@@ -156,7 +156,7 @@ auto Value::operator== (Value rhs) const -> bool {
         return true;
     if (tag() == rhs.tag())
         switch (tag()) {
-            case Nil: // fall through
+            case Nil:
             case Int: return false;
             case Str: return strcmp(*this, rhs) == 0;
             case Obj: return obj().binop(BinOp::Equal, rhs).truthy();
@@ -169,11 +169,11 @@ auto Value::unOp (UnOp op) const -> Value {
         case Int: {
             int n = *this;
             switch (op) {
-                case UnOp::Intg: // fall through
-                case UnOp::Pos:  // fall through
+                case UnOp::Pos:
+                case UnOp::Intg:
                 case UnOp::Hash: return *this;
                 case UnOp::Abso: if (n > 0) return *this;
-                                 // else fall through
+                                 [[fallthrough]];
                 case UnOp::Neg:  return Int::make(-n);
                 case UnOp::Inv:  return ~n;
                 case UnOp::Not:  return asBool(!n);
@@ -230,7 +230,7 @@ auto Value::binOp (BinOp op, Value rhs) const -> Value {
             case BinOp::Multiply: case BinOp::InplaceMultiply:
                 return Int::make((int64_t) l * r);
             case BinOp::TrueDivide: case BinOp::InplaceTrueDivide:
-                // TODO needs floats, fall through
+                // TODO needs floats
             case BinOp::FloorDivide: case BinOp::InplaceFloorDivide:
                 if (r == 0)
                     return E::ZeroDivisionError;
@@ -373,7 +373,7 @@ void None::repr (Buffer& buf) const {
 auto Bool::unop (UnOp op) const -> Value {
     switch (op) {
         case UnOp::Not:  return Value::asBool(this != &trueObj);
-        case UnOp::Intg: // fall through
+        case UnOp::Intg:
         case UnOp::Hash: return this == &trueObj;
         case UnOp::Boln: return *this;
         default:         break;
@@ -382,10 +382,8 @@ auto Bool::unop (UnOp op) const -> Value {
 }
 
 auto Bool::create (ArgVec const& args, Type const*) -> Value {
-    if (args.size() == 1)
-        return args[0].unOp(UnOp::Boln);
-    assert(args.size() == 0);
-    return False;
+    //CG: args ? arg
+    return ainfo < 0 ? False : arg.unOp(UnOp::Boln);
 }
 
 void Bool::repr (Buffer& buf) const {
@@ -404,10 +402,11 @@ auto Int::conv (char const* s) -> Value {
 auto Int::unop (UnOp op) const -> Value {
     // TODO use templates to share code with Value::unOp ?
     switch (op) {
-        case UnOp::Intg: // fall through
+        case UnOp::Intg:
         case UnOp::Pos:  return *this;
         case UnOp::Hash: return Q::hash(&_i64, sizeof _i64);
-        case UnOp::Abso: if (_i64 > 0) return *this; // else fall through
+        case UnOp::Abso: if (_i64 > 0) return *this;
+                         [[fallthrough]];
         case UnOp::Neg:  return make(-_i64);
         case UnOp::Inv:  return make(~_i64);
         case UnOp::Not:  return Value::asBool(_i64 == 0);
@@ -442,7 +441,7 @@ auto Int::binop (BinOp op, Value rhs) const -> Value {
         case BinOp::Multiply: case BinOp::InplaceMultiply:
             return make(_i64 * r64);
         case BinOp::TrueDivide: case BinOp::InplaceTrueDivide:
-            // TODO needs floats, fall through
+            // TODO needs floats
         case BinOp::InplaceFloorDivide: case BinOp::FloorDivide:
             if (r64 == 0)
                 return E::ZeroDivisionError;
@@ -459,10 +458,9 @@ auto Int::binop (BinOp op, Value rhs) const -> Value {
 }
 
 auto Int::create (ArgVec const& args, Type const*) -> Value {
-    assert(args.size() == 1);
-    auto v = args[0];
+    //CG: args v
     switch (v.tag()) {
-        case Value::Nil: // fall through
+        case Value::Nil:
         case Value::Int: return v;
         case Value::Str: return Int::conv(v);
         case Value::Obj: return v.unOp(UnOp::Intg);
@@ -523,10 +521,11 @@ auto Range::len () const -> uint32_t {
 }
 
 auto Range::create (ArgVec const& args, Type const*) -> Value {
-    assert(1 <= args.size() && args.size() <= 3);
-    int a = args.size() > 1 ? (int) args[0] : 0;
-    int b = args.size() == 1 ? args[0] : args[1];
-    int c = args.size() > 2 ? (int) args[2] : 1;
+    //CG: args a:i ? b:i c:i
+    switch (ainfo) { // N<0 means N missing
+        case -2: b = a; a = 0; [[fallthrough]];
+        case -1: c = 1;
+    }
     return new Range (a, b, c);
 }
 
@@ -551,10 +550,11 @@ auto Slice::asRange (int sz) const -> Range {
 }
 
 auto Slice::create (ArgVec const& args, Type const*) -> Value {
-    assert(1 <= args.size() && args.size() <= 3);
-    Value a = args.size() > 1 ? args[0] : Null;
-    Value b = args.size() == 1 ? args[0] : args[1];
-    Value c = args.size() > 2 ? args[2] : Null;
+    //CG: args a ? b c
+    switch (ainfo) { // N<0 means N missing
+        case -2: b = a; a = Null; [[fallthrough]];
+        case -1: c = Null;
+    }
     return new Slice (a, b, c);
 }
 

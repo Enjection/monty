@@ -60,13 +60,13 @@ static void duff (void* dst, void const* src, size_t len) {
     auto count = len/4;
     auto n = (count + 7) / 8;
     switch (count % 8) {
-        case 0: do { *to++ = *from++; // fall through
-        case 7:      *to++ = *from++; // fall through
-        case 6:      *to++ = *from++; // fall through
-        case 5:      *to++ = *from++; // fall through
-        case 4:      *to++ = *from++; // fall through
-        case 3:      *to++ = *from++; // fall through
-        case 2:      *to++ = *from++; // fall through
+        case 0: do { *to++ = *from++; [[fallthrough]];
+        case 7:      *to++ = *from++; [[fallthrough]];
+        case 6:      *to++ = *from++; [[fallthrough]];
+        case 5:      *to++ = *from++; [[fallthrough]];
+        case 4:      *to++ = *from++; [[fallthrough]];
+        case 3:      *to++ = *from++; [[fallthrough]];
+        case 2:      *to++ = *from++; [[fallthrough]];
         case 1:      *to++ = *from++;
                 } while (--n > 0);
     }
@@ -125,7 +125,7 @@ auto Event::binop (BinOp op, Value rhs) const -> Value {
 }
 
 auto Event::create (ArgVec const& args, Type const*) -> Value {
-    assert(args.size() == 0);
+    //CG: args
     return new Event;
 }
 
