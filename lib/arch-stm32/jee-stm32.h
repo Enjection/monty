@@ -206,7 +206,7 @@ namespace jeeh {
         }
 
         // return count since previous call (1st result is bogus)
-        auto count () -> uint32_t {
+        inline auto count () -> uint32_t {
             auto n = MMIO32(dwt+cyccnt);
             init();
             MMIO32(dwt+ctrl) |= 1<<0;

@@ -48,9 +48,9 @@ void Stacklet::gcAll () {
 }
 
 static void duff (void* dst, void const* src, size_t len) {
-    assert(((uintptr_t) dst & 3) == 0);
-    assert(((uintptr_t) src & 3) == 0);
-    assert((len & 3) == 0);
+    //assert(((uintptr_t) dst & 3) == 0);
+    //assert(((uintptr_t) src & 3) == 0);
+    //assert((len & 3) == 0);
 #if 0
     memcpy(dst, src, len);
 #else
@@ -175,11 +175,7 @@ void Stacklet::yield (bool fast) {
 // helper function to avoid stale register issues after setjmp return
 static auto resumeFixer (void* p) -> Value {
     auto c = Stacklet::current;
-    assert(c != nullptr);
-    assert(resumer != nullptr);
-    auto n = (uint8_t*) resumer - (uint8_t*) p;
-    assert((n & 3) == 0);
-    duff(p, c->end(), n);
+    duff(p, (jmp_buf*) c->end() + 1, (uint8_t*) resumer - (uint8_t*) p);
     return c->_transfer.take();
 }
 
@@ -189,21 +185,20 @@ auto Stacklet::suspend (Vector& queue) -> Value {
         queue.append(current);
 
     jmp_buf top;
-    assert(resumer > &top);
 
     uint32_t need = (uint8_t*) resumer - (uint8_t*) &top;
-    assert(need % sizeof (Value) == 0);
-    assert(need > sizeof (jmp_buf));
 
     current->adj(current->_fill + need / sizeof (Value));
-    if (setjmp(top) == 0) {
+    //if (setjmp(top) == 0) {
+    if (setjmp(*(jmp_buf*) current->end()) == 0) {
         // suspending: copy stack out and jump to caller
-        duff(current->end(), &top, need);
+        //duff(current->end(), &top, need);
+        duff((jmp_buf*) current->end() + 1, &top + 1, need - sizeof (jmp_buf));
         longjmp(*resumer, 1);
     }
 
     // resuming: copy stack back in
-    return resumeFixer(&top);
+    return resumeFixer(&top + 1);
 }
 
 auto Stacklet::runLoop () -> bool {

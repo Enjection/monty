@@ -5,4 +5,4 @@ def all(c):
     """compile and upload the "switcher" demo"""
 
 # remove irrelevant tasks
-del mrfs, native, python, runner, serial, test, upload, watch
+del mrfs, native, python, runner, test, upload, watch

@@ -1,24 +1,31 @@
 #include <monty.h>
 #include <arch.h>
+
 #include <jee.h>
+#include <jee-stm32.h>
 
 using namespace monty;
 
-PinB<3> led;
+int counter, total;
 
 struct Switcher : Stacklet {
     auto run () -> bool override {
-        led.toggle();
+        int buf [1]; // switch between 1 and 251 for a 1000b stack size change
+        jeeh::DWT::count();
         yield();
+        int n = jeeh::DWT::count();
+        total += n;
+        if (++counter == 1000) {
+            printf("%d %d\n", total, buf[0]);
+            arch::done(); // will generate a reset
+        }
         return true;
     }
 };
 
 int main () {
-    led.mode(Pinmode::out);
-
-    char mem [2000];
-    gcSetup(mem, sizeof mem); // set up a small GC memory pool
+    arch::init(3*1024);
+    wait_ms(500);
 
     Stacklet::ready.append(new Switcher);
 
