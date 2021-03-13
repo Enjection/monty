@@ -390,18 +390,17 @@ void VaryVec::remove (uint32_t idx, uint32_t num) {
         pos(i) -= diff;
 }
 
-auto Lookup::operator[] (Value key) const -> Value {
-    auto k = key.asQid();
-    assert(k > 0);
+auto Lookup::operator[] (Q key) const -> Value {
+    assert(key._id > 0);
     for (uint32_t i = 0; i < _count; ++i)
-        if (k == _items[i].k._id)
+        if (key._id == _items[i].k._id)
             return _items[i].v;
     return _chain != nullptr ?  (*_chain)[key] : Value {};
 }
 
 auto Lookup::getAt (Value k) const -> Value {
-    assert(k.isStr());
-    return (*this)[k];
+    assert(k.isQid());
+    return (*this)[k.asQid()];
 }
 
 auto Lookup::attrDir (Value v) const -> Lookup const* {

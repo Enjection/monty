@@ -561,7 +561,7 @@ namespace monty {
         constexpr Lookup (Item const (&items)[N], Lookup const* chain =nullptr)
             : _items (items), _count (N), _chain (chain) {}
             
-        auto operator[] (Value) const -> Value;
+        auto operator[] (Q) const -> Value;
 
         auto len () const -> uint32_t override { return _count; }
         auto getAt (Value k) const -> Value override;
