@@ -16,6 +16,8 @@ const auto mrfsSize = 32*1024;
 
 #if STM32L432xx
 UartBufDev< PinA<2>, PinA<15>, 100 > console;
+#elif STM32F413xx
+UartBufDev< PinD<8>, PinD<9>, 100 > console;
 #elif STM32F4
 UartBufDev< PinA<2>, PinA<3>, 100 > console;
 #else
@@ -272,6 +274,17 @@ static void di_cmd () {
             (int) MMIO32(0x1FFFF7E8),
             (int) MMIO32(0x1FFFF7EC),
             (int) MMIO32(0x1FFFF7F0));
+#elif STM32F4
+    printf("cpuid 0x%08x, %d kB flash, %d kB ram, package type %d\n",
+            (int) MMIO32(0xE0042000),
+            MMIO16(0x1FFF7A22),
+            (_estack - _sdata) >> 8,
+            (int) MMIO32(0x1FFFF700) & 0x1F); // FIXME wrong!
+    printf("clock %d kHz, devid %08x-%08x-%08x\n",
+            (int) MMIO32(0xE000E014) + 1,
+            (int) MMIO32(0x1FFF7A10),
+            (int) MMIO32(0x1FFF7A14),
+            (int) MMIO32(0x1FFF7A18));
 #elif STM32L4
     printf("cpuid 0x%08x, %d kB flash, %d kB ram, package type %d\n",
             (int) MMIO32(0xE000ED00),
@@ -287,9 +300,7 @@ static void di_cmd () {
 }
 
 static void pd_cmd () {
-#if !STM32F4
     powerDown();
-#endif
 }
 
 static void wd_cmd (char const* cmd) {
@@ -297,10 +308,8 @@ static void wd_cmd (char const* cmd) {
     if (strlen(cmd) > 3)
         count = atoi(cmd+3);
 
-#if !STM32F4
     static Iwdg dog;
     dog.reload(count);
-#endif
     printf("%d ms\n", 8 * count);
 }
 
@@ -365,7 +374,9 @@ auto monty::vmImport (char const* name) -> uint8_t const* {
 
 void arch::init (int size) {
     console.init();
-#if STM32F4
+#if STM32F413xx
+    enableSysTick(); // no crystal, use built-in 16 MHz
+#elif STM32F4
     console.baud(115200, fullSpeedClock()/4);
 #else
     console.baud(115200, fullSpeedClock());

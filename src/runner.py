@@ -203,7 +203,7 @@ if __name__ == "__main__":
             if line == "main\n":
                 results = []
                 ok = True
-            if not ok:
+            if not ok and len(line) > 1:
                 print("?", line[:-1])
 
             results.append(line)
