@@ -155,11 +155,8 @@ void Buffer::putInt (int val, int base, int width, char fill) {
 void Buffer::print (char const* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-
-    char const* s;
-    while (*fmt) {
-        char c = *fmt++;
-        if (c == '%') {
+    while (*fmt)
+        if (char c = *fmt++; c == '%') {
             char fill = *fmt == '0' ? '0' : ' ';
             int width = 0, base = 0;
             while (base == 0) {
@@ -189,13 +186,14 @@ void Buffer::print (char const* fmt, ...) {
                         putc(c);
                         base = 1;
                         break;
-                    case 's':
-                        s = va_arg(ap, char const*);
+                    case 's': {
+                        auto s = va_arg(ap, char const*);
                         width -= strlen(s);
                         while (*s)
                             putc(*s++);
                         putFiller(width, fill);
                         [[fallthrough]];
+                    }
                     default:
                         if ('0' <= c && c <= '9')
                             width = 10 * width + c - '0';
@@ -209,7 +207,6 @@ void Buffer::print (char const* fmt, ...) {
             }
         } else
             putc(c);
-    }
     va_end(ap);
 }
 
@@ -257,28 +254,21 @@ auto Bytes::copy (Range const& r) const -> Value {
 
 auto Bytes::create (ArgVec const& args, Type const*) -> Value {
     //CG: args v
-    if (v.isInt()) {
-        auto o = new Bytes ();
-        o->insert(0, v);
-        return o;
-    }
-    const void* p = 0;
+    const void* p = nullptr;
     uint32_t n = 0;
-    if (v.isStr()) {
+    if (v.isInt())
+        n = v;
+    else if (v.isStr()) {
         p = (char const*) v;
         n = strlen((char const*) p);
-    } else {
-        auto ps = v.ifType<Str>();
-        auto pb = v.ifType<Bytes>();
-        if (ps != 0) {
-            p = (char const*) *ps;
-            n = strlen((char const*) p); // TODO
-        } else if (pb != 0) {
-            p = pb->begin();
-            n = pb->size();
-        } else
-            assert(false); // TODO iterables
-    }
+    } else if (auto ps = v.ifType<Str>(); ps != 0) {
+        p = (char const*) *ps;
+        n = strlen((char const*) p); // TODO
+    } else if (auto pb = v.ifType<Bytes>(); pb != 0) {
+        p = pb->begin();
+        n = pb->size();
+    } else
+        assert(false); // TODO iterables
     return new Bytes (p, n);
 }
 
@@ -302,10 +292,8 @@ Str::Str (char const* s, int n) : Bytes (s, n >= 0 ? n :
 }
 
 auto Str::unop (UnOp op) const -> Value {
-    switch (op) {
-        case UnOp::Intg: return Int::conv((char const*) begin());
-        default:         break;
-    }
+    if (op == UnOp::Intg)
+        return Int::conv((char const*) begin());
     return Bytes::unop(op);
 }
 
@@ -684,8 +672,8 @@ auto Type::create (ArgVec const& args, Type const*) -> Value {
     //CG: args v
     switch (v.tag()) {
         case Value::Nil: break;
-        case Value::Int: return "int";
-        case Value::Str: return "str";
+        case Value::Int: return Q(0,"int");
+        case Value::Str: return Q(0,"str");
         case Value::Obj: return v->type()._name;
     }
     return {};
