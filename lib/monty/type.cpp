@@ -188,9 +188,10 @@ void Buffer::print (char const* fmt, ...) {
                         break;
                     case 's': {
                         auto s = va_arg(ap, char const*);
-                        width -= strlen(s);
-                        while (*s)
+                        while (*s) {
                             putc(*s++);
+                            --width;
+                        }
                         putFiller(width, fill);
                         [[fallthrough]];
                     }
@@ -234,9 +235,8 @@ auto Bytes::binop (BinOp op, Value rhs) const -> Value {
             return Value::asBool(size() == val.size() &&
                                     memcmp(begin(), val.begin(), size()) == 0);
         default:
-            break;
+            return Object::binop(op, rhs);
     }
-    return Object::binop(op, rhs);
 }
 
 auto Bytes::getAt (Value k) const -> Value {
@@ -262,8 +262,8 @@ auto Bytes::create (ArgVec const& args, Type const*) -> Value {
         p = (char const*) v;
         n = strlen((char const*) p);
     } else if (auto ps = v.ifType<Str>(); ps != 0) {
-        p = (char const*) *ps;
-        n = strlen((char const*) p); // TODO
+        p = ps->begin();
+        n = ps->size();
     } else if (auto pb = v.ifType<Bytes>(); pb != 0) {
         p = pb->begin();
         n = pb->size();
@@ -285,8 +285,8 @@ void Bytes::repr (Buffer& buf) const {
     buf << '\'';
 }
 
-Str::Str (char const* s, int n) : Bytes (s, n >= 0 ? n :
-                                            s != nullptr ? strlen(s) : 0) {
+Str::Str (char const* s, int n)
+        : Bytes (s, n >= 0 ? n : s != nullptr ? strlen(s) : 0) {
     adj(_fill+1);
     *end() = 0;
 }
@@ -298,30 +298,21 @@ auto Str::unop (UnOp op) const -> Value {
 }
 
 auto Str::binop (BinOp op, Value rhs) const -> Value {
-    auto l = (char const*) begin();
-    char const* r = nullptr;
-    if (rhs.isStr())
-        r = rhs;
-    else {
-        auto o = rhs.ifType<Str>();
-        if (o != nullptr)
-            r = *o;
-    }
     switch (op) {
         case BinOp::Equal:
-            return Value::asBool(r != 0 && strcmp(l, r) == 0);
+            return rhs == *this;
         case BinOp::Add: {
-            assert(r != nullptr);
-            auto nl = strlen(l), nr = strlen(r);
-            auto o = new struct Str (nullptr, nl + nr);
+            auto l = (char const*) begin();
+            char const* r = rhs.isStr() ? rhs : rhs.asType<Str>();
+            int nl = size(), nr = strlen(r);
+            auto o = new Str (nullptr, nl + nr);
             memcpy((char*) o->begin(), l, nl);
             memcpy((char*) o->begin() + nl, r, nr);
             return o;
         }
         default:
-            break;
+            return Bytes::binop(op, rhs);
     }
-    return Bytes::binop(op, rhs);
 }
 
 auto Str::getAt (Value k) const -> Value {
@@ -400,8 +391,10 @@ void VaryVec::remove (uint32_t idx, uint32_t num) {
 }
 
 auto Lookup::operator[] (Value key) const -> Value {
+    auto k = key.asQid();
+    assert(k > 0);
     for (uint32_t i = 0; i < _count; ++i)
-        if (key == _items[i].k)
+        if (k == _items[i].k._id)
             return _items[i].v;
     return _chain != nullptr ?  (*_chain)[key] : Value {};
 }

@@ -21,8 +21,7 @@ Lookup const Int::attrs;
 Lookup const Range::attrs;
 Lookup const Slice::attrs;
 
-constexpr int QID_RAM_BASE = 32*1024;
-constexpr int QID_RAM_LAST = 48*1024;
+constexpr int QID_RAM_BASE = 32*1024; // TODO arbitrary choice, currently
 
 static VaryVec qstrBaseMap (qstrBase, qstrBaseLen);
 static VaryVec qstrRamMap;
@@ -31,10 +30,12 @@ void monty::qstrCleanup () {
     qstrRamMap.clear();
 }
 
-auto Q::hash (void const* p, uint32_t n) -> uint32_t {
+auto Q::hash (void const* p, int n) -> uint32_t {
+    if (n < 0)
+        n = strlen((char const*) p);
     // see http://www.cse.yorku.ca/~oz/hash.html
     uint32_t h = 5381;
-    for (uint32_t i = 0; i < n; ++i)
+    for (int i = 0; i < n; ++i)
         h = ((h<<5) + h) ^ ((uint8_t const*) p)[i];
     return h;
 }
@@ -58,13 +59,11 @@ static auto qstrFind (VaryVec const& v, char const* s, uint8_t h) -> uint16_t {
 }
 
 auto Q::find (char const* s) -> uint16_t {
-    uint8_t h = hash(s, strlen(s));
-    auto i = qstrFind(qstrBaseMap, s, h);
-    if (i > 0)
+    uint8_t h = hash(s);
+    if (auto i = qstrFind(qstrBaseMap, s, h); i > 0)
         return i;
-    auto j = qstrFind(qstrRamMap, s, h);
-    if (j > 0)
-        return j + QID_RAM_BASE;
+    if (auto i = qstrFind(qstrRamMap, s, h); i > 0)
+        return i + QID_RAM_BASE;
     return 0;
 }
 
@@ -73,15 +72,14 @@ auto Q::last () -> uint16_t {
 }
 
 auto Q::make (char const* s) -> uint16_t {
-    auto i = find(s);
-    if (i > 0)
+    if (auto i = find(s); i > 0)
         return i;
-    auto n = strlen(s);
     auto& v = qstrRamMap; // shorthand
     if (v.size() == 0)
         v.insert(0); // empty hash map
-    i = v.atLen(0);
+    auto i = v.atLen(0);
     v.atAdj(0, i + 1);
+    auto n = strlen(s);
     v.atGet(0)[i++] = hash(s, n);
     v.insert(i);
     v.atSet(i, s, n+1);
@@ -109,9 +107,7 @@ Value::operator char const* () const {
     if (!isStr())
         return asType<struct Str>();
     auto p = _v >> 2;
-    if (p < QID_RAM_LAST)
-        return Q::str(p);
-    return (char const*) p;
+    return isQid() ? Q::str(p) : (char const*) p;
 }
 
 auto Value::asObj () const -> Object& {
@@ -126,15 +122,6 @@ auto Value::asObj () const -> Object& {
 
 auto Value::asInt () const -> int64_t {
     return isInt() ? (int) *this : (int64_t) asType<struct Int>();
-}
-
-auto Value::asQid () const -> uint16_t {
-    if (isStr()) {
-        auto p = _v >> 2;
-        if (p < QID_RAM_LAST)
-            return p;
-    }
-    return 0;
 }
 
 auto Value::asBool (bool f) -> Value {
@@ -158,7 +145,7 @@ auto Value::operator== (Value rhs) const -> bool {
         switch (tag()) {
             case Nil:
             case Int: return false;
-            case Str: return strcmp(*this, rhs) == 0;
+            case Str: return !isQid() && strcmp(*this, rhs) == 0;
             case Obj: return obj().binop(BinOp::Equal, rhs).truthy();
         }
     return false;
@@ -185,7 +172,7 @@ auto Value::unOp (UnOp op) const -> Value {
             char const* s = *this;
             switch (op) {
                 case UnOp::Boln: return asBool(*s);
-                case UnOp::Hash: return Q::hash(s, strlen(s));
+                case UnOp::Hash: return Q::hash(s);
                 default:         break;
             }
             break;
@@ -451,10 +438,9 @@ auto Int::binop (BinOp op, Value rhs) const -> Value {
                 return E::ZeroDivisionError;
             return _i64 % r64;
         default:
-            break;
+            assert(false);
+            return {}; // TODO
     }
-    assert(false);
-    return {}; // TODO
 }
 
 auto Int::create (ArgVec const& args, Type const*) -> Value {

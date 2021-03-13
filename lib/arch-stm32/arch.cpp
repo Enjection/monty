@@ -214,7 +214,8 @@ struct HexSerial : LineSerial {
 
     void saveToFlash (uint32_t off, void const* buf, int len) {
 #if STM32F1
-        if (off % 1024 == 0) // TODO hard-coded for Blue Pill
+        auto pageSz = MMIO16(0x1FFFF7E0) <= 128 ? 1024 : 2048; // use flash sz
+        if (off % pageSz == 0)
             Flash::erasePage((void*) off);
         auto words = (uint32_t const*) buf;
         for (int i = 0; i < len; i += 4)

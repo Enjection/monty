@@ -110,7 +110,7 @@ namespace monty {
         operator char const* () const { return str(_id); }
         constexpr operator uint16_t () const { return _id; }
 
-        static auto hash (void const*, uint32_t) -> uint32_t;
+        static auto hash (void const*, int =-1) -> uint32_t;
         static auto str (uint16_t) -> char const*;
         static auto find (char const*) -> uint16_t;
         static auto make (char const*) -> uint16_t;
@@ -174,11 +174,6 @@ namespace monty {
         operator char const* () const;
         auto operator-> () const { return _o; }
 
-        auto obj () const -> Object& { return *_o; }
-        auto asObj () const -> Object&; // create int/str object if needed
-        auto asInt () const -> int64_t;
-        auto asQid () const -> uint16_t;
-
         template< typename T > // return null pointer if not of required type
         auto ifType () const { return check(T::info) ? (T*) _o : nullptr; }
 
@@ -193,17 +188,23 @@ namespace monty {
         }
 
         auto id () const { return _v; }
+        auto obj () const -> Object& { return *_o; }
 
         auto isOk  () const { return _v != 0; }
         auto isNil () const { return _v == 0; }
         auto isInt () const { return (_v&1) == Int; }
         auto isStr () const { return (_v&3) == Str; }
         auto isObj () const { return (_v&3) == 0 && _v != 0; }
+        auto isQid () const { return isStr() && (_v >> 18) == 0; }
 
         inline auto isNone  () const -> bool;
         inline auto isFalse () const -> bool;
         inline auto isTrue  () const -> bool;
                auto isBool  () const { return isFalse() || isTrue(); }
+
+        auto asObj () const -> Object&; // create int/str object if needed
+        auto asInt () const -> int64_t;
+        auto asQid () const -> uint16_t { return isQid() ? _v >> 2 : 0; }
 
         static auto asBool (bool f) -> Value;
         auto truthy () const -> bool;
