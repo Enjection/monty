@@ -474,8 +474,8 @@ This configuration is re-used and extended in Monty, as **`inv`** will read the
 (these are simply ignored by PIO):
 
 * **`[invoke]`** lists configuration settings which can affect some tasks -
-  currently these are only `python_skip` and `runner_skip`, which list tests to
-  be omitted when running `inv all`.
+  currently these are only `python_ignore` and `runner_ignore`, which list
+  tests to be ignored when running `inv all`.
 
 * **`[codegen]`** defines which directories are to be included in a build - the
   `all` setting lists code to include in all builds, the other settings are for

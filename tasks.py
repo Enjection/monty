@@ -1,10 +1,13 @@
 # see https://www.pyinvoke.org
 
-import os, sys
+import configparser, os, sys
+from invoke import task, call
 from os import path
+from src.runner import compileIfOutdated, compareWithExpected, printSeparator
 
 if not path.isfile("monty-pio.ini") and not path.isfile("platformio.ini"):
-    print('No "monty-pio.ini" file found, cannot build from this directory.')
+    if "--complete" not in sys.argv:
+        print('No "monty-pio.ini" file found, cannot build from this directory.')
     sys.exit(1)
 
 def getMontyDir():
@@ -17,31 +20,27 @@ if root:
     os.environ["MONTY_ROOT"] = root
     sys.path.insert(0, root)
 
-import configparser
-from invoke import task, call
-from src.runner import compileIfOutdated, compareWithExpected, printSeparator
-
 dry = "-R" in sys.argv or "--dry" in sys.argv
 exe = ".pio/build/native/program" # for native builds
 
 def inRoot(f):
     return path.join(root, f)
 
-# parse the platformio.ini file and any extra_configs it mentions
-cfg = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
-cfg.read_dict({"invoke": {}, "codegen": {}, "platformio": {}})
-cfg.read(inRoot('platformio.ini'))
-
-for f in cfg["platformio"].get("extra_configs", "").split():
-    cfg.read(f)
-python_skip = cfg["invoke"].get("python_skip", "").split()
-runner_skip = cfg["invoke"].get("runner_skip", "").split()
-
 def pio(args, *more):
     cmd = args.split(" ", 1)
     if root:
         cmd[1:1] = ["-c", inRoot("platformio.ini")]
     return " ".join(["pio"] + cmd + list(more))
+
+# parse the platformio.ini file and any extra_configs it mentions
+cfg = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+cfg.read_dict({"invoke": {}, "codegen": {}, "platformio": {}})
+cfg.read(inRoot('platformio.ini'))
+for f in cfg["platformio"].get("extra_configs", "").split():
+    cfg.read(f)
+
+python_ignore = cfg["invoke"].get("python_ignore", "").split()
+runner_ignore = cfg["invoke"].get("runner_ignore", "").split()
 
 @task(incrementable=["verbose"],
       help={"verbose": "print some extra debugging output (repeat for more)",
@@ -219,7 +218,30 @@ def watch(c, file, remote=False):
     cmd = [inRoot("src/watcher.py")] + remote*["-r"] + [file]
     c.run(" ".join(cmd), pty=True)
 
-if root == "": # the following tasks are not available for use out-of-tree
+if root: # the following tasks are ONLY available for use out-of-tree
+
+    @task(help={"env": "save new default PIO env, i.e. [env:<arg>]"})
+    def env(c, env):
+        """change the default env to use in "monty-pio.ini" """
+        if "env:%s" % env not in cfg:
+            print("unknown environment: [env:%s]" % env)
+        else:
+            prev, lines = "", []
+            with open("monty-pio.ini") as f:
+                for line in f:
+                    if line.startswith("default_envs = "):
+                        prev = line.split()[-1]
+                        line = "default_envs = %s\n" % env
+                    lines.append(line)
+            if not prev:
+                print('no "default_envs = ..." setting found')
+            elif prev != env:
+                print("switching to env:%s (was env:%s)" % (env, prev))
+                if not dry:
+                    with open("monty-pio.ini", "w") as f:
+                        f.write("".join(lines))
+
+else: # the following tasks are NOT available for use out-of-tree
 
     @task(call(generate, strip=True))
     def diff(c):
@@ -254,14 +276,6 @@ if root == "": # the following tasks are not available for use out-of-tree
         c.run("mpy-cross --version")
         #c.run("which micropython || echo NOT FOUND: micropython")
 
-        if False: # TODO why can't PyInvoke find pySerial ???
-            try:
-                import serial
-                print('pySerial', serial.__version__)
-            except Exception as e:
-                print(e)
-                print("please install with: pip3 install pyserial")
-
         fn = ".git/hooks/pre-commit"
         if root or path.isfile(fn):
             return
@@ -293,8 +307,8 @@ if root == "": # the following tasks are not available for use out-of-tree
                 os.symlink(path.join(rel, t), path.join(name, t))
             print("Build area created, next step: cd %s && inv -l" % name)
 
-    @task(post=[clean, test, call(python, python_skip),
-                upload, flash, mrfs, call(runner, runner_skip),
+    @task(post=[clean, test, call(python, python_ignore),
+                upload, flash, mrfs, call(runner, runner_ignore),
                 builds, examples])
     def all(c):
         """i.e. clean test python upload flash mrfs runner builds examples"""
