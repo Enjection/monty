@@ -1,8 +1,6 @@
 #include <monty.h>
 #include <arch.h>
 
-#include <extend.h> // TODO this dependency should be automated!
-
 using namespace monty;
 
 #define SIZEOF(name) printf("%5d b  %s\n", (int) sizeof (name), #name);
@@ -10,7 +8,7 @@ using namespace monty;
 int main () {
     arch::init(1024);
 #if !NATIVE
-    for (int i = 0; i < 10000000; ++i) asm (""); // brief delay
+    for (int i = 0; i < 50000000; ++i) asm (""); // brief delay
 #endif
 
     SIZEOF(Array)

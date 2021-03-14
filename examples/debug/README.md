@@ -1,4 +1,6 @@
-NOTES
+A first exploration into getting profiling results from a remote board.
+
+No precise description yet, just some rough notes:
 
     d=~/code/jee/monty/examples/debug
     g=~/Desktop/bpmget
@@ -37,4 +39,6 @@ NOTES
          1.32 _ZNK5monty4Dict2atENS_5ValueE
          1.19 _ZN4PyVM6fetchQEv
          1.02 memset
-        [...]
+        [NOTES...]
+
+This expects a Black Magic Probe with SWO wiring, connected to a Blue Pill.

@@ -8,7 +8,7 @@ To build and run (this echos the underlying cmd used to do the work):
 
 ```text
 $ inv
-pio run -c ../pio-examples.ini -s
+Processing nucleo-l432 (board: nucleo_l432kc; platform: ststm32; framework: cmsis)
 $
 ```
 

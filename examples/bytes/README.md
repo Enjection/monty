@@ -3,7 +3,7 @@ Dump the struct sizes of most datatypes in Monty.
 To build and run on MacOS or Linux (64b):
 
 ```text
-$ inv
+$ inv native
    24 b  Array
     8 b  Bool
    24 b  Buffer
@@ -17,7 +17,7 @@ $
 To build and run on STM32 (32b):
 
 ```text
-$ inv stm32
+$ inv flash serial
    16 b  Array
     4 b  Bool
    16 b  Buffer
