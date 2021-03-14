@@ -237,6 +237,7 @@ if root: # the following tasks are ONLY available for use out-of-tree
                 print('no "default_envs = ..." setting found')
             elif prev != env:
                 print("switching to env:%s (was env:%s)" % (env, prev))
+                cfg["platformio"]["default_envs"] = env
                 if not dry:
                     with open("monty-pio.ini", "w") as f:
                         f.write("".join(lines))
