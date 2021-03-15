@@ -16,7 +16,7 @@ const auto mrfsSize = 32*1024;
 
 #if STM32L432xx
 UartBufDev< PinA<2>, PinA<15>, 100 > console;
-#elif STM32F413xx
+#elif STM32F413xx || NUCLEO_H743ZI
 UartBufDev< PinD<8>, PinD<9>, 100 > console;
 #elif STM32F4
 UartBufDev< PinA<2>, PinA<3>, 100 > console;
@@ -377,7 +377,7 @@ void arch::init (int size) {
     console.init();
 #if STM32F413xx
     enableSysTick(); // no crystal, use built-in 16 MHz
-#elif STM32F4
+#elif STM32F4 || NUCLEO_H743ZI
     console.baud(115200, fullSpeedClock()/4);
 #else
     console.baud(115200, fullSpeedClock());
