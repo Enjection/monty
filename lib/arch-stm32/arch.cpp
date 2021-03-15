@@ -275,6 +275,8 @@ static void di_cmd () {
         cpu = 0xE000ED00, rom = 0x1FFFF7E0, pkg = 0,          uid = 0x1FFFF7E8;
 #elif STM32F4
         cpu = 0xE0042000, rom = 0x1FFF7A22, pkg = 0,          uid = 0x1FFF7A10;
+#elif STM32F723xx
+        cpu = 0xE0042000, rom = 0x1FF07A22, pkg = 0x1FF07BF0, uid = 0x1FF07A10;
 #elif STM32F7
         cpu = 0xE000ED00, rom = 0x1FF0F442, pkg = 0,          uid = 0x1FF0F420;
 #elif STM32H7
@@ -287,7 +289,7 @@ static void di_cmd () {
         cpu = 0, rom = 0, pkg = 0, uid = 0;
     return;
 #endif
-    printf("cpuid 0x%08x, %d kB flash, %d kB ram, package type %d\n",
+    printf("cpuid 0x%08x, %d kB flash, %d kB ram, package %d\n",
             (int) MMIO32(cpu), MMIO16(rom), (_estack - _sdata) >> 8,
             pkg != 0 ? (int) MMIO32(pkg) & 0x1F : 0); // not always available?
     printf("clock %d kHz, devid %08x-%08x-%08x\n",
