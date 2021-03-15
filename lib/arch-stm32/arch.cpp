@@ -18,7 +18,7 @@ const auto mrfsSize = 32*1024;
 UartBufDev< PinA<2>, PinA<15>, 100 > console;
 #elif STM32F413xx || NUCLEO_H743ZI
 UartBufDev< PinD<8>, PinD<9>, 100 > console;
-#elif STM32F4
+#elif STM32F4 || NUCLEO_L073RZ
 UartBufDev< PinA<2>, PinA<3>, 100 > console;
 #elif STM32F723xx
 UartBufDev< PinC<6>, PinC<7>, 100 > console;
@@ -416,6 +416,32 @@ void arch::done () {
     wait_ms(10);
     systemReset(); // will resume the cli task with a clean slate
 }
+
+#if STM32L0
+
+extern "C" uint32_t __atomic_fetch_or_4 (void volatile* p, uint32_t v, int o) {
+    // see https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
+    // FIXME this version is not atomic!
+    auto q = (uint32_t volatile*) p;
+    // atomic start
+    auto t = *q;
+    *q |= v;
+    // atomic end
+    return t;
+}
+
+extern "C" uint32_t __atomic_fetch_and_4 (void volatile* p, uint32_t v, int o) {
+    // see https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
+    // FIXME this version is not atomic!
+    auto q = (uint32_t volatile*) p;
+    // atomic start
+    auto t = *q;
+    *q &= v;
+    // atomic end
+    return t;
+}
+
+#endif
 
 #ifdef UNIT_TEST
 extern "C" {

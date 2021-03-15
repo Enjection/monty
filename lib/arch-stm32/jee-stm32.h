@@ -44,10 +44,10 @@ namespace jeeh {
             Periph::bitSet(Periph::rcc+0x34, _port);
 #elif STM32H7
             Periph::bitSet(Periph::rcc+0xE0, _port);
-#elif STM32L0
-            Periph::bitSet(Periph::rcc+0x2C, _port);
 #elif STM32L4
             Periph::bitSet(Periph::rcc+0x4C, _port);
+#elif STM32L0
+            Periph::bitSet(Periph::rcc+0x2C, _port);
 #endif
             gpio32(moder) = (gpio32(moder) & ~(3 << 2*_pin))
                                     | ((mval>>3) << 2*_pin);
