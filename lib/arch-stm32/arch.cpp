@@ -269,41 +269,30 @@ static void di_cmd () {
     extern int g_pfnVectors [], _sidata [], _sdata [], _ebss [], _estack [];
     printf("flash 0x%p..0x%p, ram 0x%p..0x%p, stack top 0x%p\n",
             g_pfnVectors, _sidata, _sdata, _ebss, _estack);
-    // the 0x1F... addresses are cpu-family specific
+    // the following addresses are cpu-family specific
+    constexpr uint32_t
 #if STM32F1
-    printf("cpuid 0x%08x, %d kB flash, %d kB ram, package type %d\n",
-            (int) MMIO32(0xE000ED00),
-            MMIO16(0x1FFFF7E0),
-            (_estack - _sdata) >> 8,
-            (int) MMIO32(0x1FFFF700) & 0x1F); // FIXME wrong!
-    printf("clock %d kHz, devid %08x-%08x-%08x\n",
-            (int) MMIO32(0xE000E014) + 1,
-            (int) MMIO32(0x1FFFF7E8),
-            (int) MMIO32(0x1FFFF7EC),
-            (int) MMIO32(0x1FFFF7F0));
+        cpu = 0xE000ED00, rom = 0x1FFFF7E0, pkg = 0,          uid = 0x1FFFF7E8;
 #elif STM32F4
-    printf("cpuid 0x%08x, %d kB flash, %d kB ram, package type %d\n",
-            (int) MMIO32(0xE0042000),
-            MMIO16(0x1FFF7A22),
-            (_estack - _sdata) >> 8,
-            (int) MMIO32(0x1FFFF700) & 0x1F); // FIXME wrong!
-    printf("clock %d kHz, devid %08x-%08x-%08x\n",
-            (int) MMIO32(0xE000E014) + 1,
-            (int) MMIO32(0x1FFF7A10),
-            (int) MMIO32(0x1FFF7A14),
-            (int) MMIO32(0x1FFF7A18));
+        cpu = 0xE0042000, rom = 0x1FFF7A22, pkg = 0,          uid = 0x1FFF7A10;
+#elif STM32F7
+        cpu = 0xE000ED00, rom = 0x1FF0F442, pkg = 0,          uid = 0x1FF0F420;
+#elif STM32H7
+        cpu = 0xE000ED00, rom = 0x1FF1E880, pkg = 0,          uid = 0x1FF1E800;
+#elif STM32L0
+        cpu = 0xE000ED00, rom = 0x1FF8007C, pkg = 0,          uid = 0x1FF80050;
 #elif STM32L4
+        cpu = 0xE000ED00, rom = 0x1FFF75E0, pkg = 0x1FFF7500, uid = 0x1FFF7590;
+#else
+        cpu = 0, rom = 0, pkg = 0, uid = 0;
+    return;
+#endif
     printf("cpuid 0x%08x, %d kB flash, %d kB ram, package type %d\n",
-            (int) MMIO32(0xE000ED00),
-            MMIO16(0x1FFF75E0),
-            (_estack - _sdata) >> 8,
-            (int) MMIO32(0x1FFF7500) & 0x1F);
+            (int) MMIO32(cpu), MMIO16(rom), (_estack - _sdata) >> 8,
+            pkg != 0 ? (int) MMIO32(pkg) & 0x1F : 0); // not always available?
     printf("clock %d kHz, devid %08x-%08x-%08x\n",
             (int) MMIO32(0xE000E014) + 1,
-            (int) MMIO32(0x1FFF7590),
-            (int) MMIO32(0x1FFF7594),
-            (int) MMIO32(0x1FFF7598));
-#endif
+            (int) MMIO32(uid), (int) MMIO32(uid+4), (int) MMIO32(uid+8));
 }
 
 static void pd_cmd () {
@@ -383,7 +372,7 @@ void arch::init (int size) {
     console.init();
 #if STM32F413xx
     enableSysTick(); // only goes up to 100 MHz, use built-in 16 MHz
-#elif STM32F4 || NUCLEO_H743ZI
+#elif STM32F4 || NUCLEO_H743ZI || DEVEBOX_H743
     console.baud(115200, fullSpeedClock()/4);
 #elif STM32F723xx || DISCO_F746NG || STM32F469xx || STM32F769xx
     console.baud(115200, fullSpeedClock()/2);
