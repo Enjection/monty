@@ -41,12 +41,10 @@ auto bmpCapture () {
     unsigned char buf [64];
     int num;
 
-    while (true) {
-        auto e = libusb_bulk_transfer(handle, 0x85, buf, sizeof (buf), &num, 0);
-        if (e < 0)
-            return e;
+    while (libusb_bulk_transfer(handle, 0x85, buf, sizeof (buf), &num, 0) >= 0)
         write(1, buf, num); // ignore write errors
-    }
+
+    return LIBUSB_ERROR_NO_DEVICE;
 }
 
 int main () {
