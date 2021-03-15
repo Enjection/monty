@@ -9,7 +9,8 @@ No precise description yet, just some rough notes:
     cd $d
     inv flash debug watch -r mem500.py
 
-    $g/bmp_traceswo >a & f=$!; sleep 10; kill $f; wc a
+    (cd bmp-dump && make)
+    bmp-dump/bmp-dump >a & f=$!; sleep 10; kill $f; wc a
 
     $t/itm-decode a | grep -v None | grep -v Some
 
@@ -18,7 +19,7 @@ No precise description yet, just some rough notes:
         StimulusPortPage { page: 0 }
         MalformedPacket { header: 23, len: 2 }
 
-    $t/pcsampl a -e $d/.pio/build/bluepill/firmware.elf
+    $t/pcsampl a -e .pio/build/bluepill/firmware.elf
 
             % FUNCTION
          0.02 *SLEEP*
@@ -39,6 +40,6 @@ No precise description yet, just some rough notes:
          1.32 _ZNK5monty4Dict2atENS_5ValueE
          1.19 _ZN4PyVM6fetchQEv
          1.02 memset
-        [NOTES...]
+        [...]
 
 This expects a Black Magic Probe with SWO wiring, connected to a Blue Pill.
