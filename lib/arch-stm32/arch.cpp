@@ -22,6 +22,10 @@ UartBufDev< PinD<8>, PinD<9>, 100 > console;
 UartBufDev< PinA<2>, PinA<3>, 100 > console;
 #elif STM32F723xx
 UartBufDev< PinC<6>, PinC<7>, 100 > console;
+#elif DISCO_F746NG
+UartBufDev< PinA<9>, PinB<7>, 100 > console;
+#elif STM32F469xx
+UartBufDev< PinB<10>, PinB<11>, 100 > console;
 #else
 UartBufDev< PinA<9>, PinA<10>, 100 > console;
 #endif
@@ -381,7 +385,7 @@ void arch::init (int size) {
     enableSysTick(); // only goes up to 100 MHz, use built-in 16 MHz
 #elif STM32F4 || NUCLEO_H743ZI
     console.baud(115200, fullSpeedClock()/4);
-#elif STM32F723xx
+#elif STM32F723xx || DISCO_F746NG || STM32F469xx || STM32F769xx
     console.baud(115200, fullSpeedClock()/2);
 #else
     console.baud(115200, fullSpeedClock());
