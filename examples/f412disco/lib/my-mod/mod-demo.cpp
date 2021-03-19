@@ -2,8 +2,8 @@
 
 #include <monty.h>
 #include <jee.h>
+#include <jee/mem-st7789.h>
 #include "twodee.h"
-#include "st7789.h"
 
 using namespace monty;
 using namespace twodee;
@@ -31,12 +31,11 @@ PinF<5> backlight;
 PinD<11> lcdReset;
 
 struct Tft : ST7789<0x60000000> {
-    constexpr static char mode = 'V'; // this driver uses horizontal mode
+    constexpr static char mode = 'V'; // this driver uses vertical mode
 
-    enum { Black = 0x0000,
-           Red = 0xF000, Green = 0x0F00, Blue = 0x000F,
-           Yellow = 0xFF00, Cyan = 0x0FF0, Magenta = 0x00FF,
-           White = 0xFFFF };
+    enum { Black = 0x0000, Red = 0xF800, Green = 0x07E0, Blue = 0x001F,
+           Yellow = 0xFFE0, Cyan = 0x07FF, Magenta = 0xF81F, White = 0xFFFF };
+
     static int fg, bg;
 
     static void pos (Point p) {
