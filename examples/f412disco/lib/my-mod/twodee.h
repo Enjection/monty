@@ -174,9 +174,7 @@ namespace twodee {
         static int fg, bg;
 
         static void pixel (Point p, unsigned c =fg) {
-            G::pos(p);
-            G::set(c);
-            G::end();
+            G::pos(p); G::set(c); G::end();
         }
 
         // these functions pick the most suitable looping style
@@ -217,10 +215,8 @@ namespace twodee {
         // more functions, built on top of the above
 
         static void box (Point p, unsigned w, unsigned h) {
-            hLine(p, w+1);
-            vLine(p, h+1);
-            hLine({p.x,p.y+h}, w+1);
-            vLine({p.x+w,p.y}, h+1);
+            hLine(p, w+1); hLine({p.x,p.y+h}, w+1);
+            vLine(p, h+1); vLine({p.x+w,p.y}, h+1);
         }
 
         static void line (Point p1, Point p2) {
@@ -391,8 +387,8 @@ namespace twodee {
     };
 
     template< typename G >
-    int TwoDee<G>::fg = G::White;
+    int TwoDee<G>::fg = (1 << G::depth) - 1;
 
     template< typename G >
-    int TwoDee<G>::bg = G::Black;
+    int TwoDee<G>::bg = 0;
 }

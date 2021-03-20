@@ -23,9 +23,7 @@ static void initLCD () {
 
 struct Tft : ILI9325<SPI> {
     constexpr static char mode = 'V'; // this driver uses vertical mode
-
-    enum { Black = 0x0000, Red = 0xF800, Green = 0x07E0, Blue = 0x001F,
-           Yellow = 0xFFE0, Cyan = 0x07FF, Magenta = 0xF81F, White = 0xFFFF };
+    constexpr static auto depth = 16; // colour depth (RGB565)
 
     static void pos (Point p) {
         write(0x20, p.x); write(0x50, p.x);
@@ -34,11 +32,9 @@ struct Tft : ILI9325<SPI> {
         SPI::enable(); SPI::transfer(0x72);
     }
 
-    static void set (unsigned c) { out16(c); }
-
-    static void end () { SPI::disable(); }
-
-    static void lim (Rect const&) {} // only needed for flood mode
+    static void lim (Rect const&) {}
+    static void set (unsigned c)  { out16(c); }
+    static void end ()            { SPI::disable(); }
 };
 
 # else // F412-Disco
@@ -72,9 +68,7 @@ static void initLCD () {
 
 struct Tft : ST7789<0x60000000> {
     constexpr static char mode = 'V'; // this driver uses vertical mode
-
-    enum { Black = 0x0000, Red = 0xF800, Green = 0x07E0, Blue = 0x001F,
-           Yellow = 0xFFE0, Cyan = 0x07FF, Magenta = 0xF81F, White = 0xFFFF };
+    constexpr static auto depth = 16; // colour depth (RGB565)
 
     static void pos (Point p) {
         auto xEnd = 240-1, yEnd = 240-1;
@@ -83,16 +77,17 @@ struct Tft : ST7789<0x60000000> {
         cmd(0x2C);
     }
 
-    static void set (unsigned c) { out16(c); }
-
-    static void end () {}
-
-    static void lim (Rect const&) {} // only needed for flood mode
+    static void lim (Rect const&) {}
+    static void set (unsigned c)  { out16(c); }
+    static void end ()            {}
 };
 
 #endif
 
 TwoDee<Tft> gfx;
+
+enum { Black = 0x0000, Red = 0xF800, Green = 0x07E0, Blue = 0x001F,
+        Yellow = 0xFFE0, Cyan = 0x07FF, Magenta = 0xF81F, White = 0xFFFF };
 
 /*
   Fontname: -FreeType-Logisoso-Medium-R-Normal--23-230-72-72-P-30-ISO10646-1
@@ -175,36 +170,36 @@ static auto f_twice (ArgVec const& args) -> Value {
     gfx.line({230,220}, {230,20});
 
     gfx.box({80,40}, 25, 25);
-    gfx.fg = gfx.Magenta;
+    gfx.fg = Magenta;
     gfx.box({150,40}, {120,70});
 
-    gfx.fg = gfx.Red;
+    gfx.fg = Red;
     gfx.bFill({160,40}, 25, 25);
-    gfx.fg = gfx.Green;
+    gfx.fg = Green;
     gfx.bFill({190,70}, {220,40});
 
-    gfx.fg = gfx.Yellow;
+    gfx.fg = Yellow;
     gfx.line({100,100}, {150,125});
     gfx.line({150,125}, {100,150});
     gfx.line({100,150}, {125,100});
     gfx.line({125,100}, {140,150});
     gfx.line({140,150}, {100,100});
 
-    gfx.fg = gfx.Cyan;
+    gfx.fg = Cyan;
     gfx.triangle({30,30}, {70,60}, {60,80});
-    gfx.fg = gfx.White;
+    gfx.fg = White;
     gfx.tFill({30,80}, {70,110}, {60,130});
 
-    gfx.fg = gfx.Red;
+    gfx.fg = Red;
     gfx.dashed({200,30}, {200,80}, 0x27272727);
-    gfx.bg = gfx.Red;
+    gfx.bg = Red;
     gfx.dashed({210,30}, {210,80}, 0x27272727);
 
-    gfx.fg = gfx.bg = gfx.Yellow;
+    gfx.fg = gfx.bg = Yellow;
     gfx.dashed({160,40}, {184,64}, 0x0F0F0F0F);
 
-    gfx.fg = gfx.White;
-    gfx.bg = gfx.Black;
+    gfx.fg = White;
+    gfx.bg = Black;
 
     gfx.circle({50,175}, 20);
     gfx.cFill({55,180}, 10);
@@ -212,7 +207,7 @@ static auto f_twice (ArgVec const& args) -> Value {
     gfx.round({180,130}, {210, 170}, 10);
     gfx.rFill({160,180}, {220, 200}, 5);
 
-    gfx.fg = gfx.Yellow;
+    gfx.fg = Yellow;
     gfx.writes(smallFont, {80,12}, "Hello, Monty!");
 
 while (true) {}
