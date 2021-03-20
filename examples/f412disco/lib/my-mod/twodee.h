@@ -76,7 +76,7 @@ namespace twodee {
         // this decodes and renders fonts from u8g2
         Font (uint8_t const* p) : glyphs (p) {
             if (p != nullptr) {
-                memcpy(&nGl, p, 17);
+                memcpy(&nGl, p, &deC - &nGl + 1);
                 deG = 256 - deG;
 
                 // get the big-endian 16-bit values
@@ -107,7 +107,7 @@ namespace twodee {
 
         auto height () const -> unsigned { return asA + deG; }
 
-        // the order of these fieldsmust match the u8g2 font header
+        // the order of these fields must match the u8g2 font header
         uint8_t nGl, bbM, m0b, m1b, bcW, bcH, bcX, bcY, bcD,
                 bbW, bbH, bbX, bbY, asA, deG, asO, deC;
     private:
