@@ -2,17 +2,62 @@
 
 #include <monty.h>
 #include <jee.h>
-#include <jee/mem-st7789.h>
 #include "twodee.h"
 
 using namespace monty;
 using namespace twodee;
 
+#if HY_TINYSTM103T
+
+#include <jee/spi-ili9325.h>
+
+using SPI = SpiGpio< PinB<5>, PinB<4>, PinB<3>, PinB<0>, 1 >;
+
+static void initLCD () {
+    // disable JTAG in AFIO-MAPR to release PB3, PB4, and PA15
+    constexpr uint32_t afio = 0x40010000;
+    MMIO32(afio + 0x04) |= 1 << 25;
+
+    SPI::init();
+}
+
+struct Tft : ILI9325<SPI> {
+    constexpr static char mode = 'V'; // this driver uses vertical mode
+
+    enum { Black = 0x0000, Red = 0xF800, Green = 0x07E0, Blue = 0x001F,
+           Yellow = 0xFFE0, Cyan = 0x07FF, Magenta = 0xF81F, White = 0xFFFF };
+
+    static int fg, bg;
+
+    static void pos (Point p) {
+        write(0x20, p.x); write(0x50, p.x); write(0x21, p.y); write(0x52, p.y);
+        SPI::enable(); SPI::transfer(0x70); out16(0x22); SPI::disable();
+        SPI::enable(); SPI::transfer(0x72);
+    }
+
+    static void set (bool f) {
+        auto rgb = f ? fg : bg;
+        SPI::transfer(rgb >> 8);
+        SPI::transfer(rgb);
+    }
+
+    static void end () { SPI::disable(); }
+
+    static void lim (Rect const&) {} // only needed for flood mode
+};
+
+int Tft::fg = Tft::White;
+int Tft::bg = Tft::Black;
+
+# else // F412-Disco
+
+#include <jee/mem-st7789.h>
+
 PinF<5> backlight;
 PinD<11> lcdReset;
 
-static void initFsmcLcd () {
-    MMIO32(Periph::rcc + 0x38) |= (1<<0);  // enable FMC [1] p.245
+static void initLCD () {
+    Periph::bitSet(Periph::rcc+0x38, 0); // enable FMC [1] p.245
                     //   5432109876543210
     Port<'D'>::modeMap(0b1100011110110011, Pinmode::alt_out_100mhz, 12);
     Port<'E'>::modeMap(0b1111111110000000, Pinmode::alt_out_100mhz, 12);
@@ -23,6 +68,14 @@ static void initFsmcLcd () {
     MMIO32(bcr1) = (1<<12) | (1<<7) | (1<<4);
     MMIO32(btr1) = (1<<20) | (6<<8) | (2<<4) | (9<<0);
     MMIO32(bcr1) |= (1<<0);
+
+    lcdReset.mode(Pinmode::out);
+    lcdReset = 1; wait_ms(2);
+    lcdReset = 0; wait_ms(2);
+    lcdReset = 1; wait_ms(2);
+
+    backlight.mode(Pinmode::out); // turn backlight on
+    backlight = 1;
 }
 
 struct Tft : ST7789<0x60000000> {
@@ -42,11 +95,15 @@ struct Tft : ST7789<0x60000000> {
 
     static void set (bool f) { out16(f ? fg : bg); }
 
+    static void end () {}
+
     static void lim (Rect const&) {} // only needed for flood mode
 };
 
 int Tft::fg = Tft::White;
 int Tft::bg = Tft::Black;
+
+#endif
 
 TwoDee<Tft> gfx;
 
@@ -115,22 +172,10 @@ Font const smallFont (u8g2_font_logisoso16_tr);
 static auto f_twice (ArgVec const& args) -> Value {
     //CG: args val:i
 
-    initFsmcLcd();
-
-    lcdReset.mode(Pinmode::out);
-    lcdReset = 1; wait_ms(2);
-    lcdReset = 0; wait_ms(2);
-    lcdReset = 1; wait_ms(2);
-
-    //gfx.cmd(0x04); // get LCD type ID, i.e. 0x85 for ST7789
-    //MMIO16(gfx.addr+2);
-    //printf("id %02x\n", MMIO16(gfx.addr+2));
+    initLCD();
 
     gfx.init();
     gfx.clear();
-
-    backlight.mode(Pinmode::out); // turn backlight off
-    backlight = 1;
 
     for (int y = 10; y < 20; ++y)
         for (int x = 10; x < 60; ++x)
@@ -169,7 +214,7 @@ static auto f_twice (ArgVec const& args) -> Value {
     gfx.dashed({210,30}, {210,80}, 0x27272727);
 
     gfx.fg = gfx.bg = gfx.Yellow;
-    gfx.dashed({200,40}, {224,64}, 0x0F0F0F0F);
+    gfx.dashed({160,40}, {184,64}, 0x0F0F0F0F);
 
     gfx.fg = gfx.White;
     gfx.bg = gfx.Black;

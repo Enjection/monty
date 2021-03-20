@@ -171,7 +171,11 @@ namespace twodee {
 
     template< typename G >
     struct TwoDee : G {
-        static void pixel (Point p, bool f =true) { G::pos(p); G::set(f); }
+        static void pixel (Point p, bool f =true) {
+            G::pos(p);
+            G::set(f);
+            G::end();
+        }
 
         // these functions pick the most suitable looping style
 
@@ -338,16 +342,19 @@ namespace twodee {
             G::pos(p);
             for (unsigned i = 0; i < w; ++i)
                 G::set(f);
+            G::end();
         }
         static void verLine (Point p, unsigned h, bool f) {
             G::pos(p);
             for (unsigned i = 0; i < h; ++i)
                 G::set(f);
+            G::end();
         }
         static void pixFlood (Rect const& r, bool f) {
             G::lim(r);
             for (int i = 0; i < r.w * r.h; ++i)
                 G::set(f);
+            G::end();
         }
 
         // this decodes and renders RLE glyphs from u8g2 fonts
