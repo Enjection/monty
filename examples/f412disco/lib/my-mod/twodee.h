@@ -10,7 +10,7 @@ namespace twodee {
     struct Point { int16_t x, y; };
 
     struct Rect : Point {
-        unsigned w, h;
+        uint16_t w, h;
 
         Rect () =default;
         Rect (int x, int y, unsigned w, unsigned h)
@@ -105,7 +105,7 @@ namespace twodee {
             return p != nullptr ? p[0] & ((1<<bcW) - 1) : 0;
         }
 
-        auto height () const -> int { return asA + deG; }
+        auto height () const -> unsigned { return asA + deG; }
 
         // the order of these fieldsmust match the u8g2 font header
         uint8_t nGl, bbM, m0b, m1b, bcW, bcH, bcX, bcY, bcD,
@@ -178,13 +178,17 @@ namespace twodee {
         static void hLine (Point p, unsigned w, bool f =true) {
             switch (G::mode) {
                 case 'H': horLine(p, w, f); break;
-                case 'V': for (int i = 0; i < w; ++i, ++p.x) pixel(p, f); break;
+                case 'V': for (unsigned i = 0; i < w; ++i, ++p.x)
+                              pixel(p, f);
+                          break;
                 default:  pixFlood({p, w, 1}, f); break;
             }
         }
         static void vLine (Point p, unsigned h, bool f =true) {
             switch (G::mode) {
-                case 'H': for (int i = 0; i < h; ++i, ++p.y) pixel(p, f); break;
+                case 'H': for (unsigned i = 0; i < h; ++i, ++p.y)
+                              pixel(p, f);
+                          break;
                 case 'V': verLine(p, h, f); break;
                 default:  pixFlood({p, 1, h}, f); break;
             }
@@ -192,11 +196,11 @@ namespace twodee {
         static void bFill (Point p, unsigned w, unsigned h, bool f =true) {
             switch (G::mode) {
                 case 'H':
-                    for (int i = 0; i < h; ++i, ++p.y)
+                    for (unsigned i = 0; i < h; ++i, ++p.y)
                         horLine(p, w, f);
                     break;
                 case 'V':
-                    for (int i = 0; i < w; ++i, ++p.x)
+                    for (unsigned i = 0; i < w; ++i, ++p.x)
                         verLine(p, h, f);
                     break;
                 default:
@@ -290,7 +294,6 @@ namespace twodee {
         }
 
         static void rFill (Point p, unsigned w, unsigned h, unsigned n) {
-            auto [x, y] = p;
             bFill({p.x+n,p.y}, w-2*n+1, h+1);
 
             ArcIter it {n};
@@ -333,12 +336,12 @@ namespace twodee {
 
         static void horLine (Point p, unsigned w, bool f) {
             G::pos(p);
-            for (int i = 0; i < w; ++i)
+            for (unsigned i = 0; i < w; ++i)
                 G::set(f);
         }
         static void verLine (Point p, unsigned h, bool f) {
             G::pos(p);
-            for (int i = 0; i < h; ++i)
+            for (unsigned i = 0; i < h; ++i)
                 G::set(f);
         }
         static void pixFlood (Rect const& r, bool f) {

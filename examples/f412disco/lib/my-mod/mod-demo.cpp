@@ -42,7 +42,7 @@ struct Tft : ST7789<0x60000000> {
 
     static void set (bool f) { out16(f ? fg : bg); }
 
-    static void lim (Rect const& r) {} // only needed for flood mode
+    static void lim (Rect const&) {} // only needed for flood mode
 };
 
 int Tft::fg = Tft::White;
