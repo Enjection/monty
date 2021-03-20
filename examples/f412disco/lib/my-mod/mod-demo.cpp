@@ -8,16 +8,15 @@
 using namespace monty;
 using namespace twodee;
 
-static void initFsmcPins () {
+PinF<5> backlight;
+PinD<11> lcdReset;
+
+static void initFsmcLcd () {
     MMIO32(Periph::rcc + 0x38) |= (1<<0);  // enable FMC [1] p.245
                     //   5432109876543210
     Port<'D'>::modeMap(0b1100011110110011, Pinmode::alt_out_100mhz, 12);
     Port<'E'>::modeMap(0b1111111110000000, Pinmode::alt_out_100mhz, 12);
     Port<'F'>::modeMap(0b0000000000000001, Pinmode::alt_out_100mhz, 12);
-}
-
-static void initFsmcLcd () {
-    initFsmcPins();
 
     constexpr uint32_t bcr1 = Periph::fsmc; // Periph::fmc !
     constexpr uint32_t btr1 = bcr1 + 0x04;
@@ -25,10 +24,6 @@ static void initFsmcLcd () {
     MMIO32(btr1) = (1<<20) | (6<<8) | (2<<4) | (9<<0);
     MMIO32(bcr1) |= (1<<0);
 }
-
-//PinE<0> led;
-PinF<5> backlight;
-PinD<11> lcdReset;
 
 struct Tft : ST7789<0x60000000> {
     constexpr static char mode = 'V'; // this driver uses vertical mode
