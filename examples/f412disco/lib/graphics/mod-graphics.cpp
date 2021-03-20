@@ -148,74 +148,137 @@ const uint8_t u8g2_font_logisoso16_tr [1567] =
 
 Font const smallFont (u8g2_font_logisoso16_tr);
 
-//CG: module demo
+//CG: module graphics
 
-//CG1 bind twice
-static auto f_twice (ArgVec const& args) -> Value {
-    //CG: args val:i
-
+//CG1 bind init
+static auto f_init (ArgVec const& args) -> Value {
+    //CG: args
     initLCD();
-
     gfx.init();
+    return {};
+}
+
+//CG1 bind fg
+static auto f_fg (ArgVec const& args) -> Value {
+    //CG: args rgb:i
+    gfx.fg = rgb;
+    return {};
+}
+
+//CG1 bind bg
+static auto f_bg (ArgVec const& args) -> Value {
+    //CG: args rgb:i
+    gfx.bg = rgb;
+    return {};
+}
+
+//CG1 bind clear
+static auto f_clear (ArgVec const& args) -> Value {
+    //CG: args
     gfx.clear();
+    return {};
+}
 
-    for (int y = 10; y < 20; ++y)
-        for (int x = 10; x < 60; ++x)
-            gfx.pixel(x, y);
-    
-    gfx.hLine({5,2}, 230);
-    gfx.vLine({5,5}, 200);
+//CG1 bind pixel
+static auto f_pixel (ArgVec const& args) -> Value {
+    //CG: args x:i y:i ? rgb:i
+    gfx.pixel(x, y, ainfo < 0 ? gfx.fg : rgb);
+    return {};
+}
 
-    gfx.line({230,220}, {10,220});
-    gfx.line({230,220}, {230,20});
+//CG1 bind hline
+static auto f_hline (ArgVec const& args) -> Value {
+    //CG: args x:i y:i w:i ? rgb:i
+    gfx.hLine({x,y}, w, ainfo < 0 ? gfx.fg : rgb);
+    return {};
+}
 
-    gfx.box({80,40}, 25, 25);
-    gfx.fg = Magenta;
-    gfx.box({150,40}, {120,70});
+//CG1 bind vline
+static auto f_vline (ArgVec const& args) -> Value {
+    //CG: args x:i y:i h:i ? rgb:i
+    gfx.vLine({x,y}, h, ainfo < 0 ? gfx.fg : rgb);
+    return {};
+}
 
-    gfx.fg = Red;
-    gfx.bFill({160,40}, 25, 25);
-    gfx.fg = Green;
-    gfx.bFill({190,70}, {220,40});
+//CG1 bind line
+static auto f_line (ArgVec const& args) -> Value {
+    //CG: args x1:i y1:i x2:i y2:i
+    gfx.line({x1,y1}, {x2,y2});
+    return {};
+}
 
-    gfx.fg = Yellow;
-    gfx.line({100,100}, {150,125});
-    gfx.line({150,125}, {100,150});
-    gfx.line({100,150}, {125,100});
-    gfx.line({125,100}, {140,150});
-    gfx.line({140,150}, {100,100});
+//CG1 bind dashed
+static auto f_dashed (ArgVec const& args) -> Value {
+    //CG: args x1:i y1:i x2:i y2:i ? pat:i
+    gfx.dashed({x1,y1}, {x2,y2}, ainfo < 0 ? 0x55555555 : pat);
+    return {};
+}
 
-    gfx.fg = Cyan;
-    gfx.triangle({30,30}, {70,60}, {60,80});
-    gfx.fg = White;
-    gfx.tFill({30,80}, {70,110}, {60,130});
+//CG1 bind box
+static auto f_box (ArgVec const& args) -> Value {
+    //CG: args x1:i y1:i x2:i y2:i
+    gfx.box({x1,y1}, {x2,y2});
+    return {};
+}
 
-    gfx.fg = Red;
-    gfx.dashed({200,30}, {200,80}, 0x27272727);
-    gfx.bg = Red;
-    gfx.dashed({210,30}, {210,80}, 0x27272727);
+//CG1 bind bfill
+static auto f_bfill (ArgVec const& args) -> Value {
+    //CG: args x1:i y1:i x2:i y2:i ? rgb
+    gfx.bFill({x1,y1}, {x2,y2});
+    return {};
+}
 
-    gfx.fg = gfx.bg = Yellow;
-    gfx.dashed({160,40}, {184,64}, 0x0F0F0F0F);
+//CG1 bind round
+static auto f_round (ArgVec const& args) -> Value {
+    //CG: args x1:i y1:i x2:i y2:i r:i
+    gfx.round({x1,y1}, {x2,y2}, r);
+    return {};
+}
 
-    gfx.fg = White;
-    gfx.bg = Black;
+//CG1 bind rfill
+static auto f_rfill (ArgVec const& args) -> Value {
+    //CG: args x1:i y1:i x2:i y2:i r:i
+    gfx.rFill({x1,y1}, {x2,y2}, r);
+    return {};
+}
 
-    gfx.circle({50,175}, 20);
-    gfx.cFill({55,180}, 10);
+//CG1 bind circle
+static auto f_circle (ArgVec const& args) -> Value {
+    //CG: args x:i y:i r:i
+    gfx.circle({x,y}, r);
+    return {};
+}
 
-    gfx.round({180,130}, {210, 170}, 10);
-    gfx.rFill({160,180}, {220, 200}, 5);
+//CG1 bind cfill
+static auto f_cfill (ArgVec const& args) -> Value {
+    //CG: args x:i y:i r:i
+    gfx.cFill({x,y}, r);
+    return {};
+}
 
-    gfx.fg = Yellow;
-    gfx.writes(smallFont, {80,12}, "Hello, Monty!");
+//CG1 bind triangle
+static auto f_triangle (ArgVec const& args) -> Value {
+    //CG: args x1:i y1:i x2:i y2:i x3:i y3:i
+    gfx.triangle({x1,y1}, {x2,y2}, {x3,y3});
+    return {};
+}
 
-while (true) {}
-    return 2 * val;
+//CG1 bind tfill
+static auto f_tfill (ArgVec const& args) -> Value {
+    //CG: args x1:i y1:i x2:i y2:i x3:i y3:i
+    gfx.tFill({x1,y1}, {x2,y2}, {x3,y3});
+    return {};
+}
+
+//CG1 bind writes
+static auto f_writes (ArgVec const& args) -> Value {
+    //CG: args x:i y:i str:s
+    gfx.writes(smallFont, {x,y}, str);
+    return {};
 }
 
 //CG1 wrappers
-static Lookup::Item const demo_map [] = {
+static Lookup::Item const graphics_map [] = {
 };
 
 //CG: module-end
