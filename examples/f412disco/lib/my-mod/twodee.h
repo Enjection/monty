@@ -171,44 +171,46 @@ namespace twodee {
 
     template< typename G >
     struct TwoDee : G {
-        static void pixel (Point p, bool f =true) {
+        static int fg, bg;
+
+        static void pixel (Point p, unsigned c =fg) {
             G::pos(p);
-            G::set(f);
+            G::set(c);
             G::end();
         }
 
         // these functions pick the most suitable looping style
 
-        static void hLine (Point p, unsigned w, bool f =true) {
+        static void hLine (Point p, unsigned w, unsigned c =fg) {
             switch (G::mode) {
-                case 'H': horLine(p, w, f); break;
+                case 'H': horLine(p, w, c); break;
                 case 'V': for (unsigned i = 0; i < w; ++i, ++p.x)
-                              pixel(p, f);
+                              pixel(p, c);
                           break;
-                default:  pixFlood({p, w, 1}, f); break;
+                default:  pixFlood({p, w, 1}, c); break;
             }
         }
-        static void vLine (Point p, unsigned h, bool f =true) {
+        static void vLine (Point p, unsigned h, unsigned c =fg) {
             switch (G::mode) {
                 case 'H': for (unsigned i = 0; i < h; ++i, ++p.y)
-                              pixel(p, f);
+                              pixel(p, c);
                           break;
-                case 'V': verLine(p, h, f); break;
-                default:  pixFlood({p, 1, h}, f); break;
+                case 'V': verLine(p, h, c); break;
+                default:  pixFlood({p, 1, h}, c); break;
             }
         }
-        static void bFill (Point p, unsigned w, unsigned h, bool f =true) {
+        static void bFill (Point p, unsigned w, unsigned h, unsigned c =fg) {
             switch (G::mode) {
                 case 'H':
                     for (unsigned i = 0; i < h; ++i, ++p.y)
-                        horLine(p, w, f);
+                        horLine(p, w, c);
                     break;
                 case 'V':
                     for (unsigned i = 0; i < w; ++i, ++p.x)
-                        verLine(p, h, f);
+                        verLine(p, h, c);
                     break;
                 default:
-                    pixFlood({p, w, h}, f); break;
+                    pixFlood({p, w, h}, c); break;
             }
         }
 
@@ -240,8 +242,8 @@ namespace twodee {
             while (it) {
                 auto [x, y] = it.next();
                 bool f = pattern & 1;
-                if (f || G::fg != G::bg) // check for transparency
-                    pixel(p1.x+x, p1.y+y, f);
+                if (f || fg != bg) // check for transparency
+                    pixel(p1.x+x, p1.y+y, f ? fg : bg);
                 pattern = (pattern >> 1) | (pattern << 31);
             }
         }
@@ -310,7 +312,7 @@ namespace twodee {
 
         // alternate parameter variants, including bounding box adjustments
 
-        static void pixel (int x, int y, bool f =true) { pixel({x,y}, f); }
+        static void pixel (int x, int y, unsigned c =fg) { pixel({x,y}, c); }
 
         static void box (Rect const& r)       { box(r, r.w, r.h); }
         static void box (Point p1, Point p2)  { box({p1, p2}); }
@@ -338,22 +340,22 @@ namespace twodee {
     protected:
         // various ways of looping
 
-        static void horLine (Point p, unsigned w, bool f) {
+        static void horLine (Point p, unsigned w, unsigned c) {
             G::pos(p);
             for (unsigned i = 0; i < w; ++i)
-                G::set(f);
+                G::set(c);
             G::end();
         }
-        static void verLine (Point p, unsigned h, bool f) {
+        static void verLine (Point p, unsigned h, unsigned c) {
             G::pos(p);
             for (unsigned i = 0; i < h; ++i)
-                G::set(f);
+                G::set(c);
             G::end();
         }
-        static void pixFlood (Rect const& r, bool f) {
+        static void pixFlood (Rect const& r, unsigned c) {
             G::lim(r);
             for (int i = 0; i < r.w * r.h; ++i)
-                G::set(f);
+                G::set(c);
             G::end();
         }
 
@@ -361,7 +363,7 @@ namespace twodee {
         static void write1 (Glyph& g, Rect& r, char c) {
             r.w = g.select(c);
 
-            if (G::bg != G::fg)
+            if (bg != fg)
                 bFill(r, r.w, r.h, false);
 
             unsigned x = r.x+g.x, y = r.y+g.y, limit = x+g.w;
@@ -387,4 +389,10 @@ namespace twodee {
             r.x += r.w;
         }
     };
+
+    template< typename G >
+    int TwoDee<G>::fg = G::White;
+
+    template< typename G >
+    int TwoDee<G>::bg = G::Black;
 }

@@ -27,27 +27,19 @@ struct Tft : ILI9325<SPI> {
     enum { Black = 0x0000, Red = 0xF800, Green = 0x07E0, Blue = 0x001F,
            Yellow = 0xFFE0, Cyan = 0x07FF, Magenta = 0xF81F, White = 0xFFFF };
 
-    static int fg, bg;
-
     static void pos (Point p) {
-        write(0x20, p.x); write(0x50, p.x); write(0x21, p.y); write(0x52, p.y);
+        write(0x20, p.x); write(0x50, p.x);
+        write(0x21, p.y); write(0x52, p.y);
         SPI::enable(); SPI::transfer(0x70); out16(0x22); SPI::disable();
         SPI::enable(); SPI::transfer(0x72);
     }
 
-    static void set (bool f) {
-        auto rgb = f ? fg : bg;
-        SPI::transfer(rgb >> 8);
-        SPI::transfer(rgb);
-    }
+    static void set (unsigned c) { out16(c); }
 
     static void end () { SPI::disable(); }
 
     static void lim (Rect const&) {} // only needed for flood mode
 };
-
-int Tft::fg = Tft::White;
-int Tft::bg = Tft::Black;
 
 # else // F412-Disco
 
@@ -84,8 +76,6 @@ struct Tft : ST7789<0x60000000> {
     enum { Black = 0x0000, Red = 0xF800, Green = 0x07E0, Blue = 0x001F,
            Yellow = 0xFFE0, Cyan = 0x07FF, Magenta = 0xF81F, White = 0xFFFF };
 
-    static int fg, bg;
-
     static void pos (Point p) {
         auto xEnd = 240-1, yEnd = 240-1;
         cmd(0x2A); out16(p.y>>8); out16(p.y); out16(yEnd>>8); out16(yEnd);
@@ -93,15 +83,12 @@ struct Tft : ST7789<0x60000000> {
         cmd(0x2C);
     }
 
-    static void set (bool f) { out16(f ? fg : bg); }
+    static void set (unsigned c) { out16(c); }
 
     static void end () {}
 
     static void lim (Rect const&) {} // only needed for flood mode
 };
-
-int Tft::fg = Tft::White;
-int Tft::bg = Tft::Black;
 
 #endif
 
