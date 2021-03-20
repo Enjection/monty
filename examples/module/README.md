@@ -1,4 +1,4 @@
-This examples adds a custom module to Monty, so that this script works:
+This example adds a custom module to Monty, so that this script works:
 
 ```py
 import demo
