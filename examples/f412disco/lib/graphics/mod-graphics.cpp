@@ -86,9 +86,6 @@ struct Tft : ST7789<0x60000000> {
 
 TwoDee<Tft> gfx;
 
-enum { Black = 0x0000, Red = 0xF800, Green = 0x07E0, Blue = 0x001F,
-        Yellow = 0xFFE0, Cyan = 0x07FF, Magenta = 0xF81F, White = 0xFFFF };
-
 /*
   Fontname: -FreeType-Logisoso-Medium-R-Normal--23-230-72-72-P-30-ISO10646-1
   Copyright: Created by Mathieu Gabiot with FontForge 2.0 (http://fontforge.sf.net) - Brussels - 2009
