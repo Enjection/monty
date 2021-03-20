@@ -26,7 +26,7 @@ static void initFsmcLcd () {
     MMIO32(bcr1) |= (1<<0);
 }
 
-PinE<0> led;
+//PinE<0> led;
 PinF<5> backlight;
 PinD<11> lcdReset;
 
@@ -120,22 +120,22 @@ Font const smallFont (u8g2_font_logisoso16_tr);
 static auto f_twice (ArgVec const& args) -> Value {
     //CG: args val:i
 
-    backlight.mode(Pinmode::out); // turn backlight off
-    backlight = 1;
-
     initFsmcLcd();
 
-    lcdReset.mode(Pinmode::out); wait_ms(5);
-    lcdReset = 1; wait_ms(10);
-    lcdReset = 0; wait_ms(20);
-    lcdReset = 1; wait_ms(10);
+    lcdReset.mode(Pinmode::out);
+    lcdReset = 1; wait_ms(2);
+    lcdReset = 0; wait_ms(2);
+    lcdReset = 1; wait_ms(2);
 
-    gfx.cmd(0x04); // get LCD type ID, i.e. 0x85 for ST7789
-    MMIO16(gfx.addr+2);
-    printf("id %02x\n", MMIO16(gfx.addr+2));
+    //gfx.cmd(0x04); // get LCD type ID, i.e. 0x85 for ST7789
+    //MMIO16(gfx.addr+2);
+    //printf("id %02x\n", MMIO16(gfx.addr+2));
 
     gfx.init();
     gfx.clear();
+
+    backlight.mode(Pinmode::out); // turn backlight off
+    backlight = 1;
 
     for (int y = 10; y < 20; ++y)
         for (int x = 10; x < 60; ++x)
