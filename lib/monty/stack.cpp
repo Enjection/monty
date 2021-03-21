@@ -240,3 +240,44 @@ auto Stacklet::runLoop () -> bool {
 void Module::repr (Buffer& buf) const {
     buf.print("<module '%s'>", (char const*) _name);
 }
+
+auto Function::call (ArgVec const& args) const -> Value {
+    return _desc != nullptr ? parse(args) : _func(args);
+}
+
+auto Function::parse (ArgVec const& args) const -> Value {
+    auto optional = false;
+    union { int i; Object* o; char const* s; } params [2+8]; // max 8 actual
+    int pos = 2; // two extra args may need to be inserted as args + remain
+    auto desc = _desc;
+
+    while (*desc != '*' && *desc != 0) {
+        if (*desc == '?')
+            optional = true; // following args are optional
+        else {
+            auto p = &params[pos++];
+            if (pos < args.size()) {
+                auto a = args[pos];
+                assert(a.isOk()); // args can't be nil ("None" is fine)
+                switch (*desc) {
+                    case 'i': { p->i = a; break; }
+                    case 'o': { p->o = &a.asObj(); break; }
+                    case 's': { p->s = a; break; }
+                    case 'v': { *(Value*)p = a; break; }
+                    default:  assert(false);
+                }
+            } else if (optional)
+                p->i = 0;
+            else
+                return {E::TypeError, "need more args", pos};
+        }
+        ++desc;
+    }
+
+    int remain = args.size() - pos;
+    if (remain > 0 && *desc != '*')
+        return {E::TypeError, "too many args", remain};
+
+    // TODO ...
+    return remain;
+}

@@ -70,7 +70,6 @@ auto ArgVec::parse (char const* desc, ...) const -> Value {
     return end() - args;
 }
 
-
 static void putcEsc (Buffer& buf, char const* fmt, uint8_t ch) {
     buf.putc('\\');
     switch (ch) {
