@@ -19,6 +19,7 @@ archs = {}          # list of qstr details per architecture
 mods  = {"": []}    # list of extension module names per architecture
 hdrs  = {"": []}    # list of same-name headers per architecture
 funs  = {"": []}    # list of bound functions per type/module
+descs = {"": {}}    # map of function parse descriptors per type/module
 meths = {"": []}    # list of bound methods per type/module
 dirs  = {}          # map of scanned dirnames to path, see IF
 dry   = False       # true if this is a dry-run, i.e. "-n" flag set
@@ -48,19 +49,16 @@ def INCLUDES(block):
 # generate positional arg checks and conversions
 def ARGS(block, *arg):
     out, names, types, decls = [], [], "", {}
-    nOpt = 999
     for a in arg:
         if a in ["?", "*"]:
-            if a == "?":
-                nOpt = a.index(a)
             types += a
-            continue
-        n, t = (a + ":v").split(":")[:2]
-        names.append(n)
-        types += t or "v"
-        if t not in decls:
-            decls[t] = []
-        decls[t].append(n)
+        else:
+            n, t = (a + ":v").split(":")[:2]
+            names.append(n)
+            types += t
+            if t not in decls:
+                decls[t] = []
+            decls[t].append(n)
     tmap = {"v":"Value", "i":"int", "o":"Object", "s":"char const"}
     for t in decls:
         m = tmap[t]
@@ -101,6 +99,7 @@ def IF(block, typ, arg):
 def MODULE(block, mod):
     flags.mod = mod
     funs[mod] = []
+    descs[mod] = {}
     meths[mod] = []
     mods[arch].append(mod)
     return []
@@ -141,14 +140,28 @@ def MOD_LIST(block, sel):
     return out
 
 # bind a function, i.e. define a callable function object wrapper
-def BIND(block, fun):
+def BIND(block, fun, *arg):
     funs[flags.mod].append(fun)
-    return ["static auto f_%s (ArgVec const& args) -> Value {" % fun]
+    tmap = {"v":"Value", "i":"int", "o":"Object*", "s":"char const*"}
+    out, params, types = [], [], ""
+    for a in arg:
+        if a in ["?", "*"]:
+            types += a
+        else:
+            n, t = (a + ":v").split(":")[:2]
+            params.append("%s %s" % (tmap[t], n))
+            types += t
+    descs[flags.mod][fun] = types
+    if "?" in types or "*" in types:
+        params.insert(0, "ArgVec const& args")
+    return ['static auto f_%s (%s) -> Value {' % (fun, ", ".join(params))]
+
 
 # bind a method, i.e. define a callable method object wrapper
 def WRAP(block, typ, *methods):
     if typ not in funs:
         funs[typ] = []
+        descs[typ] = {}
         meths[typ] = []
     for m in methods:
         meths[typ].append(m)
@@ -170,7 +183,10 @@ def WRAPPERS(block, typ=None):
 
     funs[mod].sort()
     for f in funs[mod]:
-        out.append("static Function const fo_%s (f_%s);" % (f, f))
+        prefix = ""
+        if f in descs[mod]:
+            prefix = '"%s", (Function::Prim) ' % descs[mod][f]
+        out.append("static Function const fo_%s (%sf_%s);" % (f, prefix, f))
 
     if not glob and not typ and not mod:
         funs[mod] = [] # local wrappers, don't emit again in builtin.cpp

@@ -8,21 +8,18 @@ using namespace monty;
 //CG: module sys
 
 //CG1 bind gc
-static auto f_gc (ArgVec const& args) -> Value {
-    //CG: args
+static auto f_gc () -> Value {
     Stacklet::gcAll();
     return {};
 }
 
 //CG1 bind gcmax
-static auto f_gcmax (ArgVec const& args) -> Value {
-    //CG: args
+static auto f_gcmax () -> Value {
     return gcMax();
 }
 
 //CG1 bind gcstats
-static auto f_gcstats (ArgVec const& args) -> Value {
-    //CG: args
+static auto f_gcstats () -> Value {
     auto data = new List;
     for (auto e : gcStats.v)
         data->append(e);

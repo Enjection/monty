@@ -795,8 +795,8 @@ namespace monty {
     struct Function : StaticObj {
         using Prim = auto (*)(ArgVec const&) -> Value;
 
-        constexpr Function (Prim f, char const* desc =nullptr)
-            : _func (f), _desc (desc) {}
+        constexpr Function (Prim f) : _func (f) {}
+        constexpr Function (char const* d, Prim f) : _func (f), _desc (d) {}
 
         auto call (ArgVec const& args) const -> Value override;
 
@@ -804,7 +804,7 @@ namespace monty {
         auto parse (ArgVec const&) const -> Value;
 
         Prim _func;
-        char const* _desc;
+        char const* _desc =nullptr;
     };
 
     // Template trickery - this wraps several different argument calls into a

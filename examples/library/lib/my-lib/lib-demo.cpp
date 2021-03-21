@@ -5,13 +5,13 @@
 using namespace monty;
 
 //CG1 bind triple
-static auto f_triple (ArgVec const& args) -> Value {
+static auto f_triple () -> Value {
     //CG: args val:i
     return 3 * val;
 }
 
 //CG1 bind quadruple
-static auto f_quadruple (ArgVec const& args) -> Value {
+static auto f_quadruple () -> Value {
     //CG: args val
     return val.binOp(BinOp::Multiply, 4); // also handles Int type
 }

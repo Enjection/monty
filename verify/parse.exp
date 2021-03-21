@@ -17,11 +17,11 @@ TypeError("unknown option","huh") ["parse.py",18,"<module>"]
 13 {ADDR}
 14 {ADDR}
 15 {ADDR}
-20 -3
-21 -2
-22 -1
-23 0
-24 1
-25 2
+20 5
+21 6
+22 7
+23 8
+24 9
+25 10
 TypeError("too many args",1) ["parse.py",38,"<module>"]
 done

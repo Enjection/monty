@@ -109,9 +109,8 @@ struct RF69 : Object, jeeh::RF69<jeeh::SpiGpio> {
 
 Type RF69::info (Q(0,"<rf69>"), &RF69::attrs);
 
-//CG1 bind spi
-static auto f_spi (ArgVec const& args) -> Value {
-    //CG: args arg:s
+//CG1 bind spi arg:s
+static auto f_spi (char const* arg) -> Value {
     auto spi = new Spi;
     auto err = jeeh::Pin::define(arg, &spi->_mosi, 4);
     if (err != nullptr || !spi->isValid())
@@ -120,9 +119,8 @@ static auto f_spi (ArgVec const& args) -> Value {
     return spi;
 }
 
-//CG1 bind rf69
-static auto f_rf69 (ArgVec const& args) -> Value {
-    //CG: args pins:s node:i group:i freq:i
+//CG1 bind rf69 pins:s node:i group:i freq:i
+static auto f_rf69 (char const* pins, int node, int group, int freq) -> Value {
     auto rf69 = new RF69;
     auto err = jeeh::Pin::define(pins, &rf69->spi._mosi, 4);
     if (err != nullptr || !rf69->spi.isValid())
@@ -144,11 +142,9 @@ static auto msNow () -> Value {
     return t - begin; // make all runs start out the same way
 }
 
-//CG1 bind ticker
-static auto f_ticker (ArgVec const& args) -> Value {
-    //CG: args ? arg:i
-    if (arg > 0) {
-        assert(args.size() == 1 && args[0].isInt());
+//CG1 bind ticker ? arg:i
+static auto f_ticker (ArgVec const& args, int arg) -> Value {
+    if (args.size() > 0) {
         ms = arg;
         start = msNow(); // set first timeout relative to now
         last = 0;
@@ -176,18 +172,16 @@ static auto f_ticker (ArgVec const& args) -> Value {
 }
 
 //CG1 bind ticks
-static auto f_ticks (ArgVec const& args) -> Value {
-    //CG: args
+static auto f_ticks () -> Value {
     return msNow();
 }
 
 //CG1 bind cycles
-static auto f_cycles (ArgVec const& args) -> Value {
-    (void) args; // args are ignored (also avoids the checking overhead)
+static auto f_cycles () -> Value {
     return jeeh::DWT::count() & 0x3FFFFFFF; // keep it positive in Value
 }
 
-//CG1 bind dog
+//CG1 bind dog *
 static auto f_dog (ArgVec const& args) -> Value {
     // TODO optional args
     int count = 4095;
@@ -200,8 +194,7 @@ static auto f_dog (ArgVec const& args) -> Value {
 }
 
 //CG1 bind kick
-static auto f_kick (ArgVec const& args) -> Value {
-    //CG: args
+static auto f_kick () -> Value {
     Iwdg::kick();
     return {};
 }

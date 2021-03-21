@@ -30,7 +30,7 @@ static auto msNow () -> Value {
 }
 
 //CG1 bind ticker
-static auto f_ticker (ArgVec const& args) -> Value {
+static auto f_ticker () -> Value {
     //CG: args ? arg:i
     if (arg > 0) {
         ms = arg;
@@ -46,7 +46,7 @@ static auto f_ticker (ArgVec const& args) -> Value {
 }
 
 //CG1 bind ticks
-static auto f_ticks (ArgVec const& args) -> Value {
+static auto f_ticks () -> Value {
     //CG: args
     return msNow();
 }

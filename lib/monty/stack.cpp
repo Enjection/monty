@@ -247,15 +247,17 @@ auto Function::call (ArgVec const& args) const -> Value {
 
 auto Function::parse (ArgVec const& args) const -> Value {
     auto optional = false;
-    union { int i; Object* o; char const* s; } params [2+8]; // max 8 actual
-    int pos = 2; // two extra args may need to be inserted as args + remain
+    union {
+        int i; Object* o; char const* s; void* v;
+    } params [10]; // max 9 actual parameters, in case ArgVec is inserted
+    int pos = 0;
     auto desc = _desc;
 
     while (*desc != '*' && *desc != 0) {
         if (*desc == '?')
             optional = true; // following args are optional
         else {
-            auto p = &params[pos++];
+            auto p = &params[pos+1];
             if (pos < args.size()) {
                 auto a = args[pos];
                 assert(a.isOk()); // args can't be nil ("None" is fine)
@@ -267,9 +269,10 @@ auto Function::parse (ArgVec const& args) const -> Value {
                     default:  assert(false);
                 }
             } else if (optional)
-                p->i = 0;
+                p->v = nullptr;
             else
                 return {E::TypeError, "need more args", pos};
+            ++pos;
         }
         ++desc;
     }
@@ -278,6 +281,21 @@ auto Function::parse (ArgVec const& args) const -> Value {
     if (remain > 0 && *desc != '*')
         return {E::TypeError, "too many args", remain};
 
-    // TODO ...
-    return remain;
+    auto ap = params + 1;
+    if (optional || *desc == '*') {
+        params[0].v = (void*) &args; // insert ArgVec as first actual parameter
+        --ap;
+        ++pos;
+    }
+
+    // FFI'ish call: pass parameters as if they were pointer-sized
+    if (pos <= 4) { // up to 4 args uses only registers on ARM, more efficient
+        using F4 = Value(*)(void*,void*,void*,void*);
+        return ((F4) _func)(ap[0].v, ap[1].v, ap[2].v, ap[3].v);
+    } else {
+        using F10 = Value(*)(void*,void*,void*,void*,void*,
+                             void*,void*,void*,void*,void*);
+        return ((F10) _func)(ap[0].v, ap[1].v, ap[2].v, ap[3].v, ap[4].v,
+                             ap[5].v, ap[6].v, ap[7].v, ap[8].v, ap[9].v);
+    }
 }

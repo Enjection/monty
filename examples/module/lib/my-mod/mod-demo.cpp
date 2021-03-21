@@ -7,7 +7,7 @@ using namespace monty;
 //CG: module demo
 
 //CG1 bind twice
-static auto f_twice (ArgVec const& args) -> Value {
+static auto f_twice () -> Value {
     //CG: args val:i
     return 2 * val;
 }

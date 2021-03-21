@@ -7,17 +7,16 @@
 
 using namespace monty;
 
-//CG1 bind argtest
-static auto f_argtest (ArgVec const& args) -> Value {
-    //CG: args a1 a2 a3:o a4:i ? a5 a6:s a7:s a8 *
+//CG1 bind argtest a1 a2 a3:o a4:i ? a5 a6:s a7:s a8 *
+static auto f_argtest (ArgVec const& args, Value a1, Value a2, Object* a3, int a4, Value a5, char const* a6, char const* a7, Value a8) -> Value {
     //CG: kwargs foo bar baz
     if (a1.isInt()) // special, returns parse result: N<0 = missing, N>0 = extra
-        return ainfo;
+        return args.size();
     auto n = a1.id()+a2.id()+a5.id()+a8.id()+(int)(uintptr_t)a3+a4;
     return n + (a6 != nullptr ? *a6 : 0) + (a7 != nullptr ? *a7 : 0);
 }
 
-//CG1 bind print
+//CG1 bind print *
 static auto f_print (ArgVec const& args) -> Value {
     //CG: kwargs sep end
     if (!sep.isStr())
@@ -49,48 +48,42 @@ static auto f_print (ArgVec const& args) -> Value {
     return {};
 }
 
-//CG1 bind iter
-static auto f_iter (ArgVec const& args) -> Value {
-    //CG: args obj:o
+//CG1 bind iter obj:o
+static auto f_iter (Object* obj) -> Value {
     auto v = obj->iter();
-    return v.isObj() ? v : new Iterator (args[0], 0);
+    return v.isObj() ? v : new Iterator (obj, 0);
 }
 
-//CG1 bind next
-static auto f_next (ArgVec const& args) -> Value {
-    //CG: args arg
+//CG1 bind next arg
+static auto f_next (Value arg) -> Value {
     auto v = arg->next();
-    return v.isNil() && Stacklet::current != nullptr ? Value {E::StopIteration} : v;
+    if (v.isNil() && Stacklet::current != nullptr)
+        return Value {E::StopIteration};
+    return v;
 }
 
-//CG1 bind len
-static auto f_len (ArgVec const& args) -> Value {
-    //CG: args arg
+//CG1 bind len arg
+static auto f_len (Value arg) -> Value {
     return arg.isStr() ? strlen(arg) : arg->len();
 }
 
-//CG1 bind abs
-static auto f_abs (ArgVec const& args) -> Value {
-    //CG: args arg
+//CG1 bind abs arg
+static auto f_abs (Value arg) -> Value {
     return arg.unOp(UnOp::Abso);
 }
 
-//CG1 bind hash
-static auto f_hash (ArgVec const& args) -> Value {
-    //CG: args arg
+//CG1 bind hash arg
+static auto f_hash (Value arg) -> Value {
     return arg.unOp(UnOp::Hash);
 }
 
-//CG1 bind id
-static auto f_id (ArgVec const& args) -> Value {
-    //CG: args arg
+//CG1 bind id arg
+static auto f_id (Value arg) -> Value {
     return arg.id();
 }
 
-//CG1 bind dir
-static auto f_dir (ArgVec const& args) -> Value {
-    //CG: args arg
-
+//CG1 bind dir arg
+static auto f_dir (Value arg) -> Value {
     Object const* obj = &arg.asObj();
     if (obj != &Module::builtins &&
             obj != &Module::loaded &&

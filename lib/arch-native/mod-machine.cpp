@@ -35,11 +35,9 @@ void timerHook () {
     }
 }
 
-//CG1 bind ticker
-static auto f_ticker (ArgVec const& args) -> Value {
-    //CG: args ? arg:i
-
-    if (arg > 0) {
+//CG1 bind ticker ? arg:i
+static auto f_ticker (ArgVec const& args, int arg) -> Value {
+    if (args.size() > 0) {
         ms = arg;
         start = msNow(); // set first timeout relative to now
         last = 0;
@@ -55,8 +53,7 @@ static auto f_ticker (ArgVec const& args) -> Value {
 }
 
 //CG1 bind ticks
-static auto f_ticks (ArgVec const& args) -> Value {
-    //CG: args
+static auto f_ticks () -> Value {
     return msNow();
 }
 
