@@ -1,14 +1,36 @@
 // mod-demo.cpp - a little demo module
 
 #include <monty.h>
-#include <jee.h>
 #include "twodee.h"
 
 using namespace monty;
 using namespace twodee;
 
-#if HY_TINYSTM103T
+#if NATIVE
 
+#include <cstdio>
+
+static void initLCD () {}
+
+struct Tft {
+    constexpr static char mode = 'H'; // this driver uses horizontal mode
+    constexpr static auto depth = 3; // 8 colours
+
+    static void init () {}
+
+    static void pos (Point p)       { printf("\x1B[%d;%dH", p.y+1, p.x+1); }
+    static void lim (Rect const& r) {}
+    static void set (unsigned c)    { printf("\x1B[%dm ", 40 + c); }
+    static void end ()              {}
+
+    // not used by TwoDee
+    static void cls () { pos({0,0}); printf("\x1B[40m\x1B[J"); }
+    static void out () { pos({0,0}); printf("\x1B[m"); fflush(stdout); }
+};
+
+#elif HY_TINYSTM103T
+
+#include <jee.h>
 #include <jee/spi-ili9325.h>
 
 using SPI = SpiGpio< PinB<5>, PinB<4>, PinB<3>, PinB<0>, 1 >;
@@ -39,6 +61,7 @@ struct Tft : ILI9325<SPI> {
 
 # else // F412-Disco
 
+#include <jee.h>
 #include <jee/mem-st7789.h>
 
 PinF<5> backlight;
@@ -151,7 +174,7 @@ Font const smallFont (u8g2_font_logisoso16_tr);
 static auto f_init () -> Value {
     initLCD();
     gfx.init();
-    return {};
+    return gfx.depth;
 }
 
 //CG1 bind fg rgb:i
@@ -170,7 +193,11 @@ static auto f_bg (int rgb) -> Value {
 
 //CG1 bind clear
 static auto f_clear () -> Value {
+#if NATIVE
+    gfx.cls();
+#else
     gfx.clear();
+#endif
     return {};
 }
 

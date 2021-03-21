@@ -1,15 +1,26 @@
 import graphics as g
 
-Black   = const(0x0000)
-Red     = const(0xF800)
-Green   = const(0x07E0)
-Blue    = const(0x001F)
-Yellow  = const(0xFFE0)
-Cyan    = const(0x07FF)
-Magenta = const(0xF81F)
-White   = const(0xFFFF)
+depth = g.init()
 
-g.init()
+if depth == 16:
+    Black   = 0x0000
+    Red     = 0xF800
+    Green   = 0x07E0
+    Yellow  = 0xFFE0
+    Blue    = 0x001F
+    Magenta = 0xF81F
+    Cyan    = 0x07FF
+    White   = 0xFFFF
+else:
+    Black   = 0
+    Red     = 1
+    Green   = 2
+    Yellow  = 3
+    Blue    = 4
+    Magenta = 5
+    Cyan    = 6
+    White   = 7
+
 g.clear()
 
 for y in range(10, 20):
@@ -63,3 +74,5 @@ g.rfill(160, 180, 220, 200, 5)
 
 g.fg(Yellow)
 g.writes(80, 12, "Hello, Monty!")
+
+g.pixel(x, y, Black)
