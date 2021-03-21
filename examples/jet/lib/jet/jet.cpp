@@ -25,7 +25,6 @@ Type Flow::info ("jet.flow");
 
 //CG1 bind flow
 static auto f_flow () -> Value {
-    //CG: args
     return new Flow;
 }
 

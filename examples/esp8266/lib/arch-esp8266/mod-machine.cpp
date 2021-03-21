@@ -29,10 +29,9 @@ static auto msNow () -> Value {
     return t - begin; // make all runs start out the same way
 }
 
-//CG1 bind ticker
-static auto f_ticker () -> Value {
-    //CG: args ? arg:i
-    if (arg > 0) {
+//CG1 bind ticker ? arg:i
+static auto f_ticker (ArgVec const& args, int arg) -> Value {
+    if (args.size() > 0) {
         ms = arg;
         start = msNow(); // set first timeout relative to now
         last = 0;
@@ -47,7 +46,6 @@ static auto f_ticker () -> Value {
 
 //CG1 bind ticks
 static auto f_ticks () -> Value {
-    //CG: args
     return msNow();
 }
 

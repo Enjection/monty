@@ -6,9 +6,8 @@ using namespace monty;
 
 //CG: module demo
 
-//CG1 bind twice
-static auto f_twice () -> Value {
-    //CG: args val:i
+//CG1 bind twice val:i
+static auto f_twice (int val) -> Value {
     return 2 * val;
 }
 
