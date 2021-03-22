@@ -372,9 +372,7 @@ auto monty::vmImport (char const* name) -> uint8_t const* {
 
 void arch::init (int size) {
     console.init();
-#if STM32F412Zx || STM32F413xx
-    enableSysTick(); // only goes up to 100 MHz, use built-in 16 MHz
-#elif STM32F4 || NUCLEO_H743ZI || DEVEBOX_H743
+#if STM32F4 || NUCLEO_H743ZI || DEVEBOX_H743
     console.baud(115200, fullSpeedClock()/4);
 #elif STM32F723xx || DISCO_F746NG || STM32F469xx || STM32F769xx
     console.baud(115200, fullSpeedClock()/2);
