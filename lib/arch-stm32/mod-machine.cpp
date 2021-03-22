@@ -176,20 +176,16 @@ static auto f_ticks () -> Value {
     return msNow();
 }
 
-//CG1 bind cycles
-static auto f_cycles () -> Value {
+//CG1 bind cycles *
+static auto f_cycles (ArgVec const& args) -> Value {
+    (void) args; // not used, but any number of args accepted
     return jeeh::DWT::count() & 0x3FFFFFFF; // keep it positive in Value
 }
 
-//CG1 bind dog *
-static auto f_dog (ArgVec const& args) -> Value {
-    // TODO optional args
-    int count = 4095;
-    if (args.size() > 0 && args[0].isInt())
-        count = args[0];
-
+//CG1 bind dog ? arg:i
+static auto f_dog (ArgVec const& args, int arg) -> Value {
     static Iwdg dog;
-    dog.reload(count);
+    dog.reload(args.size() > 0 ? arg : 4095);
     return {};
 }
 
