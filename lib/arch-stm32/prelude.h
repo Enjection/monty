@@ -1,4 +1,3 @@
-
 namespace device {
     //CG< periph
     constexpr auto ADC           = 0x50040000;  // ADC
@@ -166,4 +165,3 @@ namespace device {
         { 3, IrqVec::SPI3, SPI3 },
     };
 }
-

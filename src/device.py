@@ -36,21 +36,20 @@ namespace device {
         %s
     };
 }
-"""
+""".strip()
 
 # replace each series of digits with a three-digit number
-def widenum(m):
-    return ("000" + m.group(0))[-3:]
+def numsort(s):
+    return re.sub('\d+', (lambda m: ("000" + m.group(0))[-3:]), s)
 
 def irqsort(s):
     if s[:5] == "USART": # group UART and USART together
         s = "UART" + s[5:]
-    return re.sub('\d+', widenum, s)
+    return numsort(s)
 
 # sort in human-friendly order, i.e. "1,2,10" iso "1,10,2"
 def keyfun(p):
-    s = p.name
-    return re.sub('\d+', widenum, s)
+    return numsort(p.name)
 
 irqs = {}
 groups = {}

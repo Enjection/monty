@@ -6,14 +6,14 @@ namespace altpins {
         return (r << 4) | n;
     }
 
-    struct UartAltPins {
-        uint16_t pin  :8;
-        uint16_t uart :4;
-        uint16_t alt  :4;
+    struct AltPins {
+        uint16_t pin :8;
+        uint16_t dev :4;
+        uint16_t alt :4;
     };
 
 #if STM32F0
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A1" ), 4, 4 },
         { Pin("A3" ), 1, 1 },
         { Pin("A3" ), 2, 1 },
@@ -41,7 +41,7 @@ namespace altpins {
         { Pin("F3" ), 7, 1 },
         { Pin("F10"), 6, 1 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A0" ), 4, 4 },
         { Pin("A2" ), 1, 1 },
         { Pin("A2" ), 2, 1 },
@@ -72,7 +72,7 @@ namespace altpins {
 #endif
 
 #if STM32F2
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
@@ -86,7 +86,7 @@ namespace altpins {
         { Pin("D9" ), 3, 7 },
         { Pin("G9" ), 6, 8 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -103,7 +103,7 @@ namespace altpins {
 #endif
 
 #if STM32F3
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
         { Pin("A15"), 2, 7 },
@@ -121,7 +121,7 @@ namespace altpins {
         { Pin("E1" ), 1, 7 },
         { Pin("E15"), 3, 7 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
         { Pin("A14"), 2, 7 },
@@ -141,7 +141,7 @@ namespace altpins {
 #endif
 
 #if STM32F4
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A8" ), 7, 8 },
@@ -174,7 +174,7 @@ namespace altpins {
         { Pin("G9" ), 6, 8 },
         { Pin("G11"),10,11 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -210,7 +210,7 @@ namespace altpins {
 #endif
 
 #if STM32F7
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A8" ), 7,12 },
@@ -237,7 +237,7 @@ namespace altpins {
         { Pin("H14"), 4, 8 },
         { Pin("I9" ), 4, 8 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -266,7 +266,7 @@ namespace altpins {
 #endif
 
 #if STM32G0
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A1" ), 4, 4 },
         { Pin("A3" ), 2, 1 },
         { Pin("A5" ), 6, 3 },
@@ -291,7 +291,7 @@ namespace altpins {
         { Pin("E11"), 5, 3 },
         { Pin("F10"), 6, 3 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A0" ), 4, 4 },
         { Pin("A2" ), 2, 1 },
         { Pin("A4" ), 6, 3 },
@@ -321,7 +321,7 @@ namespace altpins {
 #endif
 
 #if STM32G4
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
         { Pin("A15"), 2, 7 },
@@ -338,7 +338,7 @@ namespace altpins {
         { Pin("E1" ), 1, 7 },
         { Pin("E15"), 3, 7 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
         { Pin("A14"), 2, 7 },
@@ -358,7 +358,7 @@ namespace altpins {
 #endif
 
 #if STM32H7
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A8" ), 7,11 },
@@ -390,7 +390,7 @@ namespace altpins {
         { Pin("I9" ), 4, 8 },
         { Pin("J9" ), 8, 8 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -424,7 +424,7 @@ namespace altpins {
 #endif
 
 #if STM32L0
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A0" ), 2, 0 },
         { Pin("A1" ), 4, 6 },
         { Pin("A3" ), 2, 4 },
@@ -440,7 +440,7 @@ namespace altpins {
         { Pin("E9" ), 4, 6 },
         { Pin("E11"), 5, 6 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A0" ), 4, 6 },
         { Pin("A2" ), 2, 4 },
         { Pin("A9" ), 1, 4 },
@@ -459,7 +459,7 @@ namespace altpins {
 #endif
 
 #if STM32L1
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
         { Pin("B7" ), 1, 7 },
@@ -470,7 +470,7 @@ namespace altpins {
         { Pin("D6" ), 2, 7 },
         { Pin("D9" ), 3, 7 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
         { Pin("B6" ), 1, 7 },
@@ -484,7 +484,7 @@ namespace altpins {
 #endif
 
 #if STM32L4
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
@@ -499,7 +499,7 @@ namespace altpins {
         { Pin("D9" ), 3, 7 },
         { Pin("G10"), 1, 7 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -516,7 +516,7 @@ namespace altpins {
 #endif
 
 #if STM32L5
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
@@ -531,7 +531,7 @@ namespace altpins {
         { Pin("D9" ), 3, 7 },
         { Pin("G10"), 1, 7 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -548,23 +548,23 @@ namespace altpins {
 #endif
 
 #if STM32WB
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A10"), 1, 7 },
         { Pin("B7" ), 1, 7 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A9" ), 1, 7 },
         { Pin("B6" ), 1, 7 },
     };
 #endif
 
 #if STM32WL
-    UartAltPins const uartAltRX [] = {
+    AltPins const uartAltRX [] = {
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
         { Pin("B7" ), 1, 7 },
     };
-    UartAltPins const uartAltTX [] = {
+    AltPins const uartAltTX [] = {
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
         { Pin("B6" ), 1, 7 },
