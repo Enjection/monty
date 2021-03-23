@@ -34,6 +34,23 @@ def maybeInRoot(f):
             return f2
     return f
 
+def BOARD(block, board, device):
+    return ['#define BOARD "%s"' % board,
+            '#define DEVICE "%s"' % device,
+            '#define %s 1' % device[:7]]
+
+def CONSOLE(block, *args, **kw):
+    return []
+
+def LED(block, *args):
+    return []
+
+def PERIPH(block, *args):
+    return [line.strip() for line in block]
+
+def IRQVEC(block, *args):
+    return [line.strip() for line in block]
+
 # insert headers for PIO's library dependency finder
 def INCLUDES(block):
     out = []
@@ -344,7 +361,7 @@ def QSTR_EMIT(block):
         if s:
             out.append('    "%s"' % s)
         if verbose > 1:
-            print("\t%s: %d qstrs, %s bytes" % (qArch, i-1, n))
+            print("\t %s: %d qstrs, %s bytes" % (qArch, i-1, n))
         out += ['    // offsets [0..%d], hashes [%d..%d], %d strings [%d..%d]' %
                                 (2*i-1, 2*i, 2*i+num-3, i-2, 2*i+num-2, n-1),
                 "#endif"]
@@ -623,7 +640,8 @@ def processLines(lines):
 
             stripall = strip and tag not in [
                 "bind", "binops", "exceptions", "if", "module", "op",
-                "opcodes", "qstr", "type", "version", "wrap", "wrappers"
+                "opcodes", "qstr", "type", "version", "wrap", "wrappers",
+                "periph", "irqvec",
             ]
 
             name = tag.replace('-','_').upper()

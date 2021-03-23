@@ -1,5 +1,6 @@
 #include <monty.h>
 #include "arch.h"
+#include "altpins.h"
 
 #include <cassert>
 #include <unistd.h>
