@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os, re, sys, subprocess
+from os import path
 
 class Flags: # make all missing attributes return ""
     def __getattribute__(self,name):
@@ -27,9 +28,9 @@ dry   = False       # true if this is a dry-run, i.e. "-n" flag set
 root = os.environ.get("MONTY_ROOT", "") # set when used out-of-tree
 
 def maybeInRoot(f):
-    if root and not os.path.exists(f):
-        f2 = os.path.join(root, f)
-        if os.path.exists(f2):
+    if root and not path.exists(f):
+        f2 = path.join(root, f)
+        if path.exists(f2):
             return f2
     return f
 
@@ -275,12 +276,12 @@ def VERSION(block):
     if strip:
         v = "<stripped>"
     else:
-        d = os.path.dirname(__file__)
+        d = path.dirname(__file__)
         # make sure to run "git describe" from inside the Monty area
         s, v = subprocess.getstatusoutput("cd %s && git describe --tags --always" % d)
         if s:
             # use name of Monty's root dir if this is not a git clone
-            v = os.path.basename(os.path.dirname(d))
+            v = path.basename(path.dirname(d))
     return ['constexpr auto VERSION = "%s";' % v]
 
 # generate qstr definition
@@ -675,26 +676,26 @@ def processLines(lines):
     return [p.sub(qfix, line) for line in result]
 
 # process one source file, replace it only if the new contents is different
-def processFile(path):
+def processFile(fpath):
     global flags, cgCounts, rwCounts
     flags = Flags()
     cgCounts = 0
     if verbose > 1:
-        print(path + ":")
-    with open(path, 'r') as fd:
+        print(fpath + ":")
+    with open(fpath, 'r') as fd:
         lines = [s.rstrip('\r\n') for s in fd]
     result = processLines(iter(lines))
     if verbose > 1 and cgCounts > 0:
         print("%8d CG directives" % cgCounts)
     if result and result != lines:
         if dry:
-            print('would rewrite:', path)
+            print('would rewrite:', fpath)
         else:
             if verbose:
-                print('rewriting:', path)
+                print('rewriting:', fpath)
             else:
                 rwCounts += 1
-            with open(path, 'w') as fd: # FIXME not safe
+            with open(fpath, 'w') as fd: # FIXME not safe
                 for s in result:
                     fd.write(s+'\n')
 
@@ -713,14 +714,14 @@ if __name__ == '__main__':
         del sys.argv[0]
 
     # identify the separately-processed files
-    sepFiles, base = [], None
+    sepFiles, base = ["prelude.h"], None
     for arg in sys.argv:
         arg = maybeInRoot(arg)
-        if os.path.isdir(arg):
-            b = os.path.basename(arg.rstrip("/"))
+        if path.isdir(arg):
+            b = path.basename(arg.rstrip("/"))
             dirs[b] = arg
             h = "%s.h" % b
-            if b != "monty" and os.path.isfile(os.path.join(arg, h)):
+            if b != "monty" and path.isfile(path.join(arg, h)):
                 hdrs[arch].append(h)
             if not base:
                 base = arg # remember first one
@@ -741,22 +742,24 @@ if __name__ == '__main__':
             if verbose > 1:
                 print("<GROUP %s>" % arch)
             continue
-        path = os.path.join(base, arg)
-        if os.path.isfile(path):
+        fpath = path.join(base, arg)
+        if path.isfile(fpath):
             if verbose > 1 and arch:
                 print("<GROUP>")
             if arch != "":
                 qarch("")
             arch = ""
-            processFile(path)
+            processFile(fpath)
         else:
             arg = maybeInRoot(arg)
             files = os.listdir(arg)
-            files.sort();
+            files.sort()
+            if "prelude.h" in files: # always processed first
+                processFile(path.join(arg, "prelude.h"))
             for f in files:
                 if not f in sepFiles:
-                    if os.path.splitext(f)[1] in ['.h', '.c', '.cpp']:
-                        processFile(os.path.join(arg, f))
+                    if path.splitext(f)[1] in ['.h', '.c', '.cpp']:
+                        processFile(path.join(arg, f))
 
     if rwCounts:
         msg = "stripped" if strip else "rewritten"
