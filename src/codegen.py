@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# This is Monty's code generator, driven by "//CG" and "Q()" directives.
+# Only to be run via "inv generate", which sets up all the proper parameters.
+
 import os, re, sys, subprocess
 from os import path
 
@@ -35,9 +38,10 @@ def maybeInRoot(f):
             return f2
     return f
 
-def BOARD(block, board, device):
+def BOARD(block, board, device, env):
     return ['#define BOARD "%s"' % board,
             '#define DEVICE "%s"' % device,
+            '#define PIO_ENV "%s"' % env,
             '#define %s 1' % device[:7]]
 
 def CONFIG(block, name, *args, **kw):

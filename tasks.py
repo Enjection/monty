@@ -1,6 +1,6 @@
 # see https://www.pyinvoke.org
 
-import configparser, os, sys
+import configparser, json, os, sys
 from invoke import task, call
 from os import path
 from src.runner import compileIfOutdated, compareWithExpected, printSeparator
@@ -42,12 +42,90 @@ for f in cfg["platformio"].get("extra_configs", "").split():
 python_ignore = cfg["invoke"].get("python_ignore", "").split()
 runner_ignore = cfg["invoke"].get("runner_ignore", "").split()
 
+# hard-coded paths, could be made configurable in the "[invoke]" section
+preludeFile = inRoot("lib/arch-stm32/prelude.h")
+boardDir = path.expanduser("~/.platformio/platforms/ststm32/boards/")
+
+# find a config setting, recursively following the "extends = ..." chain(s)
+def findSetting(name, sect):
+    value = cfg[sect].get(name)
+    if not value:
+        for sect in cfg[sect].get("extends", "").split(", "):
+            value = findSetting(name, sect)
+            if value:
+                break
+    return value
+
+# dig up the SVD file name from the board JSON file
+def findSvdName(board):
+    try:
+        with open("%s/%s.json" % (boardDir, board)) as f:
+            data = json.load(f)
+        svd = data["debug"]["svd_path"]
+        return path.splitext(svd)[0]
+    except (FileNotFoundError, KeyError):
+        pass
+
+# the start of the prelude must be as follows, else it should be updated
+def preludePrefix(env, board, dev):
+    out = [
+        '// this file was generated with "inv env %s"' % env,
+        '// do not edit, new versions will overwrite this file',
+        '',
+        '//CG: board %s -device %s -env %s' % (board, dev, env),
+    ]
+    sect = "config:%s" % env
+    if sect in cfg and cfg[sect]:
+        out.append("")
+        out.append("// from: [%s]" % sect)
+        for k, v in cfg[sect].items():
+            out.append("//CG: config %s" % " ".join([k] + v.split()))
+    out.append("")
+    return "\n".join(out)
+
+# messy: bypass codegen's expansion to allow comparing the corrent prelude
+# this will also detect any changes to the "[config:<env>]" section
+def stripGen(s):
+    out = []
+    for line in s.split("\n"):
+        if len(line) > 5 and line.startswith("//CG"):
+            out.append(line[5:])
+    #print(out[:20])
+    return "\n".join(out) # only the CG lines remain, without the CG? marker
+
+# figure out whether the prelude matched the current environment, else update
+# to speed up things, the src/device.py script is only run when really needed
+def updatePrelude(c):
+    env = cfg["platformio"].get("default_envs")
+    if not env:
+        return
+    platform = findSetting("platform", "env:%s" % env)
+    if platform != "ststm32":
+        return;
+    board = findSetting("board", "env:%s" % env)
+    dev = findSvdName(board)
+    if not dev:
+        return
+    prefix = preludePrefix(env, board, dev)
+    if path.isfile(preludeFile):
+        with open(preludeFile) as f:
+            if stripGen(f.read()).startswith(stripGen(prefix)):
+                return # nothing to update, they have the same prefix
+    print("generating prelude.h for", dev)
+    if not dry: # there's no way around it, run the src/device.py script
+        with open(preludeFile, "w") as f:
+            print(prefix, file=f)
+            c.run(" ".join([inRoot("src/device.py"), dev]), out_stream=f)
+            print("\n// end of generated file", file=f)
+
 @task(incrementable=["verbose"],
       help={"verbose": "print some extra debugging output (repeat for more)",
             "strip": "strip most generated code from the source files",
             "norun": "only report the changes, don't write them out"})
 def generate(c, strip=False, verbose=False, norun=False):
     """pass source files through the code generator"""
+    if not strip or not root:
+        updatePrelude(c)
     # construct codegen args from the [codegen] section in platformio.ini
     cmd = [inRoot("src/codegen.py")]
     cmd += strip*["-s"] + verbose*["-v"] + norun*["-n"]
@@ -222,8 +300,8 @@ def watch(c, file, remote=False):
 
 @task(name=("env" if root else "x-env"),
       help={"env": "save new default PIO env, i.e. [env:<arg>]"})
-def env(c, env):
-    """change the default env to use in "monty-pio.ini" """
+def x_env(c, env):
+    """change the default env in "monty-pio.ini" or "platformio.ini" """
     if "env:%s" % env not in cfg:
         print("unknown environment: [env:%s]" % env)
     else:
@@ -243,20 +321,6 @@ def env(c, env):
             if not dry:
                 with open(ini, "w") as f:
                     f.write("".join(lines))
-        # FIXME all sorts of hard-coded assumptions here ...
-        with open("lib/arch-stm32/prelude.h", "w") as f:
-            dev = "STM32L4x2"
-            print('// this file was generated with "inv env %s"' % env, file=f)
-            print('// do not edit, new versions will overwrite this file', file=f)
-            print("\n//CG board %s -device %s" % (env, dev), file=f)
-            sect = "config:%s" % env
-            if sect in cfg and cfg[sect]:
-                print("\n// from: [%s]" % sect, file=f)
-                for k, v in cfg[sect].items():
-                    print("//CG config %s" % " ".join([k] + v.split()), file=f)
-            print(file=f)
-            c.run("src/device.py %s" % dev, out_stream=f)
-            print("\n// end of generated file", file=f)
 
 if not root: # the following tasks are NOT available for use out-of-tree
 

@@ -1,7 +1,7 @@
 // this file was generated with "inv env nucleo-l432"
 // do not edit, new versions will overwrite this file
 
-//CG: board nucleo-l432 -device STM32L4x2
+//CG: board nucleo_l432kc -device STM32L4x2 -env nucleo-l432
 
 // from: [config:nucleo-l432]
 //CG: config console uart2 -tx A2 -rx A15

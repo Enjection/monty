@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+
+# Extract alt pin configuration info from STM's "Open Pin Database", see:
+#   https://github.com/STMicroelectronics/STM32_open_pin_data
 #
-# usage: src/altpins.py mcu-ip-dir
+# Used in Monty as: src/altpins.py /path/to/mcu/IP/ >lib/arch-stm32/altpins.h
 
 import os, re, sys
 
