@@ -13,7 +13,7 @@ svdDir = path.expanduser("~/.platformio/platforms/ststm32/misc/svd")
 parser = SVDParser.for_xml_file("%s/%s.svd" % (svdDir, svdName))
 
 template = """
-//CG device %s
+// from: %s.svd
 
 //CG< periph
 %s

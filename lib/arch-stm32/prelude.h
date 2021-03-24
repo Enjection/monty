@@ -1,4 +1,13 @@
-//CG: device STM32L4x2
+// this file was generated with "inv env nucleo-l432"
+// do not edit, new versions will overwrite this file
+
+//CG: board nucleo-l432 -device STM32L4x2
+
+// from: [config:nucleo-l432]
+//CG: config console uart2 -tx A2 -rx A15
+//CG: config led B3
+
+// from: STM32L4x2.svd
 
 //CG< periph
 constexpr auto ADC           = 0x50040000;  // ADC
@@ -165,3 +174,5 @@ struct SpiInfo {
     { 2, IrqVec::SPI2, SPI2 },
     { 3, IrqVec::SPI3, SPI3 },
 };
+
+// end of generated file

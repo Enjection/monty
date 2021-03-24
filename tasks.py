@@ -218,31 +218,47 @@ def watch(c, file, remote=False):
     cmd = [inRoot("src/watcher.py")] + remote*["-r"] + [file]
     c.run(" ".join(cmd), pty=True)
 
-if root: # the following tasks are ONLY available for use out-of-tree
+# the following task is named differently when in-tree
 
-    @task(help={"env": "save new default PIO env, i.e. [env:<arg>]"})
-    def env(c, env):
-        """change the default env to use in "monty-pio.ini" """
-        if "env:%s" % env not in cfg:
-            print("unknown environment: [env:%s]" % env)
-        else:
-            prev, lines = "", []
-            with open("monty-pio.ini") as f:
-                for line in f:
-                    if line.startswith("default_envs = "):
-                        prev = line.split()[-1]
-                        line = "default_envs = %s\n" % env
-                    lines.append(line)
-            if not prev:
-                print('no "default_envs = ..." setting found')
-            elif prev != env:
-                print("switching to env:%s (was env:%s)" % (env, prev))
-                cfg["platformio"]["default_envs"] = env
-                if not dry:
-                    with open("monty-pio.ini", "w") as f:
-                        f.write("".join(lines))
+@task(name=("env" if root else "x-env"),
+      help={"env": "save new default PIO env, i.e. [env:<arg>]"})
+def env(c, env):
+    """change the default env to use in "monty-pio.ini" """
+    if "env:%s" % env not in cfg:
+        print("unknown environment: [env:%s]" % env)
+    else:
+        prev, lines = "", []
+        ini = "monty-pio.ini" if root else "platformio.ini"
+        with open(ini) as f:
+            for line in f:
+                if line.startswith("default_envs = "):
+                    prev = line.split()[-1]
+                    line = "default_envs = %s\n" % env
+                lines.append(line)
+        if not prev:
+            print('no "default_envs = ..." setting found')
+        elif prev != env:
+            print("switching to env:%s (was env:%s)" % (env, prev))
+            cfg["platformio"]["default_envs"] = env
+            if not dry:
+                with open(ini, "w") as f:
+                    f.write("".join(lines))
+        # FIXME all sorts of hard-coded assumptions here ...
+        with open("lib/arch-stm32/prelude.h", "w") as f:
+            dev = "STM32L4x2"
+            print('// this file was generated with "inv env %s"' % env, file=f)
+            print('// do not edit, new versions will overwrite this file', file=f)
+            print("\n//CG board %s -device %s" % (env, dev), file=f)
+            sect = "config:%s" % env
+            if sect in cfg and cfg[sect]:
+                print("\n// from: [%s]" % sect, file=f)
+                for k, v in cfg[sect].items():
+                    print("//CG config %s" % " ".join([k] + v.split()), file=f)
+            print(file=f)
+            c.run("src/device.py %s" % dev, out_stream=f)
+            print("\n// end of generated file", file=f)
 
-else: # the following tasks are NOT available for use out-of-tree
+if not root: # the following tasks are NOT available for use out-of-tree
 
     @task(call(generate, strip=True))
     def diff(c):

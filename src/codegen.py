@@ -34,14 +34,12 @@ def maybeInRoot(f):
             return f2
     return f
 
-def DEVICE(block, device):
-    return ['#define DEVICE "%s"' % device,
+def BOARD(block, board, device):
+    return ['#define BOARD "%s"' % board,
+            '#define DEVICE "%s"' % device,
             '#define %s 1' % device[:7]]
 
-def CONSOLE(block, *args, **kw):
-    return []
-
-def LED(block, *args):
+def CONFIG(block, name, *args, **kw):
     return []
 
 def PERIPH(block, *args):
