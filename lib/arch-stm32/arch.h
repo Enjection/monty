@@ -1,4 +1,6 @@
+namespace device {
 #include "prelude.h"
+}
 
 //CG: includes
 

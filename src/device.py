@@ -13,29 +13,27 @@ svdDir = path.expanduser("~/.platformio/platforms/ststm32/misc/svd")
 parser = SVDParser.for_xml_file("%s/%s.svd" % (svdDir, svdName))
 
 template = """
-namespace device {
-    //CG< periph
+//CG< periph
+%s
+//CG>
+
+enum struct IrqVec : uint8_t {
+    //CG< irqvec
     %s
     //CG>
+};
 
-    enum struct IrqVec : uint8_t {
-        //CG< irqvec
-        %s
-        //CG>
-    };
+struct UartInfo {
+    uint8_t num; IrqVec irq; uint32_t base;
+} const uartInfo [] = {
+    %s
+};
 
-    struct UartInfo {
-        uint8_t num; IrqVec irq; uint32_t base;
-    } const uartInfo [] = {
-        %s
-    };
-
-    struct SpiInfo {
-        uint8_t num; IrqVec irq; uint32_t base;
-    } const spiInfo [] = {
-        %s
-    };
-}
+struct SpiInfo {
+    uint8_t num; IrqVec irq; uint32_t base;
+} const spiInfo [] = {
+    %s
+};
 """.strip()
 
 # replace each series of digits with a three-digit number
@@ -96,7 +94,7 @@ if False: # don't do register offsets (yet), the data is not consistent enough
             display_registers(g + "_", device['peripherals'][p], level=1)
             print("    };")
 
-print(template % ("\n    ".join(periphs),
-                  "\n        ".join(irqvecs),
-                  "\n        ".join(uarts),
-                  "\n        ".join(spis)))
+print(template % ("\n".join(periphs),
+                  "\n    ".join(irqvecs),
+                  "\n    ".join(uarts),
+                  "\n    ".join(spis)))
