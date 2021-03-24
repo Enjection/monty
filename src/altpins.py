@@ -68,38 +68,43 @@ def scan():
 def emit():
     print("\n#if STM32%s" % family)
     for pin in db:
-        print("    AltPins const alt%s [] = {" % pin)
+        print("AltPins const alt%s [] = {" % pin)
         i = 0
         for gpio in sorted(db[pin], key=numsort):
             for dev in sorted(db[pin][gpio]):
                 if i % 3 == 0:
                     if i > 0:
                         print()
-                    print("       ", end="")
+                    print("   ", end="")
                 i += 1
                 mode = db[pin][gpio][dev]
                 print(" { Pin(%-5s),%2s,%2s }," % \
                       ('"%s"' % gpio, dev, mode), end="")
-        print("\n    };")
+        print("\n};")
     print("#endif")
 
 ipDir = sys.argv[1]
 
 print("""
-namespace altpins {
-    constexpr auto Pin (char const* s) {
-        int r = *s++ - 'A', n = 0;
-        while (*s)
-            n = 10 * n + *s++ - '0';
-        return (r << 4) | n;
-    }
+struct AltPins { uint16_t pin :8, dev :4, alt :4; };
 
-    struct AltPins { uint16_t pin :8, dev :4, alt :4; };
+constexpr auto Pin (char const* s) {
+    int r = *s++ - 'A', n = 0;
+    while (*s)
+        n = 10 * n + *s++ - '0';
+    return (r << 4) | n;
+}
+
+template< typename T >
+constexpr auto PinToAlt (T const& map, int pin, int dev) -> int {
+    for (auto e : map)
+        if (pin == e.pin && dev == e.dev)
+            return e.alt;
+    return -1;
+}
 """.strip())
 
 for family in "F0 F2 F3 F4 F7 G0 G4 H7 L0 L1 L4 L5 WB WL".split():
     db = { x:{} for x in "TX RX MOSI MISO SCK NSS".split() }
     scan()
     emit()
-
-print("}")

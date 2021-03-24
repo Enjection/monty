@@ -1,6 +1,9 @@
 #include <monty.h>
 #include "arch.h"
+
+namespace altpins {
 #include "altpins.h"
+}
 
 #include <cassert>
 #include <unistd.h>
@@ -370,6 +373,8 @@ auto monty::vmImport (char const* name) -> uint8_t const* {
 #endif
 }
 #endif
+
+using namespace altpins;
 
 void arch::init (int size) {
     console.init();
