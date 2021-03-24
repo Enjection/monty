@@ -13,6 +13,8 @@ svdDir = path.expanduser("~/.platformio/platforms/ststm32/misc/svd")
 parser = SVDParser.for_xml_file("%s/%s.svd" % (svdDir, svdName))
 
 template = """
+//CG device %s
+
 //CG< periph
 %s
 //CG>
@@ -94,7 +96,8 @@ if False: # don't do register offsets (yet), the data is not consistent enough
             display_registers(g + "_", device['peripherals'][p], level=1)
             print("    };")
 
-print(template % ("\n".join(periphs),
+print(template % (svdName,
+                  "\n".join(periphs),
                   "\n    ".join(irqvecs),
                   "\n    ".join(uarts),
                   "\n    ".join(spis)))

@@ -1,3 +1,5 @@
+//CG: device STM32L4x2
+
 //CG< periph
 constexpr auto ADC           = 0x50040000;  // ADC
 constexpr auto AES           = 0x50060000;  // AES
