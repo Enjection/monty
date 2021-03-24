@@ -89,13 +89,13 @@ def emit():
 ipDir = sys.argv[1]
 
 print("""
-struct AltPins { uint16_t pin :8, dev :4, alt :4; };
+struct AltPins { uint8_t pin, dev :4, alt :4; };
 
-constexpr auto Pin (char const* s) {
+constexpr auto Pin (char const* s) -> uint8_t {
     int r = *s++ - 'A', n = 0;
-    while (*s)
+    while ('0' <= *s && *s <= '9')
         n = 10 * n + *s++ - '0';
-    return (r << 4) | n;
+    return (r << 4) | (n & 0x1F);
 }
 
 template< typename T >

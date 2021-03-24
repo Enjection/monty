@@ -11,17 +11,17 @@ using namespace monty;
 using namespace device;
 using namespace altpins;
 
-jeeh::Pin leds [9];
+// led 1 = B0  #0 green
+// led 2 = B7  #1 blue
+// led 3 = B14 #2 red
+// led A = A5  #3 white
+// led B = A6  #4 blue
+// led C = A7  #5 green
+// led D = D14 #6 yellow
+// led E = D15 #7 orange
+// led F = F12 #8 red
 
-// led1 B0  = 0: green
-// led2 B7  = 1: blue
-// led3 B14 = 2: red
-// ledA A5  = 3: white
-// ledB A6  = 4: blue
-// ledC A7  = 5: green
-// ledD D14 = 6: yellow
-// ledE D15 = 7: orange
-// ledF F12 = 8: red
+jeeh::Pin leds [9];
 
 int main () {
     arch::init(100*1024);

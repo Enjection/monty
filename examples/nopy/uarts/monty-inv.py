@@ -1,5 +1,7 @@
 # see https://www.pyinvoke.org
 
-@task(flash, runner, default=True)
+@task(flash, serial, default=True)
 def all(c):
-    """compile upload tests to the "bluepill" board"""
+    """compile, upload, and connect to the nucleo-f413 board"""
+
+del mrfs, native, python, runner, test, upload, watch
