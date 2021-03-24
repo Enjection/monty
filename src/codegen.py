@@ -23,6 +23,7 @@ funs  = {"": []}    # list of bound functions per type/module
 descs = {"": {}}    # map of function parse descriptors per type/module
 meths = {"": []}    # list of bound methods per type/module
 dirs  = {}          # map of scanned dirnames to path, see IF
+cfgs  = {}          # map of configuration setting from [config:...]
 dry   = False       # true if this is a dry-run, i.e. "-n" flag set
 
 root = os.environ.get("MONTY_ROOT", "") # set when used out-of-tree
@@ -40,6 +41,9 @@ def BOARD(block, board, device):
             '#define %s 1' % device[:7]]
 
 def CONFIG(block, name, *args, **kw):
+    cfgs[name] = list(args)
+    if kw:
+        cfgs[name].append(kw)
     return []
 
 def PERIPH(block, *args):
@@ -101,7 +105,8 @@ def KWARGS(block, *arg):
 
 # comment lines in or out, depending on a condition
 def IF(block, typ, arg):
-    include = typ == "dir" and not strip and arg in dirs
+    include = not strip and ((typ == "dir" and arg in dirs) or
+                             (typ == "config" and arg in cfgs))
     out = []
     for line in block:
         line = line.lstrip(" /")
