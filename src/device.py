@@ -45,20 +45,24 @@ struct SpiInfo {
 };
 """.strip()
 
+# there are inconsistenties in the SVD files, use UART iso USART everywhere
+def uartfix(s):
+    if s.startswith("USART"):
+        s = "UART" + s[5:]
+    return s
+
 # replace each series of digits with a three-digit number
 def numsort(s):
     return re.sub('\d+', (lambda m: ("000" + m.group(0))[-3:]), s)
 
 def uartsort(s):
-    if s[:5] == "USART": # group UART and USART together
-        s = "UART" + s[5:]
-    return numsort(s)
+    return numsort(uartfix(s))
 
 irqs = {}
 groups = {}
 
 periphs = []
-for p in sorted(parser.get_device().peripherals, key=lambda p: numsort(p.name)):
+for p in sorted(parser.get_device().peripherals, key=lambda p: uartsort(p.name)):
     u = p.name.upper()
     g = p.group_name.upper()
     b = p.base_address
@@ -67,7 +71,7 @@ for p in sorted(parser.get_device().peripherals, key=lambda p: numsort(p.name)):
         groups[g] = []
     groups[g].append(u)
 
-    periphs.append("constexpr auto %-13s = 0x%08x;  // %s" % (u, b, g))
+    periphs.append("constexpr auto %-13s = 0x%08x;  // %s" % (uartfix(u), b, g))
 
     for x in p.interrupts:
         irqs[x.name] = (x.value, g)
@@ -75,19 +79,24 @@ for p in sorted(parser.get_device().peripherals, key=lambda p: numsort(p.name)):
 irqvecs = []
 for k in sorted(irqs.keys(), key=uartsort):
     v, g = irqs[k]
-    irqvecs.append(f"{k:<21} = {v:3},  // {g}")
+    u = uartfix(k)
+    irqvecs.append(f"{u:<21} = {v:3},  // {g}")
 
 uarts = []
 for p in sorted(groups["USART"], key=uartsort):
     if p[0] == "U": # ignore LPUART
         n = int(re.sub('\D+', '', p))
-        uarts.append("{ %2d, IrqVec::%-6s, %-6s }," % (n, p, p))
+        u = uartfix(p)
+        uarts.append("{ %2d, IrqVec::%-6s, %-6s }," % (n, u, u))
 
 spis = []
 for p in sorted(groups["SPI"], key=uartsort):
     if p[0] == "S": # ignore I2S
         n = int(re.sub('\D+', '', p))
-        spis.append("{ %d, IrqVec::%s, %s }," % (n, p, p))
+        if p in irqs:
+            spis.append("{ %d, IrqVec::%s, %s }," % (n, p, p))
+        else:
+            print("no IrqVec for %s, ignoring" % p, file=sys.stderr)
 
 if False: # don't do register offsets (yet), the data is not consistent enough
     print()

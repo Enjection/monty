@@ -80,7 +80,7 @@ namespace jeeh {
         // mode string: [AFDUPO][LNHV][<n>][,]
         auto mode (char const* desc) const -> bool {
             int a = 0, m = 0;
-            for (auto s = desc; *s != 0; ++s)
+            for (auto s = desc; *s != ',' && *s != 0; ++s)
                 switch (*s) {
                     case 'A': m = (int) Pinmode::in_analog; break;
                     case 'F': m = (int) Pinmode::in_float; break;

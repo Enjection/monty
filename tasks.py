@@ -58,8 +58,11 @@ def findSetting(name, sect):
 
 # dig up the SVD file name from the board JSON file
 def findSvdName(board):
+    d = boardDir
+    if path.isfile("boards/%s.json" % board):
+        d = "boards"
     try:
-        with open("%s/%s.json" % (boardDir, board)) as f:
+        with open("%s/%s.json" % (d, board)) as f:
             data = json.load(f)
         svd = data["debug"]["svd_path"]
         return path.splitext(svd)[0]

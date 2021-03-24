@@ -5,7 +5,7 @@
 
 // from: [config:nucleo-l432]
 //CG: config console uart2 -tx A2 -rx A15
-//CG: config led B3
+//CG: config leds B3
 
 // from: STM32L4x2.svd
 
@@ -68,10 +68,10 @@ constexpr auto TIM7          = 0x40001400;  // TIM
 constexpr auto TIM15         = 0x40014000;  // TIM
 constexpr auto TIM16         = 0x40014400;  // TIM
 constexpr auto TSC           = 0x40024000;  // TSC
+constexpr auto UART1         = 0x40013800;  // USART
+constexpr auto UART2         = 0x40004400;  // USART
+constexpr auto UART3         = 0x40004800;  // USART
 constexpr auto UART4         = 0x40004c00;  // USART
-constexpr auto USART1        = 0x40013800;  // USART
-constexpr auto USART2        = 0x40004400;  // USART
-constexpr auto USART3        = 0x40004800;  // USART
 constexpr auto USB_FS        = 0x40006800;  // USB
 constexpr auto USB_SRAM      = 0x40006c00;  // USB
 constexpr auto VREFBUF       = 0x40010030;  // VREF
@@ -149,9 +149,9 @@ enum struct IrqVec : uint8_t {
     TIM6_DACUNDER         =  54,  // TIM
     TIM7                  =  55,  // TIM
     TSC                   =  77,  // TSC
-    USART1                =  37,  // USART
-    USART2                =  38,  // USART
-    USART3                =  39,  // USART
+    UART1                 =  37,  // USART
+    UART2                 =  38,  // USART
+    UART3                 =  39,  // USART
     UART4                 =  52,  // USART
     USB_FS                =  67,  // USB
     WWDG                  =   0,  // WWDG
@@ -161,9 +161,9 @@ enum struct IrqVec : uint8_t {
 struct UartInfo {
     uint8_t num; IrqVec irq; uint32_t base;
 } const uartInfo [] = {
-    {  1, IrqVec::USART1, USART1 },
-    {  2, IrqVec::USART2, USART2 },
-    {  3, IrqVec::USART3, USART3 },
+    {  1, IrqVec::UART1 , UART1  },
+    {  2, IrqVec::UART2 , UART2  },
+    {  3, IrqVec::UART3 , UART3  },
     {  4, IrqVec::UART4 , UART4  },
 };
 
