@@ -13,7 +13,7 @@ namespace altpins {
     };
 
 #if STM32F0
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A1" ), 4, 4 },
         { Pin("A3" ), 1, 1 },
         { Pin("A3" ), 2, 1 },
@@ -41,7 +41,7 @@ namespace altpins {
         { Pin("F3" ), 7, 1 },
         { Pin("F10"), 6, 1 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A0" ), 4, 4 },
         { Pin("A2" ), 1, 1 },
         { Pin("A2" ), 2, 1 },
@@ -69,10 +69,46 @@ namespace altpins {
         { Pin("F2" ), 7, 1 },
         { Pin("F9" ), 6, 1 },
     };
+    AltPins const altMISO [] = {
+        { Pin("A6" ), 1, 0 },
+        { Pin("B4" ), 1, 0 },
+        { Pin("B14"), 1, 0 },
+        { Pin("B14"), 2, 0 },
+        { Pin("C2" ), 2, 1 },
+        { Pin("D3" ), 2, 1 },
+        { Pin("E14"), 1, 1 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A7" ), 1, 0 },
+        { Pin("B5" ), 1, 0 },
+        { Pin("B15"), 1, 0 },
+        { Pin("B15"), 2, 0 },
+        { Pin("C3" ), 2, 1 },
+        { Pin("D4" ), 2, 1 },
+        { Pin("E15"), 1, 1 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A5" ), 1, 0 },
+        { Pin("B3" ), 1, 0 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B13"), 1, 0 },
+        { Pin("B13"), 2, 0 },
+        { Pin("D1" ), 2, 1 },
+        { Pin("E13"), 1, 1 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 0 },
+        { Pin("A15"), 1, 0 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 1, 0 },
+        { Pin("B12"), 2, 0 },
+        { Pin("D0" ), 2, 1 },
+        { Pin("E12"), 1, 1 },
+    };
 #endif
 
 #if STM32F2
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
@@ -86,7 +122,7 @@ namespace altpins {
         { Pin("D9" ), 3, 7 },
         { Pin("G9" ), 6, 8 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -100,10 +136,46 @@ namespace altpins {
         { Pin("D8" ), 3, 7 },
         { Pin("G14"), 6, 8 },
     };
+    AltPins const altMISO [] = {
+        { Pin("A6" ), 1, 5 },
+        { Pin("B4" ), 1, 5 },
+        { Pin("B4" ), 3, 6 },
+        { Pin("B14"), 2, 5 },
+        { Pin("C2" ), 2, 5 },
+        { Pin("C11"), 3, 6 },
+        { Pin("I2" ), 2, 5 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A7" ), 1, 5 },
+        { Pin("B5" ), 1, 5 },
+        { Pin("B5" ), 3, 6 },
+        { Pin("B15"), 2, 5 },
+        { Pin("C3" ), 2, 5 },
+        { Pin("C12"), 3, 6 },
+        { Pin("I3" ), 2, 5 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A5" ), 1, 5 },
+        { Pin("B3" ), 1, 5 },
+        { Pin("B3" ), 3, 6 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B13"), 2, 5 },
+        { Pin("C10"), 3, 6 },
+        { Pin("I1" ), 2, 5 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 5 },
+        { Pin("A4" ), 3, 6 },
+        { Pin("A15"), 1, 5 },
+        { Pin("A15"), 3, 6 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 2, 5 },
+        { Pin("I0" ), 2, 5 },
+    };
 #endif
 
 #if STM32F3
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
         { Pin("A15"), 2, 7 },
@@ -121,7 +193,7 @@ namespace altpins {
         { Pin("E1" ), 1, 7 },
         { Pin("E15"), 3, 7 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
         { Pin("A14"), 2, 7 },
@@ -138,10 +210,80 @@ namespace altpins {
         { Pin("D8" ), 3, 7 },
         { Pin("E0" ), 1, 7 },
     };
+    AltPins const altMISO [] = {
+        { Pin("A2" ), 3, 6 },
+        { Pin("A6" ), 1, 5 },
+        { Pin("A9" ), 2, 5 },
+        { Pin("A10"), 2, 5 },
+        { Pin("A13"), 1, 6 },
+        { Pin("B4" ), 1, 5 },
+        { Pin("B4" ), 3, 6 },
+        { Pin("B14"), 2, 5 },
+        { Pin("C2" ), 2, 5 },
+        { Pin("C8" ), 1, 5 },
+        { Pin("C11"), 3, 6 },
+        { Pin("D3" ), 2, 5 },
+        { Pin("E5" ), 4, 5 },
+        { Pin("E13"), 4, 5 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A3" ), 3, 6 },
+        { Pin("A7" ), 1, 5 },
+        { Pin("A10"), 2, 5 },
+        { Pin("A11"), 2, 5 },
+        { Pin("B0" ), 1, 5 },
+        { Pin("B5" ), 1, 5 },
+        { Pin("B5" ), 3, 6 },
+        { Pin("B15"), 2, 5 },
+        { Pin("C3" ), 2, 5 },
+        { Pin("C9" ), 1, 5 },
+        { Pin("C12"), 3, 6 },
+        { Pin("D4" ), 2, 5 },
+        { Pin("E6" ), 4, 5 },
+        { Pin("E14"), 4, 5 },
+        { Pin("F6" ), 1, 5 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A1" ), 3, 6 },
+        { Pin("A5" ), 1, 5 },
+        { Pin("A8" ), 2, 5 },
+        { Pin("A12"), 1, 6 },
+        { Pin("B3" ), 1, 5 },
+        { Pin("B3" ), 3, 6 },
+        { Pin("B8" ), 2, 5 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B13"), 2, 5 },
+        { Pin("C7" ), 1, 5 },
+        { Pin("C10"), 3, 6 },
+        { Pin("D7" ), 2, 5 },
+        { Pin("D8" ), 2, 5 },
+        { Pin("E2" ), 4, 5 },
+        { Pin("E12"), 4, 5 },
+        { Pin("F1" ), 2, 5 },
+        { Pin("F9" ), 2, 5 },
+        { Pin("F10"), 2, 5 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 5 },
+        { Pin("A4" ), 3, 6 },
+        { Pin("A11"), 1, 6 },
+        { Pin("A11"), 2, 5 },
+        { Pin("A15"), 1, 5 },
+        { Pin("A15"), 3, 6 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 2, 5 },
+        { Pin("C6" ), 1, 5 },
+        { Pin("D6" ), 2, 5 },
+        { Pin("D15"), 2, 6 },
+        { Pin("E3" ), 4, 5 },
+        { Pin("E4" ), 4, 5 },
+        { Pin("E11"), 4, 5 },
+        { Pin("F0" ), 2, 5 },
+    };
 #endif
 
 #if STM32F4
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A8" ), 7, 8 },
@@ -174,7 +316,7 @@ namespace altpins {
         { Pin("G9" ), 6, 8 },
         { Pin("G11"),10,11 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -207,10 +349,103 @@ namespace altpins {
         { Pin("G12"),10,11 },
         { Pin("G14"), 6, 8 },
     };
+    AltPins const altMISO [] = {
+        { Pin("A6" ), 1, 5 },
+        { Pin("A11"), 4, 6 },
+        { Pin("A12"), 2, 5 },
+        { Pin("A12"), 5, 6 },
+        { Pin("B4" ), 1, 5 },
+        { Pin("B4" ), 3, 6 },
+        { Pin("B14"), 2, 5 },
+        { Pin("C2" ), 2, 5 },
+        { Pin("C11"), 3, 6 },
+        { Pin("D0" ), 4, 5 },
+        { Pin("E5" ), 4, 5 },
+        { Pin("E5" ), 5, 6 },
+        { Pin("E13"), 4, 5 },
+        { Pin("E13"), 5, 6 },
+        { Pin("F8" ), 5, 5 },
+        { Pin("G12"), 4, 6 },
+        { Pin("G12"), 6, 5 },
+        { Pin("H7" ), 5, 5 },
+        { Pin("I2" ), 2, 5 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A1" ), 4, 5 },
+        { Pin("A7" ), 1, 5 },
+        { Pin("A10"), 2, 5 },
+        { Pin("A10"), 5, 6 },
+        { Pin("B0" ), 3, 7 },
+        { Pin("B2" ), 3, 7 },
+        { Pin("B5" ), 1, 5 },
+        { Pin("B5" ), 3, 6 },
+        { Pin("B8" ), 5, 6 },
+        { Pin("B15"), 2, 5 },
+        { Pin("C1" ), 2, 5 },
+        { Pin("C1" ), 3, 5 },
+        { Pin("C3" ), 2, 5 },
+        { Pin("C12"), 3, 6 },
+        { Pin("D0" ), 3, 6 },
+        { Pin("D6" ), 3, 5 },
+        { Pin("E6" ), 4, 5 },
+        { Pin("E6" ), 5, 6 },
+        { Pin("E14"), 4, 5 },
+        { Pin("E14"), 5, 6 },
+        { Pin("F9" ), 5, 5 },
+        { Pin("F11"), 5, 5 },
+        { Pin("G13"), 4, 6 },
+        { Pin("G14"), 6, 5 },
+        { Pin("I3" ), 2, 5 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A5" ), 1, 5 },
+        { Pin("A9" ), 2, 5 },
+        { Pin("B0" ), 5, 6 },
+        { Pin("B3" ), 1, 5 },
+        { Pin("B3" ), 3, 6 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B12"), 3, 7 },
+        { Pin("B13"), 2, 5 },
+        { Pin("B13"), 4, 6 },
+        { Pin("C7" ), 2, 5 },
+        { Pin("C10"), 3, 6 },
+        { Pin("D3" ), 2, 5 },
+        { Pin("E2" ), 4, 5 },
+        { Pin("E2" ), 5, 6 },
+        { Pin("E12"), 4, 5 },
+        { Pin("E12"), 5, 6 },
+        { Pin("F7" ), 5, 5 },
+        { Pin("G11"), 4, 6 },
+        { Pin("G13"), 6, 5 },
+        { Pin("H6" ), 5, 5 },
+        { Pin("I1" ), 2, 5 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 5 },
+        { Pin("A4" ), 3, 6 },
+        { Pin("A11"), 2, 5 },
+        { Pin("A15"), 1, 5 },
+        { Pin("A15"), 3, 6 },
+        { Pin("B1" ), 5, 6 },
+        { Pin("B4" ), 2, 7 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 2, 5 },
+        { Pin("B12"), 4, 6 },
+        { Pin("D1" ), 2, 7 },
+        { Pin("E4" ), 4, 5 },
+        { Pin("E4" ), 5, 6 },
+        { Pin("E11"), 4, 5 },
+        { Pin("E11"), 5, 6 },
+        { Pin("F6" ), 5, 5 },
+        { Pin("G8" ), 6, 5 },
+        { Pin("G14"), 4, 6 },
+        { Pin("H5" ), 5, 5 },
+        { Pin("I0" ), 2, 5 },
+    };
 #endif
 
 #if STM32F7
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A8" ), 7,12 },
@@ -237,7 +472,7 @@ namespace altpins {
         { Pin("H14"), 4, 8 },
         { Pin("I9" ), 4, 8 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -263,10 +498,86 @@ namespace altpins {
         { Pin("G14"), 6, 8 },
         { Pin("H13"), 4, 8 },
     };
+    AltPins const altMISO [] = {
+        { Pin("A6" ), 1, 5 },
+        { Pin("A6" ), 6, 8 },
+        { Pin("B4" ), 1, 5 },
+        { Pin("B4" ), 3, 6 },
+        { Pin("B4" ), 6, 8 },
+        { Pin("B14"), 2, 5 },
+        { Pin("C2" ), 2, 5 },
+        { Pin("C11"), 3, 6 },
+        { Pin("E5" ), 4, 5 },
+        { Pin("E13"), 4, 5 },
+        { Pin("F8" ), 5, 5 },
+        { Pin("G9" ), 1, 5 },
+        { Pin("G12"), 6, 5 },
+        { Pin("H7" ), 5, 5 },
+        { Pin("I2" ), 2, 5 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A7" ), 1, 5 },
+        { Pin("A7" ), 6, 8 },
+        { Pin("B2" ), 3, 7 },
+        { Pin("B5" ), 1, 5 },
+        { Pin("B5" ), 3, 6 },
+        { Pin("B5" ), 6, 8 },
+        { Pin("B15"), 2, 5 },
+        { Pin("C1" ), 2, 5 },
+        { Pin("C3" ), 2, 5 },
+        { Pin("C12"), 3, 6 },
+        { Pin("D6" ), 3, 5 },
+        { Pin("D7" ), 1, 5 },
+        { Pin("E6" ), 4, 5 },
+        { Pin("E14"), 4, 5 },
+        { Pin("F9" ), 5, 5 },
+        { Pin("F11"), 5, 5 },
+        { Pin("G14"), 6, 5 },
+        { Pin("I3" ), 2, 5 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A5" ), 1, 5 },
+        { Pin("A5" ), 6, 8 },
+        { Pin("A9" ), 2, 5 },
+        { Pin("A12"), 2, 5 },
+        { Pin("B3" ), 1, 5 },
+        { Pin("B3" ), 3, 6 },
+        { Pin("B3" ), 6, 8 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B13"), 2, 5 },
+        { Pin("C10"), 3, 6 },
+        { Pin("D3" ), 2, 5 },
+        { Pin("E2" ), 4, 5 },
+        { Pin("E12"), 4, 5 },
+        { Pin("F7" ), 5, 5 },
+        { Pin("G11"), 1, 5 },
+        { Pin("G13"), 6, 5 },
+        { Pin("H6" ), 5, 5 },
+        { Pin("I1" ), 2, 5 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 5 },
+        { Pin("A4" ), 3, 6 },
+        { Pin("A4" ), 6, 8 },
+        { Pin("A11"), 2, 5 },
+        { Pin("A15"), 1, 5 },
+        { Pin("A15"), 3, 6 },
+        { Pin("A15"), 6, 7 },
+        { Pin("B4" ), 2, 7 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 2, 5 },
+        { Pin("E4" ), 4, 5 },
+        { Pin("E11"), 4, 5 },
+        { Pin("F6" ), 5, 5 },
+        { Pin("G8" ), 6, 5 },
+        { Pin("G10"), 1, 5 },
+        { Pin("H5" ), 5, 5 },
+        { Pin("I0" ), 2, 5 },
+    };
 #endif
 
 #if STM32G0
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A1" ), 4, 4 },
         { Pin("A3" ), 2, 1 },
         { Pin("A5" ), 6, 3 },
@@ -291,7 +602,7 @@ namespace altpins {
         { Pin("E11"), 5, 3 },
         { Pin("F10"), 6, 3 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A0" ), 4, 4 },
         { Pin("A2" ), 2, 1 },
         { Pin("A4" ), 6, 3 },
@@ -318,10 +629,70 @@ namespace altpins {
         { Pin("E10"), 5, 3 },
         { Pin("F9" ), 6, 3 },
     };
+    AltPins const altMISO [] = {
+        { Pin("A3" ), 2, 0 },
+        { Pin("A6" ), 1, 0 },
+        { Pin("A9" ), 2, 4 },
+        { Pin("A11"), 1, 0 },
+        { Pin("B2" ), 2, 1 },
+        { Pin("B4" ), 1, 0 },
+        { Pin("B4" ), 3, 9 },
+        { Pin("B6" ), 2, 4 },
+        { Pin("B14"), 2, 0 },
+        { Pin("C2" ), 2, 1 },
+        { Pin("C11"), 3, 4 },
+        { Pin("D3" ), 2, 1 },
+        { Pin("D5" ), 1, 1 },
+        { Pin("E14"), 1, 0 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A2" ), 1, 0 },
+        { Pin("A4" ), 2, 1 },
+        { Pin("A7" ), 1, 0 },
+        { Pin("A10"), 2, 0 },
+        { Pin("A12"), 1, 0 },
+        { Pin("B5" ), 1, 0 },
+        { Pin("B5" ), 3, 9 },
+        { Pin("B7" ), 2, 1 },
+        { Pin("B11"), 2, 0 },
+        { Pin("B15"), 2, 0 },
+        { Pin("C3" ), 2, 1 },
+        { Pin("C12"), 3, 4 },
+        { Pin("D4" ), 2, 1 },
+        { Pin("D6" ), 1, 1 },
+        { Pin("E15"), 1, 0 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A0" ), 2, 0 },
+        { Pin("A1" ), 1, 0 },
+        { Pin("A5" ), 1, 0 },
+        { Pin("B3" ), 1, 0 },
+        { Pin("B3" ), 3, 9 },
+        { Pin("B8" ), 2, 1 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B13"), 2, 0 },
+        { Pin("C10"), 3, 4 },
+        { Pin("D1" ), 2, 1 },
+        { Pin("D8" ), 1, 1 },
+        { Pin("E13"), 1, 0 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 0 },
+        { Pin("A4" ), 3, 9 },
+        { Pin("A8" ), 2, 1 },
+        { Pin("A15"), 1, 0 },
+        { Pin("A15"), 3, 9 },
+        { Pin("B0" ), 1, 0 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 2, 0 },
+        { Pin("D0" ), 2, 1 },
+        { Pin("D9" ), 1, 1 },
+        { Pin("E12"), 1, 0 },
+    };
 #endif
 
 #if STM32G4
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
         { Pin("A15"), 2, 7 },
@@ -338,7 +709,7 @@ namespace altpins {
         { Pin("E1" ), 1, 7 },
         { Pin("E15"), 3, 7 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
         { Pin("A14"), 2, 7 },
@@ -355,10 +726,59 @@ namespace altpins {
         { Pin("E0" ), 1, 7 },
         { Pin("G9" ), 1, 7 },
     };
+    AltPins const altMISO [] = {
+        { Pin("A6" ), 1, 5 },
+        { Pin("A10"), 2, 5 },
+        { Pin("B4" ), 1, 5 },
+        { Pin("B4" ), 3, 6 },
+        { Pin("B14"), 2, 5 },
+        { Pin("C11"), 3, 6 },
+        { Pin("E5" ), 4, 5 },
+        { Pin("E13"), 4, 5 },
+        { Pin("G3" ), 1, 5 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A7" ), 1, 5 },
+        { Pin("A11"), 2, 5 },
+        { Pin("B5" ), 1, 5 },
+        { Pin("B5" ), 3, 6 },
+        { Pin("B15"), 2, 5 },
+        { Pin("C12"), 3, 6 },
+        { Pin("E6" ), 4, 5 },
+        { Pin("E14"), 4, 5 },
+        { Pin("G4" ), 1, 5 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A5" ), 1, 5 },
+        { Pin("B3" ), 1, 5 },
+        { Pin("B3" ), 3, 6 },
+        { Pin("B13"), 2, 5 },
+        { Pin("C10"), 3, 6 },
+        { Pin("E2" ), 4, 5 },
+        { Pin("E12"), 4, 5 },
+        { Pin("F1" ), 2, 5 },
+        { Pin("F9" ), 2, 5 },
+        { Pin("F10"), 2, 5 },
+        { Pin("G2" ), 1, 5 },
+        { Pin("G9" ), 3, 6 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 5 },
+        { Pin("A4" ), 3, 6 },
+        { Pin("A15"), 1, 5 },
+        { Pin("A15"), 3, 6 },
+        { Pin("B12"), 2, 5 },
+        { Pin("D15"), 2, 6 },
+        { Pin("E3" ), 4, 5 },
+        { Pin("E4" ), 4, 5 },
+        { Pin("E11"), 4, 5 },
+        { Pin("F0" ), 2, 5 },
+        { Pin("G5" ), 1, 5 },
+    };
 #endif
 
 #if STM32H7
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A8" ), 7,11 },
@@ -390,7 +810,7 @@ namespace altpins {
         { Pin("I9" ), 4, 8 },
         { Pin("J9" ), 8, 8 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -421,10 +841,92 @@ namespace altpins {
         { Pin("H13"), 4, 8 },
         { Pin("J8" ), 8, 8 },
     };
+    AltPins const altMISO [] = {
+        { Pin("A6" ), 1, 5 },
+        { Pin("A6" ), 6, 8 },
+        { Pin("B4" ), 1, 5 },
+        { Pin("B4" ), 3, 6 },
+        { Pin("B4" ), 6, 8 },
+        { Pin("B14"), 2, 5 },
+        { Pin("C2" ), 2, 5 },
+        { Pin("C11"), 3, 6 },
+        { Pin("E5" ), 4, 5 },
+        { Pin("E13"), 4, 5 },
+        { Pin("F8" ), 5, 5 },
+        { Pin("G9" ), 1, 5 },
+        { Pin("G12"), 6, 5 },
+        { Pin("H7" ), 5, 5 },
+        { Pin("I2" ), 2, 5 },
+        { Pin("J11"), 5, 5 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A7" ), 1, 5 },
+        { Pin("A7" ), 6, 8 },
+        { Pin("B2" ), 3, 7 },
+        { Pin("B5" ), 1, 5 },
+        { Pin("B5" ), 3, 7 },
+        { Pin("B5" ), 6, 8 },
+        { Pin("B15"), 2, 5 },
+        { Pin("C1" ), 2, 5 },
+        { Pin("C3" ), 2, 5 },
+        { Pin("C12"), 3, 6 },
+        { Pin("D6" ), 3, 5 },
+        { Pin("D7" ), 1, 5 },
+        { Pin("E6" ), 4, 5 },
+        { Pin("E14"), 4, 5 },
+        { Pin("F9" ), 5, 5 },
+        { Pin("F11"), 5, 5 },
+        { Pin("G14"), 6, 5 },
+        { Pin("I3" ), 2, 5 },
+        { Pin("J10"), 5, 5 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A5" ), 1, 5 },
+        { Pin("A5" ), 6, 8 },
+        { Pin("A9" ), 2, 5 },
+        { Pin("A12"), 2, 5 },
+        { Pin("B3" ), 1, 5 },
+        { Pin("B3" ), 3, 6 },
+        { Pin("B3" ), 6, 8 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B13"), 2, 5 },
+        { Pin("C10"), 3, 6 },
+        { Pin("C12"), 6, 5 },
+        { Pin("D3" ), 2, 5 },
+        { Pin("E2" ), 4, 5 },
+        { Pin("E12"), 4, 5 },
+        { Pin("F7" ), 5, 5 },
+        { Pin("G11"), 1, 5 },
+        { Pin("G13"), 6, 5 },
+        { Pin("H6" ), 5, 5 },
+        { Pin("I1" ), 2, 5 },
+        { Pin("K0" ), 5, 5 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A0" ), 6, 5 },
+        { Pin("A4" ), 1, 5 },
+        { Pin("A4" ), 3, 6 },
+        { Pin("A4" ), 6, 8 },
+        { Pin("A11"), 2, 5 },
+        { Pin("A15"), 1, 5 },
+        { Pin("A15"), 3, 6 },
+        { Pin("A15"), 6, 7 },
+        { Pin("B4" ), 2, 7 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 2, 5 },
+        { Pin("E4" ), 4, 5 },
+        { Pin("E11"), 4, 5 },
+        { Pin("F6" ), 5, 5 },
+        { Pin("G8" ), 6, 5 },
+        { Pin("G10"), 1, 5 },
+        { Pin("H5" ), 5, 5 },
+        { Pin("I0" ), 2, 5 },
+        { Pin("K1" ), 5, 5 },
+    };
 #endif
 
 #if STM32L0
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A0" ), 2, 0 },
         { Pin("A1" ), 4, 6 },
         { Pin("A3" ), 2, 4 },
@@ -440,7 +942,7 @@ namespace altpins {
         { Pin("E9" ), 4, 6 },
         { Pin("E11"), 5, 6 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A0" ), 4, 6 },
         { Pin("A2" ), 2, 4 },
         { Pin("A9" ), 1, 4 },
@@ -456,10 +958,53 @@ namespace altpins {
         { Pin("E8" ), 4, 6 },
         { Pin("E10"), 5, 6 },
     };
+    AltPins const altMISO [] = {
+        { Pin("A6" ), 1, 0 },
+        { Pin("A11"), 1, 0 },
+        { Pin("A14"), 1, 5 },
+        { Pin("B0" ), 1, 1 },
+        { Pin("B4" ), 1, 0 },
+        { Pin("B14"), 1, 0 },
+        { Pin("B14"), 2, 0 },
+        { Pin("C2" ), 2, 2 },
+        { Pin("D3" ), 2, 2 },
+        { Pin("E14"), 1, 2 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A7" ), 1, 0 },
+        { Pin("A12"), 1, 0 },
+        { Pin("B1" ), 1, 1 },
+        { Pin("B5" ), 1, 0 },
+        { Pin("B15"), 1, 0 },
+        { Pin("B15"), 2, 0 },
+        { Pin("C3" ), 2, 2 },
+        { Pin("D4" ), 2, 1 },
+        { Pin("E15"), 1, 2 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A5" ), 1, 0 },
+        { Pin("A13"), 1, 5 },
+        { Pin("B3" ), 1, 0 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B13"), 1, 0 },
+        { Pin("B13"), 2, 0 },
+        { Pin("D1" ), 2, 1 },
+        { Pin("E13"), 1, 2 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 0 },
+        { Pin("A15"), 1, 0 },
+        { Pin("B8" ), 1, 5 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 1, 0 },
+        { Pin("B12"), 2, 0 },
+        { Pin("D0" ), 2, 1 },
+        { Pin("E12"), 1, 2 },
+    };
 #endif
 
 #if STM32L1
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
         { Pin("B7" ), 1, 7 },
@@ -470,7 +1015,7 @@ namespace altpins {
         { Pin("D6" ), 2, 7 },
         { Pin("D9" ), 3, 7 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
         { Pin("B6" ), 1, 7 },
@@ -480,11 +1025,49 @@ namespace altpins {
         { Pin("C12"), 5, 8 },
         { Pin("D5" ), 2, 7 },
         { Pin("D8" ), 3, 7 },
+    };
+    AltPins const altMISO [] = {
+        { Pin("A6" ), 1, 5 },
+        { Pin("A11"), 1, 5 },
+        { Pin("B4" ), 1, 5 },
+        { Pin("B4" ), 3, 6 },
+        { Pin("B14"), 2, 5 },
+        { Pin("C11"), 3, 6 },
+        { Pin("D3" ), 2, 5 },
+        { Pin("E14"), 1, 5 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A7" ), 1, 5 },
+        { Pin("A12"), 1, 5 },
+        { Pin("B5" ), 1, 5 },
+        { Pin("B5" ), 3, 6 },
+        { Pin("B15"), 2, 5 },
+        { Pin("C12"), 3, 6 },
+        { Pin("D4" ), 2, 5 },
+        { Pin("E15"), 1, 5 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A5" ), 1, 5 },
+        { Pin("B3" ), 1, 5 },
+        { Pin("B3" ), 3, 6 },
+        { Pin("B13"), 2, 5 },
+        { Pin("C10"), 3, 6 },
+        { Pin("D1" ), 2, 5 },
+        { Pin("E13"), 1, 5 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 5 },
+        { Pin("A4" ), 3, 6 },
+        { Pin("A15"), 1, 5 },
+        { Pin("A15"), 3, 6 },
+        { Pin("B12"), 2, 5 },
+        { Pin("D0" ), 2, 5 },
+        { Pin("E12"), 1, 5 },
     };
 #endif
 
 #if STM32L4
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
@@ -499,7 +1082,7 @@ namespace altpins {
         { Pin("D9" ), 3, 7 },
         { Pin("G10"), 1, 7 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -512,11 +1095,71 @@ namespace altpins {
         { Pin("D5" ), 2, 7 },
         { Pin("D8" ), 3, 7 },
         { Pin("G9" ), 1, 7 },
+    };
+    AltPins const altMISO [] = {
+        { Pin("A6" ), 1, 5 },
+        { Pin("A11"), 1, 5 },
+        { Pin("B4" ), 1, 5 },
+        { Pin("B4" ), 3, 6 },
+        { Pin("B14"), 2, 5 },
+        { Pin("C2" ), 2, 5 },
+        { Pin("C11"), 3, 6 },
+        { Pin("D3" ), 2, 5 },
+        { Pin("E14"), 1, 5 },
+        { Pin("G3" ), 1, 5 },
+        { Pin("G10"), 3, 6 },
+        { Pin("I2" ), 2, 5 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A7" ), 1, 5 },
+        { Pin("A12"), 1, 5 },
+        { Pin("B5" ), 1, 5 },
+        { Pin("B5" ), 3, 6 },
+        { Pin("B15"), 2, 5 },
+        { Pin("C1" ), 2, 3 },
+        { Pin("C3" ), 2, 5 },
+        { Pin("C12"), 3, 6 },
+        { Pin("D4" ), 2, 5 },
+        { Pin("D6" ), 3, 5 },
+        { Pin("E15"), 1, 5 },
+        { Pin("G4" ), 1, 5 },
+        { Pin("G11"), 3, 6 },
+        { Pin("I3" ), 2, 5 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A1" ), 1, 5 },
+        { Pin("A5" ), 1, 5 },
+        { Pin("A9" ), 2, 3 },
+        { Pin("B3" ), 1, 5 },
+        { Pin("B3" ), 3, 6 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B13"), 2, 5 },
+        { Pin("C10"), 3, 6 },
+        { Pin("D1" ), 2, 5 },
+        { Pin("D3" ), 2, 3 },
+        { Pin("E13"), 1, 5 },
+        { Pin("G2" ), 1, 5 },
+        { Pin("G9" ), 3, 6 },
+        { Pin("I1" ), 2, 5 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 5 },
+        { Pin("A4" ), 3, 6 },
+        { Pin("A15"), 1, 5 },
+        { Pin("A15"), 3, 6 },
+        { Pin("B0" ), 1, 5 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 2, 5 },
+        { Pin("D0" ), 2, 5 },
+        { Pin("E12"), 1, 5 },
+        { Pin("G5" ), 1, 5 },
+        { Pin("G12"), 3, 6 },
+        { Pin("I0" ), 2, 5 },
     };
 #endif
 
 #if STM32L5
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A1" ), 4, 8 },
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
@@ -531,7 +1174,7 @@ namespace altpins {
         { Pin("D9" ), 3, 7 },
         { Pin("G10"), 1, 7 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A0" ), 4, 8 },
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
@@ -545,29 +1188,158 @@ namespace altpins {
         { Pin("D8" ), 3, 7 },
         { Pin("G9" ), 1, 7 },
     };
+    AltPins const altMISO [] = {
+        { Pin("A6" ), 1, 5 },
+        { Pin("A11"), 1, 5 },
+        { Pin("B4" ), 1, 5 },
+        { Pin("B4" ), 3, 6 },
+        { Pin("B14"), 2, 5 },
+        { Pin("C2" ), 2, 5 },
+        { Pin("C11"), 3, 6 },
+        { Pin("D3" ), 2, 5 },
+        { Pin("E14"), 1, 5 },
+        { Pin("G3" ), 1, 5 },
+        { Pin("G10"), 3, 6 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A7" ), 1, 5 },
+        { Pin("A12"), 1, 5 },
+        { Pin("B5" ), 1, 5 },
+        { Pin("B5" ), 3, 6 },
+        { Pin("B15"), 2, 5 },
+        { Pin("C1" ), 2, 3 },
+        { Pin("C3" ), 2, 5 },
+        { Pin("C12"), 3, 6 },
+        { Pin("D4" ), 2, 5 },
+        { Pin("D6" ), 3, 5 },
+        { Pin("E15"), 1, 5 },
+        { Pin("G4" ), 1, 5 },
+        { Pin("G11"), 3, 6 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A1" ), 1, 5 },
+        { Pin("A5" ), 1, 5 },
+        { Pin("A9" ), 2, 3 },
+        { Pin("B3" ), 1, 5 },
+        { Pin("B3" ), 3, 6 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B13"), 2, 5 },
+        { Pin("C10"), 3, 6 },
+        { Pin("D1" ), 2, 5 },
+        { Pin("D3" ), 2, 3 },
+        { Pin("E13"), 1, 5 },
+        { Pin("G2" ), 1, 5 },
+        { Pin("G9" ), 3, 6 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 5 },
+        { Pin("A4" ), 3, 6 },
+        { Pin("A15"), 1, 5 },
+        { Pin("A15"), 3, 6 },
+        { Pin("B0" ), 1, 5 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 2, 5 },
+        { Pin("D0" ), 2, 5 },
+        { Pin("E12"), 1, 5 },
+        { Pin("G5" ), 1, 5 },
+        { Pin("G12"), 3, 6 },
+    };
 #endif
 
 #if STM32WB
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A10"), 1, 7 },
         { Pin("B7" ), 1, 7 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A9" ), 1, 7 },
         { Pin("B6" ), 1, 7 },
+    };
+    AltPins const altMISO [] = {
+        { Pin("A6" ), 1, 5 },
+        { Pin("A11"), 1, 5 },
+        { Pin("B4" ), 1, 5 },
+        { Pin("B14"), 2, 5 },
+        { Pin("C2" ), 2, 5 },
+        { Pin("D3" ), 2, 5 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A5" ), 1, 4 },
+        { Pin("A7" ), 1, 5 },
+        { Pin("A12"), 1, 5 },
+        { Pin("A13"), 1, 5 },
+        { Pin("B5" ), 1, 5 },
+        { Pin("B15"), 2, 5 },
+        { Pin("C1" ), 2, 3 },
+        { Pin("C3" ), 2, 5 },
+        { Pin("D4" ), 2, 5 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A1" ), 1, 5 },
+        { Pin("A5" ), 1, 5 },
+        { Pin("A9" ), 2, 5 },
+        { Pin("B3" ), 1, 5 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B13"), 2, 5 },
+        { Pin("D1" ), 2, 5 },
+        { Pin("D3" ), 2, 3 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 5 },
+        { Pin("A14"), 1, 5 },
+        { Pin("A15"), 1, 5 },
+        { Pin("B2" ), 1, 5 },
+        { Pin("B6" ), 1, 5 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 2, 5 },
+        { Pin("D0" ), 2, 5 },
     };
 #endif
 
 #if STM32WL
-    AltPins const uartAltRX [] = {
+    AltPins const altRX [] = {
         { Pin("A3" ), 2, 7 },
         { Pin("A10"), 1, 7 },
         { Pin("B7" ), 1, 7 },
     };
-    AltPins const uartAltTX [] = {
+    AltPins const altTX [] = {
         { Pin("A2" ), 2, 7 },
         { Pin("A9" ), 1, 7 },
         { Pin("B6" ), 1, 7 },
+    };
+    AltPins const altMISO [] = {
+        { Pin("A5" ), 2, 3 },
+        { Pin("A6" ), 1, 5 },
+        { Pin("A11"), 1, 5 },
+        { Pin("B4" ), 1, 5 },
+        { Pin("B14"), 2, 5 },
+        { Pin("C2" ), 2, 5 },
+    };
+    AltPins const altMOSI [] = {
+        { Pin("A7" ), 1, 5 },
+        { Pin("A10"), 2, 5 },
+        { Pin("A12"), 1, 5 },
+        { Pin("B5" ), 1, 5 },
+        { Pin("B15"), 2, 5 },
+        { Pin("C1" ), 2, 3 },
+        { Pin("C3" ), 2, 5 },
+    };
+    AltPins const altSCK [] = {
+        { Pin("A1" ), 1, 5 },
+        { Pin("A5" ), 1, 5 },
+        { Pin("A8" ), 2, 5 },
+        { Pin("A9" ), 2, 5 },
+        { Pin("B3" ), 1, 5 },
+        { Pin("B10"), 2, 5 },
+        { Pin("B13"), 2, 5 },
+    };
+    AltPins const altNSS [] = {
+        { Pin("A4" ), 1, 5 },
+        { Pin("A9" ), 2, 3 },
+        { Pin("A15"), 1, 5 },
+        { Pin("B2" ), 1, 5 },
+        { Pin("B9" ), 2, 5 },
+        { Pin("B12"), 2, 5 },
     };
 #endif
 }
