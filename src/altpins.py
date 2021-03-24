@@ -98,7 +98,7 @@ namespace altpins {
 """.strip())
 
 for family in "F0 F2 F3 F4 F7 G0 G4 H7 L0 L1 L4 L5 WB WL".split():
-    db = { x:{} for x in "RX TX MISO MOSI SCK NSS".split() }
+    db = { x:{} for x in "TX RX MOSI MISO SCK NSS".split() }
     scan()
     emit()
 
