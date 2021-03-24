@@ -69,12 +69,18 @@ def emit():
     print("\n#if STM32%s" % family)
     for pin in db:
         print("    AltPins const alt%s [] = {" % pin)
+        i = 0
         for gpio in sorted(db[pin], key=numsort):
             for dev in sorted(db[pin][gpio]):
+                if i % 3 == 0:
+                    if i > 0:
+                        print()
+                    print("       ", end="")
+                i += 1
                 mode = db[pin][gpio][dev]
-                print("        { Pin(%-5s),%2s,%2s }," % \
-                    ('"%s"' % gpio, dev, mode))
-        print("    };")
+                print(" { Pin(%-5s),%2s,%2s }," % \
+                      ('"%s"' % gpio, dev, mode), end="")
+        print("\n    };")
     print("#endif")
 
 ipDir = sys.argv[1]
