@@ -94,11 +94,7 @@ namespace altpins {
         return (r << 4) | n;
     }
 
-    struct AltPins {
-        uint16_t pin :8;
-        uint16_t dev :4;
-        uint16_t alt :4;
-    };
+    struct AltPins { uint16_t pin :8, dev :4, alt :4; };
 """.strip())
 
 for family in "F0 F2 F3 F4 F7 G0 G4 H7 L0 L1 L4 L5 WB WL".split():

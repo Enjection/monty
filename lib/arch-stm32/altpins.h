@@ -6,11 +6,7 @@ namespace altpins {
         return (r << 4) | n;
     }
 
-    struct AltPins {
-        uint16_t pin :8;
-        uint16_t dev :4;
-        uint16_t alt :4;
-    };
+    struct AltPins { uint16_t pin :8, dev :4, alt :4; };
 
 #if STM32F0
     AltPins const altRX [] = {
