@@ -12,40 +12,31 @@ def numsort(s):
 def extract(fname):
     gpio, signal, spec, mode = "", "", "", ""
 
-    def uartInfo():
-        if signal[:1] == "U" and "ART" in signal: # not UCPD
-            if "RX" in signal or "TX" in signal:
-                u = signal
-                if u.startswith("UART"):
-                    u = "USART" + u[4:]
-                uart, pin = u.split("_")
-                uart = uart[5:]
-                #print(pin, gpio, uart, mode)
-                if gpio not in db[pin]:
-                    db[pin][gpio] = {}
-                m = db[pin][gpio]
-                if uart in m and mode != m[uart]:
-                    f = os.path.basename(fname).split("_")[0] + ":"
-                    # conflicting alt mode for same uart/pin combo !
-                    print(f, family, pin, gpio, uart, "alt-mode:",
-                            m[uart], "<->", mode, "?", file=sys.stderr)
-                m[uart] = mode
-
-    def spiInfo():
-        if signal[:3] == "SPI":
-            spi, pin = signal.split("_")
-            spi = spi[3:]
+    def addToDb(dev, pin):
+        if pin in db:
             if gpio not in db[pin]:
                 db[pin][gpio] = {}
             m = db[pin][gpio]
-            if spi in m and mode != m[spi]:
-                f = os.path.basename(fname).split("_")[0] + ":"
-                # conflicting alt mode for same spi/pin combo !
-                print(f, family, pin, gpio, spi, "alt-mode:",
-                        m[spi], "<->", mode, "?", file=sys.stderr)
-            m[spi] = mode
+            if dev in m and mode != m[dev]:
+                f = os.path.basename(fname) + ":"
+                # conflicting alt mode for same dev/pin combo !
+                print(f, family, pin, gpio, dev, "alt-mode:",
+                        m[dev], "<->", mode, "?", file=sys.stderr)
+            m[dev] = mode
+
+    def processPin():
+        if signal[:1] == "U" and "ART" in signal: # not UCPD
+            u = signal
+            if u.startswith("UART"):
+                u = "USART" + u[4:]
+            dev, pin = u.split("_")[:2]
+            addToDb(dev[5:], pin)
+        if signal[:3] == "SPI":
+            dev, pin = signal.split("_")
+            addToDb(dev[3:], pin)
 
     with open(fname) as f:
+        # pick up GPIO_Pin, PinSignal, Specific, and Possible tags
         for line in f:
             s = line.strip()
             if s.startswith("<GPIO_Pin "):
@@ -60,8 +51,8 @@ def extract(fname):
             elif spec and s.startswith("<Possible"):
                 # yuck, but it gets the job done, i.e. AF<mode> ...
                 mode = re.findall(r'>.+<', s)[0][6:-1].split("_")[0][2:]
-                uartInfo()
-                spiInfo()
+                # context is now complete, deal with this pin
+                processPin()
 
 # build database for current family
 def scan():
@@ -79,10 +70,10 @@ def emit():
     for pin in db:
         print("    AltPins const alt%s [] = {" % pin)
         for gpio in sorted(db[pin], key=numsort):
-            for uart in sorted(db[pin][gpio]):
-                mode = db[pin][gpio][uart]
+            for dev in sorted(db[pin][gpio]):
+                mode = db[pin][gpio][dev]
                 print("        { Pin(%-5s),%2s,%2s }," % \
-                    ('"%s"' % gpio, uart, mode))
+                    ('"%s"' % gpio, dev, mode))
         print("    };")
     print("#endif")
 
