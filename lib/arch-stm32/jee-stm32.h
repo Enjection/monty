@@ -3,6 +3,7 @@ namespace jeeh {
         uint8_t _port, _pin;
         
         constexpr Pin () : _port (0xFF), _pin (0xFF) {}
+        constexpr Pin (uint8_t def) : _port (def>>4), _pin (def&0x1F) {}
         constexpr Pin (char port, int pin) : _port (port-'A'), _pin (pin) {}
 
         auto gpio32 (int off) const -> volatile uint32_t& {
@@ -50,7 +51,7 @@ namespace jeeh {
             Periph::bitSet(Periph::rcc+0x2C, _port);
 #endif
             gpio32(moder) = (gpio32(moder) & ~(3 << 2*_pin))
-                                    | ((mval>>3) << 2*_pin);
+                                | (((mval>>3)&3) << 2*_pin);
             gpio32(typer) = (gpio32(typer) & ~(1 << _pin))
                                 | (((mval>>2)&1) << _pin);
             gpio32(pupdr) = (gpio32(pupdr) & ~(3 << 2*_pin))
@@ -97,7 +98,7 @@ namespace jeeh {
 
                     default:  if (*s < '0' || *s > '9' || a > 1)
                                   return false;
-                              m |= 0x10; // alt mode
+                              m = (m & ~0x18) | 0x10; // alt mode
                               a = 10 * a + *s - '0';
                     case ',': break; // valid as terminator
                 }

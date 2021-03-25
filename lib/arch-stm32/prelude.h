@@ -158,18 +158,24 @@ enum struct IrqVec : uint8_t {
     //CG>
 };
 
-struct UartInfo {
-    uint8_t num; IrqVec irq; uint32_t base;
-} const uartInfo [] = {
+struct DevInfo { uint8_t num; IrqVec irq; uint32_t base; };
+
+template< size_t N >
+constexpr auto findDev (DevInfo const (&map) [N], int num) -> DevInfo const& {
+    for (auto& e : map)
+        if (num == e.num)
+            return e;
+    return map[0]; // verify num to check that it was found
+}
+
+DevInfo const uartInfo [] = {
     {  1, IrqVec::UART1 , UART1  },
     {  2, IrqVec::UART2 , UART2  },
     {  3, IrqVec::UART3 , UART3  },
     {  4, IrqVec::UART4 , UART4  },
 };
 
-struct SpiInfo {
-    uint8_t num; IrqVec irq; uint32_t base;
-} const spiInfo [] = {
+DevInfo const spiInfo [] = {
     { 1, IrqVec::SPI1, SPI1 },
     { 2, IrqVec::SPI2, SPI2 },
     { 3, IrqVec::SPI3, SPI3 },

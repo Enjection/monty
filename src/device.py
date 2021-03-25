@@ -32,15 +32,21 @@ enum struct IrqVec : uint8_t {
     //CG>
 };
 
-struct UartInfo {
-    uint8_t num; IrqVec irq; uint32_t base;
-} const uartInfo [] = {
+struct DevInfo { uint8_t num; IrqVec irq; uint32_t base; };
+
+template< size_t N >
+constexpr auto findDev (DevInfo const (&map) [N], int num) -> DevInfo const& {
+    for (auto& e : map)
+        if (num == e.num)
+            return e;
+    return map[0]; // verify num to check that it was found
+}
+
+DevInfo const uartInfo [] = {
     %s
 };
 
-struct SpiInfo {
-    uint8_t num; IrqVec irq; uint32_t base;
-} const spiInfo [] = {
+DevInfo const spiInfo [] = {
     %s
 };
 """.strip()
