@@ -17,6 +17,10 @@ static auto micros () -> uint64_t {
     return tv.tv_sec * 1000000LL + tv.tv_nsec / 1000; // µs resolution
 }
 
+auto monty::nowAsTicks () -> uint32_t {
+    return micros() / 1000;
+}
+
 static auto msNow () -> Value {
     uint64_t us = micros();
     static uint64_t begin;

@@ -724,9 +724,11 @@ namespace monty {
         operator bool () const { return _value; }
 
         //CG: wrap Event wait set clear
-        auto set () -> Value ;
+        auto set () -> Value;
         auto clear () -> Value { _value = false; return {}; }
-        auto wait () -> Value ;
+        auto wait (uint16_t ms =0) -> Value;
+
+        auto nextTimeout () -> uint32_t;
 
         static int queued;
         static Vector triggers;
@@ -746,11 +748,13 @@ namespace monty {
 
         void marker () const override;
 
-        Stacklet* _caller = nullptr;
+        Stacklet* _caller =nullptr;
         Value _transfer;
+        uint16_t _timeout =0;
+        uint16_t _started =0;
 
         static void yield (bool =false);
-        static auto suspend (Vector& =Event::triggers) -> Value;
+        static auto suspend (Vector& =Event::triggers, uint16_t ms =0) -> Value;
         static auto runLoop () -> bool;
 
         virtual auto run () -> bool =0;
@@ -883,4 +887,6 @@ namespace monty {
 // defined outside of the Monty core itself, e.g. in main.cpp cq pyvm.cpp
     auto vmImport (char const* name) -> uint8_t const*;
     auto vmLaunch (void const* data) -> Stacklet*;
+
+    auto nowAsTicks () -> uint32_t; // defined by the arch-dependent code
 }

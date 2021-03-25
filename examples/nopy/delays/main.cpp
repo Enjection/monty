@@ -7,26 +7,31 @@
 using namespace monty;
 using namespace device;
 
-// led 1 = B3
-// led A = A6
-// led B = A5
-// led C = A4
-// led D = A3
-// led E = A1
-// led F = A0
+// led 1 = B3 #0 green
+// led A = A6 #1 white
+// led B = A5 #2 blue
+// led C = A4 #3 green
+// led D = A3 #4 yellow
+// led E = A1 #5 orange
+// led F = A0 #6 red
 
 jeeh::Pin leds [7];
 
-// Simple delay via polling: add the current stacklet (i.e. ourselves)
-// to the end of the ready queue until requested time delay has passed.
-// This also works outside stacklets (by falling back to a busy wait).
+Event always;
 
-void delay_ms (uint32_t ms) {
-    auto now = ticks;
-    while (ticks - now < ms)
-        if (Stacklet::current != nullptr)
-            Stacklet::yield();
+void msWait (uint32_t ms) {
+    always.wait(ms);
 }
+
+struct Delayer : Stacklet {
+    auto run () -> bool override {
+        auto t = always.nextTimeout();
+        if (t > 0)
+            asm ("wfi");
+        yield();
+        return true;
+    }
+};
 
 struct Toggler : Stacklet {
     int num;
@@ -34,10 +39,10 @@ struct Toggler : Stacklet {
     Toggler (int n) : num (n) {}
 
     auto run () -> bool override {
-        delay_ms(100 * (num+1));
-        leds[num] = true;
-        delay_ms(100);
-        leds[num] = false;
+        msWait(100 * (num+1));
+        leds[num] = 1;
+        msWait(100);
+        leds[num] = 0;
         return true;
     }
 };
@@ -60,6 +65,8 @@ int main () {
 #endif
 
     printf("main\n");
+
+    Stacklet::ready.append(new Delayer);
 
     auto task = arch::cliTask();
     if (task != nullptr)

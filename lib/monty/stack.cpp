@@ -97,13 +97,38 @@ auto Event::set () -> Value {
     return {};
 }
 
-auto Event::wait () -> Value {
-    if (!_value) {
-        if (_id >= 0)
-            ++queued;
-        Stacklet::suspend(_queue);
+auto Event::wait (uint16_t ms) -> Value {
+    if (_value)
+        return {};
+    if (_id >= 0)
+        ++queued;
+    return Stacklet::suspend(_queue, ms);
+}
+
+auto Event::nextTimeout () -> uint32_t {
+    auto now = nowAsTicks();
+    uint32_t next = ~0;
+    auto n = _queue.size();
+    for (uint32_t i = 0; i < n; ++i) {
+        //auto& task = *(Stacklet*) &_queue[i].obj();
+        auto& task = _queue[i].asType<Stacklet>();
+        if (task._timeout > 0) {
+            uint16_t used = now - task._started;
+            if (used >= task._timeout) {
+                task._transfer = task._started; // to calculate actual delay
+                Stacklet::ready.append(task);
+                _queue.remove(i);
+                --i;
+                --n;
+            } else {
+                auto remain = task._timeout - used;
+                assert(remain > 0);
+                if (next > remain)
+                    next = remain;
+            }
+        }
     }
-    return {};
+    return next <= 60000 ? next : 0;
 }
 
 auto Event::regHandler () -> uint32_t {
@@ -179,10 +204,15 @@ static auto resumeFixer (void* p) -> Value {
     return c->_transfer.take();
 }
 
-auto Stacklet::suspend (Vector& queue) -> Value {
+auto Stacklet::suspend (Vector& queue, uint16_t ms) -> Value {
     assert(current != nullptr);
     if (&queue != &Event::triggers) // special case: use as "do not append" mark
         queue.append(current);
+
+    if (ms > 60000)
+        return {E::ValueError, "max timout is 60s", ms};
+    current->_timeout = (uint16_t) ms;
+    current->_started = (uint16_t) nowAsTicks();
 
     jmp_buf top;
 

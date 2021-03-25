@@ -134,6 +134,10 @@ static Event tickEvent;
 static int ms, tickerId;
 static uint32_t start, last;
 
+auto monty::nowAsTicks () -> uint32_t {
+    return ticks;
+}
+
 static auto msNow () -> Value {
     uint32_t t = ticks;
     static uint32_t begin;

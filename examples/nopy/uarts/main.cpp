@@ -35,8 +35,8 @@ struct Uart : Object {
     auto init (uint8_t tx, uint8_t rx, uint32_t rate =115200) -> Uart& {
         // TODO need a simpler way, still using JeeH pinmodes
         auto m = (int) Pinmode::alt_out;
-        jeeh::Pin t = tx; t.mode(m, findAlt(altTX, tx, dev.num));
-        jeeh::Pin r = rx; r.mode(m, findAlt(altRX, rx, dev.num));
+        jeeh::Pin t (tx>>4, tx&0x1F); t.mode(m, findAlt(altTX, tx, dev.num));
+        jeeh::Pin r (rx>>4, rx&0x1F); r.mode(m, findAlt(altRX, rx, dev.num));
 
         Periph::bitSet(RCC_ENA+4*(dev.ena/32), dev.ena%32); // enable clock
 

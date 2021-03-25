@@ -3,7 +3,7 @@ namespace jeeh {
         uint8_t _port, _pin;
         
         constexpr Pin () : _port (0xFF), _pin (0xFF) {}
-        constexpr Pin (uint8_t def) : _port (def>>4), _pin (def&0x1F) {}
+        //constexpr Pin (uint8_t def) : _port (def>>4), _pin (def&0x1F) {}
         constexpr Pin (char port, int pin) : _port (port-'A'), _pin (pin) {}
 
         auto gpio32 (int off) const -> volatile uint32_t& {
