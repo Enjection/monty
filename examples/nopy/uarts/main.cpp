@@ -79,10 +79,10 @@ int main () {
 
     using altpins::Pin; // not the one from JeeH
 
-    const auto uart2  =  2; const auto tx2  = Pin("D5"), rx2  = Pin("D6");
-    const auto uart8  =  8; const auto tx8  = Pin("F9"), rx8  = Pin("F8");
-    const auto uart9  =  9; const auto tx9  = Pin("G1"), rx9  = Pin("G0");
-    const auto uart10 = 10; const auto tx10 = Pin("E3"), rx10 = Pin("E2");
+    const auto uart2  = (uint8_t)  2, tx2  = Pin("D5"), rx2  = Pin("D6");
+    const auto uart8  = (uint8_t)  8, tx8  = Pin("F9"), rx8  = Pin("F8");
+    const auto uart9  = (uint8_t)  9, tx9  = Pin("G1"), rx9  = Pin("G0");
+    const auto uart10 = (uint8_t) 10, tx10 = Pin("E3"), rx10 = Pin("E2");
 
     pinInfo(uart2 , tx2 , rx2 );
     pinInfo(uart8 , tx8 , rx8 );
