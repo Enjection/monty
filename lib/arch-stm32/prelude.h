@@ -78,6 +78,10 @@ constexpr auto VREFBUF       = 0x40010030;  // VREF
 constexpr auto WWDG          = 0x40002c00;  // WWDG
 //CG>
 
+// useful registers
+constexpr auto RCC_RST = RCC + 0x38;
+constexpr auto RCC_ENA = RCC + 0x58;
+
 enum struct IrqVec : uint8_t {
     //CG< irqvec
     ADC1                  =  18,  // ADC
@@ -158,7 +162,7 @@ enum struct IrqVec : uint8_t {
     //CG>
 };
 
-struct DevInfo { uint8_t num; IrqVec irq; uint32_t base; };
+struct DevInfo { uint8_t num, ena; IrqVec irq; uint32_t base; };
 
 template< size_t N >
 constexpr auto findDev (DevInfo const (&map) [N], int num) -> DevInfo const& {
@@ -169,16 +173,16 @@ constexpr auto findDev (DevInfo const (&map) [N], int num) -> DevInfo const& {
 }
 
 DevInfo const uartInfo [] = {
-    {  1, IrqVec::UART1 , UART1  },
-    {  2, IrqVec::UART2 , UART2  },
-    {  3, IrqVec::UART3 , UART3  },
-    {  4, IrqVec::UART4 , UART4  },
+    {  1, 78, IrqVec::UART1 , UART1  },
+    {  2, 17, IrqVec::UART2 , UART2  },
+    {  3, 18, IrqVec::UART3 , UART3  },
+    {  4, 19, IrqVec::UART4 , UART4  },
 };
 
 DevInfo const spiInfo [] = {
-    { 1, IrqVec::SPI1, SPI1 },
-    { 2, IrqVec::SPI2, SPI2 },
-    { 3, IrqVec::SPI3, SPI3 },
+    { 1, 76, IrqVec::SPI1, SPI1 },
+    { 2, 14, IrqVec::SPI2, SPI2 },
+    { 3, 15, IrqVec::SPI3, SPI3 },
 };
 
 // end of generated file

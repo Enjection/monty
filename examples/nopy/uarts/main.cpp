@@ -24,13 +24,7 @@ using namespace altpins;
 
 jeeh::Pin leds [9];
 
-// TODO much of the code below is specific for STM32F4
-
-// which bit for each UART, starting from the rts/ena offsets in RCC
-// TODO this needs to move to uartInfo, and varies per family
-static const uint8_t rccBits [] = {
-    36, 17, 18, 19, 20, 37, 30, 31, 38, 39
-};
+// TODO some of the code below is still family-specific
 
 struct Uart : Object {
     constexpr Uart (int n) : dev (findDev(uartInfo, n)) {}
@@ -44,8 +38,7 @@ struct Uart : Object {
         jeeh::Pin t = tx; t.mode(m, findAlt(altTX, tx, dev.num));
         jeeh::Pin r = rx; r.mode(m, findAlt(altRX, rx, dev.num));
 
-        auto b = rccBits[dev.num-1];
-        Periph::bitSet(RCC+ena+4*(b/32), b%32); // enable clock
+        Periph::bitSet(RCC_ENA+4*(dev.ena/32), dev.ena%32); // enable clock
 
         baud(rate, F_CPU); // assume PLL has already been set up
         MMIO32(dev.base+cr1) = (1<<13) | (1<<3) | (1<<2);  // UE, TE, RE
@@ -63,9 +56,6 @@ private:
     constexpr static auto dr  = 0x04; // data
     constexpr static auto brr = 0x08; // baud rate
     constexpr static auto cr1 = 0x0C; // control reg 1
-
-    constexpr static auto rst = 0x20; // RCC offset: device reset
-    constexpr static auto ena = 0x40; // RCC offset: clock enable
 };
 
 void pinInfo (int uart, int tx, int rx) {
