@@ -121,7 +121,7 @@ for k in sorted(irqs.keys(), key=uartsort):
 
 uarts = []
 for p in sorted(groups["USART"], key=uartsort):
-    enaBits = patch("uart_ena")
+    enaBits = patch("ena_uart")
     if p[0] == "U": # ignore LPUART
         n = int(re.sub('\D+', '', p))
         u = uartfix(p)
@@ -130,7 +130,7 @@ for p in sorted(groups["USART"], key=uartsort):
 
 spis = []
 for p in sorted(groups["SPI"], key=uartsort):
-    enaBits = patch("spi_ena")
+    enaBits = patch("ena_spi")
     if p[0] == "S": # ignore I2S
         n = int(re.sub('\D+', '', p))
         if p in irqs:
