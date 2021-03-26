@@ -726,7 +726,7 @@ namespace monty {
         //CG: wrap Event wait set clear
         auto set () -> Value;
         auto clear () -> Value { _value = false; return {}; }
-        auto wait (uint16_t ms =0) -> Value;
+        auto wait (int ms =60000) -> Value;
 
         auto nextTimeout () -> uint32_t;
 
@@ -750,11 +750,10 @@ namespace monty {
 
         Stacklet* _caller =nullptr;
         Value _transfer;
-        uint16_t _timeout =0;
-        uint16_t _deadline;
+        uint16_t _deadline; // TODO maybe this can be stored in _transfer ???
 
         static void yield (bool =false);
-        static auto suspend (Vector& =Event::triggers, uint16_t ms =0) -> Value;
+        static auto suspend (Vector& =Event::triggers, int ms =60000) -> Value;
         static auto runLoop () -> bool;
 
         virtual auto run () -> bool =0;

@@ -23,7 +23,6 @@ Vector Event::triggers;
 static jmp_buf* resumer;
 
 void Stacklet::gcAll () {
-
     // careful to avoid infinite recursion: the "sys" module has "modules" as
     // one of its attributes, which is "Module::loaded", i.e. a dict which
     // chains to the built-in modules (see "qstr.cpp"), which includes "sys",
@@ -32,6 +31,7 @@ void Stacklet::gcAll () {
     // this turns into infinite recursion because all these objects are static,
     // so there is no mark bit to tell the marker "been here before, skip me",
     // and the solution is simple: break this specific chain while marking
+
     auto save = Module::loaded._chain;
     Module::loaded._chain = nullptr;
 
@@ -97,7 +97,7 @@ auto Event::set () -> Value {
     return {};
 }
 
-auto Event::wait (uint16_t ms) -> Value {
+auto Event::wait (int ms) -> Value {
     if (_value)
         return {};
     if (_id >= 0)
@@ -113,17 +113,15 @@ auto Event::nextTimeout () -> uint32_t {
     uint32_t next = ~0;
     for (uint32_t i = 0; i < n; ++i) {
         auto& task = _queue[i].asType<Stacklet>();
-        if (task._timeout > 0) {
-            uint16_t remain = task._deadline - now; // must be modulo 16-bit!
-            if (remain > 60000) { // now can exceed the deadline by max ≈ 5s
-                task._transfer = task._deadline; // for actual delay
-                Stacklet::ready.append(task);
-                _queue.remove(i);
-                --i;
-                --n;
-            } else if (next > remain)
-                next = remain;
-        }
+        uint16_t remain = task._deadline - now; // must be modulo 16-bit!
+        if (remain > 60000) { // now can exceed the deadline by max ≈ 5s
+            task._transfer = task._deadline; // for actual delay
+            Stacklet::ready.append(task);
+            _queue.remove(i);
+            --i;
+            --n;
+        } else if (next > remain)
+            next = remain;
     }
     return next <= 60000 ? next : 0;
 }
@@ -201,14 +199,13 @@ static auto resumeFixer (void* p) -> Value {
     return c->_transfer.take();
 }
 
-auto Stacklet::suspend (Vector& queue, uint16_t ms) -> Value {
+auto Stacklet::suspend (Vector& queue, int ms) -> Value {
     assert(current != nullptr);
     if (&queue != &Event::triggers) // special case: use as "do not append" mark
         queue.append(current);
 
     if (ms > 60000)
-        return {E::ValueError, "max timout is 60s", ms};
-    current->_timeout = ms;
+        ms = 60000;
     current->_deadline = nowAsTicks() + ms;
 
     jmp_buf top;
