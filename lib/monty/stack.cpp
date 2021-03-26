@@ -19,6 +19,7 @@ Stacklet* Stacklet::current;
 
 int Event::queued;
 Vector Event::triggers;
+Event Event::always;
 
 static jmp_buf* resumer;
 
@@ -36,6 +37,7 @@ void Stacklet::gcAll () {
     Module::loaded._chain = nullptr;
 
     markVec(Event::triggers);
+    mark(Event::always);
     mark(current);
     ready.marker();
     save->marker();

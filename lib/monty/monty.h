@@ -732,6 +732,7 @@ namespace monty {
 
         static int queued;
         static Vector triggers;
+        static Event always;
     private:
         Vector _queue;
         bool _value = false;

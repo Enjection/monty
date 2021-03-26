@@ -17,15 +17,13 @@ using namespace device;
 
 jeeh::Pin leds [7];
 
-Event always;
-
 void msWait (uint32_t ms) {
-    always.wait(ms);
+    Event::always.wait(ms);
 }
 
 struct Delayer : Stacklet {
     auto run () -> bool override {
-        auto t = always.triggerExpired(nowAsTicks());
+        auto t = Event::always.triggerExpired(nowAsTicks());
         assert(t > 0);
         if (t > 0)
             asm ("wfi");
