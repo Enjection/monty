@@ -9,7 +9,11 @@ MAIN
 int main ([[maybe_unused]] int argc, [[maybe_unused]] char const** argv)
 #endif
 {
+#if STM32L053xx
+    arch::init(3*1024); // there's only 8 kB RAM ...
+#else
     arch::init(12*1024);
+#endif
 #ifndef NDEBUG
     printf("main\n");
 #endif
