@@ -751,7 +751,7 @@ namespace monty {
         Stacklet* _caller =nullptr;
         Value _transfer;
         uint16_t _timeout =0;
-        uint16_t _started =0;
+        uint16_t _deadline;
 
         static void yield (bool =false);
         static auto suspend (Vector& =Event::triggers, uint16_t ms =0) -> Value;

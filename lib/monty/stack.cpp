@@ -106,26 +106,23 @@ auto Event::wait (uint16_t ms) -> Value {
 }
 
 auto Event::nextTimeout () -> uint32_t {
+    auto n = _queue.size();
+    if (n == 0)
+        return 0; // common case
     auto now = nowAsTicks();
     uint32_t next = ~0;
-    auto n = _queue.size();
     for (uint32_t i = 0; i < n; ++i) {
-        //auto& task = *(Stacklet*) &_queue[i].obj();
         auto& task = _queue[i].asType<Stacklet>();
         if (task._timeout > 0) {
-            uint16_t used = now - task._started;
-            if (used >= task._timeout) {
-                task._transfer = task._started; // to calculate actual delay
+            uint16_t remain = task._deadline - now; // must be modulo 16-bit!
+            if (remain > 60000) { // now can exceed the deadline by max ≈ 5s
+                task._transfer = task._deadline; // for actual delay
                 Stacklet::ready.append(task);
                 _queue.remove(i);
                 --i;
                 --n;
-            } else {
-                auto remain = task._timeout - used;
-                assert(remain > 0);
-                if (next > remain)
-                    next = remain;
-            }
+            } else if (next > remain)
+                next = remain;
         }
     }
     return next <= 60000 ? next : 0;
@@ -211,8 +208,8 @@ auto Stacklet::suspend (Vector& queue, uint16_t ms) -> Value {
 
     if (ms > 60000)
         return {E::ValueError, "max timout is 60s", ms};
-    current->_timeout = (uint16_t) ms;
-    current->_started = (uint16_t) nowAsTicks();
+    current->_timeout = ms;
+    current->_deadline = nowAsTicks() + ms;
 
     jmp_buf top;
 
