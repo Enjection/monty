@@ -728,7 +728,7 @@ namespace monty {
         auto clear () -> Value { _value = false; return {}; }
         auto wait (int ms =60000) -> Value;
 
-        auto nextTimeout () -> uint32_t;
+        auto triggerExpired (uint32_t now) -> uint32_t;
 
         static int queued;
         static Vector triggers;
@@ -736,6 +736,7 @@ namespace monty {
         Vector _queue;
         bool _value = false;
         int8_t _id = -1;
+        uint16_t _deadline;
     };
 
     //CG1 type <stacklet>
@@ -749,15 +750,15 @@ namespace monty {
         void marker () const override;
 
         Stacklet* _caller =nullptr;
-        Value _transfer;
-        uint16_t _deadline; // TODO maybe this can be stored in _transfer ???
+        Value _transfer; // set to deadline while suspended
 
-        static void yield (bool =false);
-        static auto suspend (Vector& =Event::triggers, int ms =60000) -> Value;
+        void yield (bool =false);
+        auto suspend (Vector& =Event::triggers, int ms =60000) -> Value;
         static auto runLoop () -> bool;
 
         virtual auto run () -> bool =0;
         virtual void raise (Value);
+        //virtual void timedOut (Event&) {}
 
         static void exception (Value); // a safe way to current->raise()
         static void gcAll ();

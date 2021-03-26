@@ -25,7 +25,8 @@ void msWait (uint32_t ms) {
 
 struct Delayer : Stacklet {
     auto run () -> bool override {
-        auto t = always.nextTimeout();
+        auto t = always.triggerExpired(nowAsTicks());
+        assert(t > 0);
         if (t > 0)
             asm ("wfi");
         yield();

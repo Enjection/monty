@@ -102,28 +102,47 @@ auto Event::wait (int ms) -> Value {
         return {};
     if (_id >= 0)
         ++queued;
-    return Stacklet::suspend(_queue, ms);
+
+    uint16_t remain = _deadline - nowAsTicks(); // must be modulo 16-bit!
+    if (remain <= 60000 && ms < remain)
+        _deadline -= remain - ms; // deadline must happen sooner
+
+    assert(Stacklet::current != nullptr);
+    return Stacklet::current->suspend(_queue, ms);
 }
 
-auto Event::nextTimeout () -> uint32_t {
+// Timeouts use deadlines instead of down counters, as this avoids having to
+// constantly adjust N counters on each tick. The logic is done modulo 65536,
+// because 16-bit arithmetic is so easy to do: just use a uint16_t.
+//
+// With deadliness, the remaining time is always: (deadline - now) % 65536
+// As the maximum valid timeout is 60s, this leads to the following ranges:
+//
+//      0 .. 60000 = ms ticks remaining before this timeout expires
+//  60001 .. 65535 = the deadline has passed, but not yet dealt with
+//
+//  Each events will keep track of a "combined deadline", i.e. a deadline which
+//  is guaranteed to be no later than the earliest one currently queued up. As
+//  there's always a deadline, there may be useless triggers once every 60s.
+
+auto Event::triggerExpired (uint32_t now) -> uint32_t {
     auto n = _queue.size();
-    if (n == 0)
-        return 0; // common case
-    auto now = nowAsTicks();
-    uint32_t next = ~0;
-    for (uint32_t i = 0; i < n; ++i) {
-        auto& task = _queue[i].asType<Stacklet>();
-        uint16_t remain = task._deadline - now; // must be modulo 16-bit!
-        if (remain > 60000) { // now can exceed the deadline by max ≈ 5s
-            task._transfer = task._deadline; // for actual delay
+    if (n == 0) // nothing queued
+        return 0;
+    uint32_t next = 60000;
+    while (n-- > 0) { // loop from the end because queue items may get deleted
+        auto& task = _queue[n].asType<Stacklet>();
+        uint16_t remain = task._transfer - now; // must be modulo 16-bit!
+        if (remain == 0 || remain > 60000) { // can exceed deadline by max ≈ 5s
+            _queue.remove(n);
             Stacklet::ready.append(task);
-            _queue.remove(i);
-            --i;
-            --n;
+            //task.timedOut(*this);
         } else if (next > remain)
             next = remain;
     }
-    return next <= 60000 ? next : 0;
+    _deadline = now + next;
+    assert(next > 0);
+    return next;
 }
 
 auto Event::regHandler () -> uint32_t {
@@ -180,13 +199,11 @@ void Stacklet::exception (Value e) {
 }
 
 void Stacklet::yield (bool fast) {
-    assert(current != nullptr);
     if (fast) {
         if (pending == 0)
             return; // don't yield if there are no pending triggers
-        assert(ready.find(current) >= ready.size());
-        ready.push(current);
-        // TODO ????? current = nullptr;
+        assert(ready.find(this) >= ready.size());
+        ready.push(this);
         suspend();
     } else
         suspend(ready);
@@ -200,24 +217,23 @@ static auto resumeFixer (void* p) -> Value {
 }
 
 auto Stacklet::suspend (Vector& queue, int ms) -> Value {
-    assert(current != nullptr);
     if (&queue != &Event::triggers) // special case: use as "do not append" mark
-        queue.append(current);
+        queue.append(this);
 
     if (ms > 60000)
         ms = 60000;
-    current->_deadline = nowAsTicks() + ms;
+    _transfer = (uint16_t) (nowAsTicks() + ms);
 
     jmp_buf top;
 
     uint32_t need = (uint8_t*) resumer - (uint8_t*) &top;
 
-    current->adj(current->_fill + need / sizeof (Value));
+    adj(_fill + need / sizeof (Value));
     //if (setjmp(top) == 0) {
-    if (setjmp(*(jmp_buf*) current->end()) == 0) {
+    if (setjmp(*(jmp_buf*) end()) == 0) {
         // suspending: copy stack out and jump to caller
-        //duff(current->end(), &top, need);
-        duff((jmp_buf*) current->end() + 1, &top + 1, need - sizeof (jmp_buf));
+        //duff(end(), &top, need);
+        duff((jmp_buf*) end() + 1, &top + 1, need - sizeof (jmp_buf));
         longjmp(*resumer, 1);
     }
 

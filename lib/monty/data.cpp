@@ -497,7 +497,7 @@ auto RawIter::stepper () -> Value {
     if (v.isOk() || Stacklet::current == ctx)
         return v;
     Stacklet::current = ctx;
-    return Stacklet::suspend();
+    return ctx->suspend();
 }
 
 auto Range::len () const -> uint32_t {
