@@ -130,9 +130,12 @@ static auto f_rf69 (char const* pins, int node, int group, int freq) -> Value {
     return rf69;
 }
 
-static Event tickEvent;
-static int ms, tickerId;
-static uint32_t start, last;
+void enableSysTick (uint32_t divider) {
+    VTableRam().systick = []() { ++ticks; };
+    constexpr static uint32_t tick = 0xE000E010;
+    MMIO32(tick+0x04) = MMIO32(tick+0x08) = divider - 1;
+    MMIO32(tick+0x00) = 7;
+}
 
 auto monty::nowAsTicks () -> uint32_t {
     return ticks;
@@ -145,6 +148,10 @@ static auto msNow () -> Value {
         begin = t;
     return t - begin; // make all runs start out the same way
 }
+
+static Event tickEvent;
+static int ms, tickerId;
+static uint32_t start, last;
 
 //CG1 bind ticker ? arg:i
 static auto f_ticker (ArgVec const& args, int arg) -> Value {

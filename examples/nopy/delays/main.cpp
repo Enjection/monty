@@ -17,20 +17,37 @@ using namespace device;
 
 jeeh::Pin leds [7];
 
-void msWait (uint32_t ms) {
-    Event::always.wait(ms);
-}
+struct Ticker : Stacklet {
+    Event ticking;
 
-struct Delayer : Stacklet {
+    Ticker () {
+        tickId = ticking.regHandler();
+
+        VTableRam().systick = []() {
+            ++ticks;
+            Stacklet::setPending(tickId);
+        };
+    }
+    ~Ticker () {
+printf("~Ticker?\n");
+        VTableRam().systick = []() { ++ticks; }; // better perhaps: disable it?
+        ticking.deregHandler();
+    }
+
     auto run () -> bool override {
-        auto t = Event::always.triggerExpired(nowAsTicks());
+        ticking.wait();
+        ticking.clear();
+        auto t = Event::always.triggerExpired(ticks);
         assert(t > 0);
-        if (t > 0)
-            asm ("wfi");
+        //current = nullptr;
         yield();
         return true;
     }
+
+    static uint8_t tickId;
 };
+
+uint8_t Ticker::tickId;
 
 struct Toggler : Stacklet {
     int num;
@@ -65,13 +82,14 @@ int main () {
 
     printf("main\n");
 
-    Stacklet::ready.append(new Delayer);
-
     auto task = arch::cliTask();
     if (task != nullptr)
         Stacklet::ready.append(task);
     else
         printf("no task\n");
+
+    Ticker ticker;
+    Stacklet::ready.append(&ticker);
 
     while (Stacklet::runLoop())
         arch::idle();

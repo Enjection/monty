@@ -75,6 +75,14 @@ static void duff (void* dst, void const* src, size_t len) {
 #endif
 }
 
+auto Event::regHandler () -> uint32_t {
+    _id = triggers.find({});
+    if (_id >= (int) triggers.size())
+        triggers.insert(_id);
+    triggers[_id] = this;
+    return _id;
+}
+
 void Event::deregHandler () {
     if (_id >= 0) {
         assert(&triggers[_id].obj() == this);
@@ -145,14 +153,6 @@ auto Event::triggerExpired (uint32_t now) -> uint32_t {
     _deadline = now + next;
     assert(next > 0);
     return next;
-}
-
-auto Event::regHandler () -> uint32_t {
-    _id = triggers.find({});
-    if (_id >= (int) triggers.size())
-        triggers.insert(_id);
-    triggers[_id] = this;
-    return _id;
 }
 
 auto Event::unop ([[maybe_unused]] UnOp op) const -> Value {

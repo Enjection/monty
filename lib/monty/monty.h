@@ -890,4 +890,5 @@ namespace monty {
     auto vmLaunch (void const* data) -> Stacklet*;
 
     auto nowAsTicks () -> uint32_t; // defined by the arch-dependent code
+    inline void msWait (uint32_t ms) { Event::always.wait(ms); }
 }
