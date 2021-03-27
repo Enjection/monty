@@ -26,6 +26,8 @@ jeeh::Pin leds [9];
 
 // TODO some of the code below is still family-specific
 
+static struct Uart* uartMap [sizeof uartInfo / sizeof *uartInfo];
+
 struct Uart : Object {
     constexpr Uart (int n) : dev (findDev(uartInfo, n)) {}
 
@@ -33,6 +35,8 @@ struct Uart : Object {
         : Uart (n) { if (n == dev.num) init(tx, rx, rate); }
 
     auto init (uint8_t tx, uint8_t rx, uint32_t rate =115200) -> Uart& {
+        uartMap[dev.num-1] = this; // for static access
+
         Periph::bitSet(RCC_ENA+4*(dev.ena/32), dev.ena%32); // enable clock
 
         // TODO need a simpler way, still using JeeH pinmodes
@@ -40,10 +44,28 @@ struct Uart : Object {
         jeeh::Pin t ('A'+(tx>>4), tx&0x1F); t.mode(m, findAlt(altTX, tx, dev.num));
         jeeh::Pin r ('A'+(rx>>4), rx&0x1F); r.mode(m, findAlt(altRX, rx, dev.num));
 
+        // TODO still hard-coded
+        VTableRam().uart10 = []() { uartMap[9]->irqHandler(); };
+
+        constexpr uint32_t NVIC_ENA = 0xE000E100;
+        auto irq = (uint8_t) dev.irq;
+        MMIO32(NVIC_ENA+4*(irq/32)) = 1<<(irq%32); // enable interrupt
+wait_ms(2); // FIXME ???
+
         baud(rate, F_CPU); // assume PLL has already been set up
-        MMIO32(dev.base+cr1) = (1<<13) | (1<<3) | (1<<2);  // UE, TE, RE
+        // UE, IDLEIE, TE, RE
+        MMIO32(dev.base+cr1) = (1<<13) | (1<<4) | (1<<3) | (1<<2);
 
         return *this;
+    }
+
+    void irqHandler () {
+        auto status = MMIO32(dev.base+sr);
+        if (status & (1<<4)) {
+            printf("IDLE %x %x\n", status, MMIO32(0x40011C00+dr));
+        } else {
+            printf("RX? %x %x\n", status, MMIO32(0x40011C00+dr));
+        }
     }
 
     void baud (uint32_t rate, uint32_t hz =defaultHz) {
@@ -89,9 +111,9 @@ int main () {
     pinInfo(uart9 , tx9 , rx9 );
     pinInfo(uart10, tx10, rx10);
 
-    Uart ser2  (uart2 , tx2 , rx2);
-    Uart ser8  (uart8 , tx8 , rx8);
-    Uart ser9  (uart9 , tx9 , rx9);
+    //Uart ser2  (uart2 , tx2 , rx2);
+    //Uart ser8  (uart8 , tx8 , rx8);
+    //Uart ser9  (uart9 , tx9 , rx9);
     Uart ser10 (uart10, tx10, rx10, 921600);
 
     auto base = ser10.dev.base;
