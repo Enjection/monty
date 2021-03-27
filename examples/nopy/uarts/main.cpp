@@ -28,6 +28,11 @@ jeeh::Pin leds [9];
 
 static struct Uart* uartMap [sizeof uartInfo / sizeof *uartInfo];
 
+static void nvicEnable (IrqVec irq) {
+    constexpr uint32_t NVIC_ENA = 0xE000E100;
+    MMIO32(NVIC_ENA+4*(((int) irq) / 32)) = 1 << (((int) irq) % 32);
+}
+
 struct Uart : Object {
     Uart (int n) : dev (findDev(uartInfo, n)) {}
 
@@ -46,10 +51,6 @@ struct Uart : Object {
         jeeh::Pin t ('A'+(tx>>4), tx&0x1F); t.mode(m, findAlt(altTX, tx, dev.num));
         jeeh::Pin r ('A'+(rx>>4), rx&0x1F); r.mode(m, findAlt(altRX, rx, dev.num));
 
-        // TODO still hard-coded
-        VTableRam().uart10 = []() { uartMap[9]->uartIrqHandler(); };
-        VTableRam().dma2_stream3 = []() { uartMap[9]->dmaIrqHandler(); };
-
         dmaRX(0x14) = sizeof rxBuf;     // SxNDTR
         dmaRX(0x18) = dev.base + dr;    // SxPAR
         dmaRX(0x1C) = (uint32_t) rxBuf; // SxM0AR
@@ -62,11 +63,12 @@ struct Uart : Object {
             (1<<13) | (1<<4) | (1<<3) | (1<<2); // UE, IDLEIE, TE, RE
         MMIO32(dev.base+cr3) = (1<<6); // DMAR
 
-        constexpr uint32_t NVIC_ENA = 0xE000E100;
-        auto uartIrq = (uint8_t) dev.irq;
-        MMIO32(NVIC_ENA+4*(uartIrq/32)) = 1<<(uartIrq%32); // enable uart irq
-        auto d2s3Irq = (uint8_t) IrqVec::DMA2_Stream3;
-        MMIO32(NVIC_ENA+4*(d2s3Irq/32)) = 1<<(d2s3Irq%32); // enable dma irq
+        // TODO still hard-coded
+        VTableRam().uart10 = []() { uartMap[9]->uartIrqHandler(); };
+        VTableRam().dma2_stream3 = []() { uartMap[9]->dmaIrqHandler(); };
+
+        nvicEnable(dev.irq);
+        nvicEnable(IrqVec::DMA2_Stream3);
 
         return *this;
     }
