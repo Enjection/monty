@@ -79,18 +79,18 @@ struct Uart : Object {
     void uartIrqHandler () {
         auto status = MMIO32(dev.base+sr);
         if (status & (1<<4)) {
-            printf("IDLE %x %c\n", status, MMIO32(0x40011C00+dr));
+            printf("IDLE %x %02x\n", status, MMIO32(0x40011C00+dr));
         } else {
-            printf("RX? %x %c\n", status, MMIO32(0x40011C00+dr));
+            printf("RX? %x %02x\n", status, MMIO32(0x40011C00+dr));
         }
     }
 
     void dmaIrqHandler () {
         auto status = MMIO32(DMA2+0x00); // LISR
         if (status & (1<<27))
-            printf("XFER %x\n", status);
+            printf("XFER\n");
         if (status & (1<<26))
-            printf("HALF %x\n", status);
+            printf("HALF\n");
         MMIO32(DMA2+0x08) = status; // LIFCR
     }
 
@@ -143,7 +143,7 @@ wait_ms(2); // FIXME ???
     //Uart ser2  (uart2 , tx2 , rx2);
     //Uart ser8  (uart8 , tx8 , rx8);
     //Uart ser9  (uart9 , tx9 , rx9);
-    Uart ser10 (uart10, tx10, rx10, 921600);
+    Uart ser10 (uart10, tx10, rx10, 9600); //921600);
 
     auto base = ser10.dev.base;
 #if 0
@@ -156,13 +156,14 @@ wait_ms(2); // FIXME ???
     printf("dr %c\n",    MMIO8(base+0x04));
     printf("sr %08x\n", MMIO32(base+0x00));
 #endif
-    for (auto s = "Hello world!"; *s != 0; ++s) {
-        MMIO8(base+0x04) = *s;
-        for (int i = 0; i < 250; ++i) {
-            if (MMIO32(base+0x00) & (1<<5))
-                printf("dr %c\n",    MMIO8(base+0x04));
-            wait_ms(1);
+    char buf [20];
+    for (int i = 0; i < 6; ++i) {
+        sprintf(buf, "Hello world %d%d%d\n", i, i, i);
+        for (auto s = buf; *s != 0; ++s) {
+            while ((MMIO32(base) & (1<<7)) == 0) {}
+            MMIO8(base+0x04) = *s;
         }
+        wait_ms(250);
         auto p = uartMap[9];
         for (int i = 0; i < sizeof p->rxBuf; ++i)
             printf(" %02x", p->rxBuf[i]);
