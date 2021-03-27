@@ -33,12 +33,12 @@ struct Uart : Object {
         : Uart (n) { if (n == dev.num) init(tx, rx, rate); }
 
     auto init (uint8_t tx, uint8_t rx, uint32_t rate =115200) -> Uart& {
+        Periph::bitSet(RCC_ENA+4*(dev.ena/32), dev.ena%32); // enable clock
+
         // TODO need a simpler way, still using JeeH pinmodes
         auto m = (int) Pinmode::alt_out;
-        jeeh::Pin t (tx>>4, tx&0x1F); t.mode(m, findAlt(altTX, tx, dev.num));
-        jeeh::Pin r (rx>>4, rx&0x1F); r.mode(m, findAlt(altRX, rx, dev.num));
-
-        Periph::bitSet(RCC_ENA+4*(dev.ena/32), dev.ena%32); // enable clock
+        jeeh::Pin t ('A'+(tx>>4), tx&0x1F); t.mode(m, findAlt(altTX, tx, dev.num));
+        jeeh::Pin r ('A'+(rx>>4), rx&0x1F); r.mode(m, findAlt(altRX, rx, dev.num));
 
         baud(rate, F_CPU); // assume PLL has already been set up
         MMIO32(dev.base+cr1) = (1<<13) | (1<<3) | (1<<2);  // UE, TE, RE
@@ -61,8 +61,8 @@ private:
 void pinInfo (int uart, int tx, int rx) {
     auto& di = findDev(uartInfo, uart);
     assert(uart == di.num);
-    printf("#%d irq %d base %08x tx %d rx %d\n",
-            di.num, (int) di.irq, di.base,
+    printf("#%2d ena %d irq %d base %08x tx %d rx %d\n",
+            di.num, di.ena, (int) di.irq, di.base,
             findAlt(altTX, tx, uart), findAlt(altRX, rx, uart));
 }
 

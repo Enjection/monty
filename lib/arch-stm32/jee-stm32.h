@@ -50,6 +50,8 @@ namespace jeeh {
 #elif STM32L0
             Periph::bitSet(Periph::rcc+0x2C, _port);
 #endif
+            asm ("dsb");
+
             gpio32(moder) = (gpio32(moder) & ~(3 << 2*_pin))
                                 | (((mval>>3)&3) << 2*_pin);
             gpio32(typer) = (gpio32(typer) & ~(1 << _pin))
