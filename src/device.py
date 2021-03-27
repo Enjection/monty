@@ -41,7 +41,13 @@ enum struct IrqVec : uint8_t {
     //CG>
 };
 
-struct DevInfo { uint8_t num, ena; IrqVec irq; uint32_t base; };
+struct DevInfo {
+    uint8_t num, ena;
+    uint8_t rxDma :1, rxChan :4, rxStream :3;
+    uint8_t txDma :1, txChan :4, txStream :3;
+    IrqVec irq;
+    uint32_t base;
+};
 
 template< size_t N >
 constexpr auto findDev (DevInfo const (&map) [N], int num) -> DevInfo const& {
@@ -122,11 +128,20 @@ for k in sorted(irqs.keys(), key=uartsort):
 uarts = []
 for p in sorted(groups["USART"], key=uartsort):
     enaBits = patch("ena_uart")
+    drxBits = patch("dma_uart_rx")
+    dtxBits = patch("dma_uart_tx")
     if p[0] == "U": # ignore LPUART
         n = int(re.sub('\D+', '', p))
         u = uartfix(p)
-        e = enaBits[n-1] if n-1 < len(enaBits) else 0
-        uarts.append("{ %2d, %2s, IrqVec::%-6s, %-6s }," % (n, e, u, u))
+        e = enaBits[n-1] if n-1 < len(enaBits) else "0"
+        r = drxBits[n-1] if n-1 < len(drxBits) else "1c0s0"
+        t = dtxBits[n-1] if n-1 < len(dtxBits) else "1c0s0"
+        rxd, rxc, rxs = r[:1], r[2:-2], r[-1:]
+        txd, txc, txs = t[:1], t[2:-2], t[-1:]
+        if t == "-": 
+            txd, txc, txs = "2", "15", "0" # unlikely value ...
+        uarts.append("{%2d, %2s, %s,%2s, %s, %s,%2s, %s, IrqVec::%-6s, %-6s}," % \
+                     (n, e, int(rxd)-1, rxc, rxs, int(txd)-1, txc, txs, u, u))
 
 spis = []
 for p in sorted(groups["SPI"], key=uartsort):
@@ -134,8 +149,9 @@ for p in sorted(groups["SPI"], key=uartsort):
     if p[0] == "S": # ignore I2S
         n = int(re.sub('\D+', '', p))
         if p in irqs:
-            e = enaBits[n-1] if n-1 < len(enaBits) else 0
-            spis.append("{ %d, %s, IrqVec::%s, %s }," % (n, e, p, p))
+            e = enaBits[n-1] if n-1 < len(enaBits) else "0"
+            spis.append("{ %d, %s, 0, 0, 0, 0, 0, 0, IrqVec::%s, %s }," % \
+                        (n, e, p, p))
         else:
             print("no IrqVec for %s, ignoring" % p, file=sys.stderr)
 

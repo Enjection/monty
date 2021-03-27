@@ -37,10 +37,9 @@ struct Uart : Object {
     auto init (uint8_t tx, uint8_t rx, uint32_t rate =115200) -> Uart& {
         uartMap[dev.num-1] = this; // for static access
 
-        Periph::bitSet(RCC_ENA+4*(dev.ena/32), dev.ena%32); // enable clock
+        Periph::bitSet(RCC_APB1ENR+4*(dev.ena/32), dev.ena%32); // enable clock
 
-        // UART10: DMA2, channel 9 - rx = stream 3, tx = stream 5
-        Periph::bitSet(RCC+0x30, 22); // enable DMA2 clock
+        Periph::bitSet(RCC_AHB1ENR, 21+dev.rxDma); // enable DMA2 clock
 
         // TODO need a simpler way, still using JeeH pinmodes
         auto m = (int) Pinmode::alt_out;
@@ -51,13 +50,11 @@ struct Uart : Object {
         VTableRam().uart10 = []() { uartMap[9]->uartIrqHandler(); };
         VTableRam().dma2_stream3 = []() { uartMap[9]->dmaIrqHandler(); };
 
-        auto dma2s3 = DMA2 + 0x18*3;
-        MMIO32(dma2s3+0x14) = sizeof rxBuf;     // S3NDTR
-        MMIO32(dma2s3+0x18) = dev.base + dr;    // S3PAR
-        MMIO32(dma2s3+0x1C) = (uint32_t) rxBuf; // S3M0AR
-
-        MMIO32(dma2s3+0x10) = // S3CR: CHSEL 9, MINC, CIRC, TCIE, HTIE, EN
-            (9<<25) | (1<<10) | (1<<8) | (1<<4) | (1<<3) | (1<<0);
+        dmaRX(0x14) = sizeof rxBuf;     // SxNDTR
+        dmaRX(0x18) = dev.base + dr;    // SxPAR
+        dmaRX(0x1C) = (uint32_t) rxBuf; // SxM0AR
+        dmaRX(0x10) = // SxCR: CHSEL, MINC, CIRC, TCIE, HTIE, EN
+            (dev.rxChan<<25) | (1<<10) | (1<<8) | (1<<4) | (1<<3) | (1<<0);
 
         baud(rate, F_CPU); // assume that the clock is running full speed
 
@@ -77,27 +74,36 @@ struct Uart : Object {
     void uartIrqHandler () {
         auto status = MMIO32(dev.base+sr);
         if (status & (1<<4)) {
-            MMIO32(0x40011C00+dr); // clears idle interrupt
-            auto dma2s3 = DMA2 + 0x18*3;
-            fill = sizeof rxBuf - MMIO32(dma2s3+0x14); // S3NDTR
+            MMIO32(dev.base+dr); // clears idle interrupt
+            fill = sizeof rxBuf - dmaRX(0x14); // SxNDTR
         }
     }
 
     void dmaIrqHandler () {
-        auto status = MMIO32(DMA2+0x00); // LISR
+        auto status = dmaBase(0x00); // LISR
         fill = status & (1<<26) ? sizeof rxBuf / 2 :
                 status & (1<<27) ? sizeof rxBuf : 0;
-        MMIO32(DMA2+0x08) = status;      // LIFCR
+        dmaBase(0x08) = status;      // LIFCR
     }
 
     void baud (uint32_t rate, uint32_t hz =defaultHz) {
         MMIO32(dev.base+brr) = (hz + rate/2) / rate;
     }
 
-    DevInfo const& dev;
+    DevInfo dev;
     uint8_t rxBuf [10];
     volatile uint16_t fill = 0;
 private:
+    auto dmaBase (int off) -> volatile uint32_t& {
+        return MMIO32((dev.rxDma == 0 ? DMA1 : DMA2) + off);
+    }
+    auto dmaRX (int off) -> volatile uint32_t& {
+        return dmaBase(off + 0x18*dev.rxStream);
+    }
+    auto dmaTX (int off) -> volatile uint32_t& {
+        return dmaBase(off + 0x18*dev.txStream);
+    }
+
     constexpr static auto sr  = 0x00; // status
     constexpr static auto dr  = 0x04; // data
     constexpr static auto brr = 0x08; // baud rate
