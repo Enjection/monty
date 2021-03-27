@@ -280,6 +280,9 @@ auto Object::unop (UnOp op) const -> Value {
 }
 
 auto Object::binop (BinOp op, Value v2) const -> Value {
+    if (op == BinOp::Equal && v2.isObj())
+        return this == &v2.obj();
+
     printf("op %d ", op); v2.dump("v2");
     Value v = this; v.dump("binop?"); assert(false);
     return {};

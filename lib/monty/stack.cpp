@@ -19,7 +19,6 @@ Stacklet* Stacklet::current;
 
 int Event::queued;
 Vector Event::triggers;
-Event Event::always;
 
 static jmp_buf* resumer;
 
@@ -37,7 +36,6 @@ void Stacklet::gcAll () {
     Module::loaded._chain = nullptr;
 
     markVec(Event::triggers);
-    mark(Event::always);
     mark(current);
     ready.marker();
     save->marker();
@@ -139,18 +137,21 @@ auto Event::triggerExpired (uint32_t now) -> uint32_t {
     auto n = _queue.size();
     if (n == 0) // nothing queued
         return 0;
-    uint32_t next = 60000;
-    while (n-- > 0) { // loop from the end because queue items may get deleted
-        auto& task = _queue[n].asType<Stacklet>();
-        uint16_t remain = task._transfer - now; // must be modulo 16-bit!
-        if (remain == 0 || remain > 60000) { // can exceed deadline by max ≈ 5s
-            _queue.remove(n);
-            Stacklet::ready.append(task);
-            //task.timedOut(*this);
-        } else if (next > remain)
-            next = remain;
+    uint16_t next = _deadline - now; // must be modulo 16-bit!
+    if (next == 0 || next > 60000) {
+        next = 60000;
+        while (n-- > 0) { // loop from the end because queue items may get deleted
+            auto& task = _queue[n].asType<Stacklet>();
+            uint16_t remain = task._transfer - now; // must be modulo 16-bit!
+            if (remain == 0 || remain > 60000) { // can exceed deadline by max ≈ 5s
+                _queue.remove(n);
+                Stacklet::ready.append(task);
+                //task.timedOut(*this);
+            } else if (next > remain)
+                next = remain;
+        }
+        _deadline = now + next;
     }
-    _deadline = now + next;
     assert(next > 0);
     return next;
 }
@@ -158,11 +159,6 @@ auto Event::triggerExpired (uint32_t now) -> uint32_t {
 auto Event::unop ([[maybe_unused]] UnOp op) const -> Value {
     assert(op == UnOp::Boln);
     return Value::asBool(*this);
-}
-
-auto Event::binop ([[maybe_unused]] BinOp op, Value rhs) const -> Value {
-    assert(op == BinOp::Equal);
-    return Value::asBool(rhs.isObj() && this == &rhs.obj());
 }
 
 auto Event::create (ArgVec const& args, Type const*) -> Value {
@@ -255,10 +251,10 @@ auto Stacklet::runLoop () -> bool {
         INNER_HOOK
 
         auto flags = clearAllPending();
-        for (auto& e : Event::triggers)
+        for (auto e : Event::triggers)
             if (flags != 0) {
                 if ((flags & 1) && e.isObj())
-                    e.asType<Event>().set();
+                    e->next();
                 flags >>= 1;
             }
 

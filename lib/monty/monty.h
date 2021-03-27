@@ -714,7 +714,7 @@ namespace monty {
         ~Event () override { deregHandler(); set(); }
 
         auto unop (UnOp) const -> Value override;
-        auto binop (BinOp, Value) const -> Value override;
+        auto next  () -> Value override { return set(); }
 
         void marker () const override { markVec(_queue); }
 
@@ -732,7 +732,6 @@ namespace monty {
 
         static int queued;
         static Vector triggers;
-        static Event always;
     private:
         Vector _queue;
         bool _value = false;
@@ -890,5 +889,4 @@ namespace monty {
     auto vmLaunch (void const* data) -> Stacklet*;
 
     auto nowAsTicks () -> uint32_t; // defined by the arch-dependent code
-    inline void msWait (uint32_t ms) { Event::always.wait(ms); }
 }
