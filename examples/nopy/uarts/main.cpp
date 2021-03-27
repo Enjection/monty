@@ -29,7 +29,7 @@ jeeh::Pin leds [9];
 static struct Uart* uartMap [sizeof uartInfo / sizeof *uartInfo];
 
 struct Uart : Object {
-    constexpr Uart (int n) : dev (findDev(uartInfo, n)) {}
+    Uart (int n) : dev (findDev(uartInfo, n)) {}
 
     Uart (int n, uint8_t tx, uint8_t rx, uint32_t rate =115200)
         : Uart (n) { if (n == dev.num) init(tx, rx, rate); }
@@ -39,33 +39,59 @@ struct Uart : Object {
 
         Periph::bitSet(RCC_ENA+4*(dev.ena/32), dev.ena%32); // enable clock
 
+        // UART10: DMA2, channel 9 - rx = stream 3, tx = stream 5
+        Periph::bitSet(RCC+0x30, 22); // enable DMA2 clock
+
         // TODO need a simpler way, still using JeeH pinmodes
         auto m = (int) Pinmode::alt_out;
         jeeh::Pin t ('A'+(tx>>4), tx&0x1F); t.mode(m, findAlt(altTX, tx, dev.num));
         jeeh::Pin r ('A'+(rx>>4), rx&0x1F); r.mode(m, findAlt(altRX, rx, dev.num));
 
         // TODO still hard-coded
-        VTableRam().uart10 = []() { uartMap[9]->irqHandler(); };
+        VTableRam().uart10 = []() { uartMap[9]->uartIrqHandler(); };
+        VTableRam().dma2_stream3 = []() { uartMap[9]->dmaIrqHandler(); };
 
-        constexpr uint32_t NVIC_ENA = 0xE000E100;
-        auto irq = (uint8_t) dev.irq;
-        MMIO32(NVIC_ENA+4*(irq/32)) = 1<<(irq%32); // enable interrupt
-wait_ms(2); // FIXME ???
+        memset(rxBuf, 0xFF, sizeof rxBuf);
+
+        auto dma2s3 = DMA2 + 0x18*3;
+        MMIO32(dma2s3+0x14) = sizeof rxBuf;     // S3NDTR
+        MMIO32(dma2s3+0x18) = dev.base + dr;    // S3PAR
+        MMIO32(dma2s3+0x1C) = (uint32_t) rxBuf; // S3M0AR
+
+        MMIO32(dma2s3+0x10) = // S3CR: CHSEL 9, MINC, CIRC, TCIE, HTIE, EN
+            (9<<25) | (1<<10) | (1<<8) | (1<<4) | (1<<3) | (1<<0);
 
         baud(rate, F_CPU); // assume PLL has already been set up
-        // UE, IDLEIE, TE, RE
-        MMIO32(dev.base+cr1) = (1<<13) | (1<<4) | (1<<3) | (1<<2);
+
+        MMIO32(dev.base+cr1) =
+            (1<<13) | (1<<4) | (1<<3) | (1<<2); // UE, IDLEIE, TE, RE
+        MMIO32(dev.base+cr3) = (1<<6); // DMAR
+
+        constexpr uint32_t NVIC_ENA = 0xE000E100;
+        auto uartIrq = (uint8_t) dev.irq;
+        MMIO32(NVIC_ENA+4*(uartIrq/32)) = 1<<(uartIrq%32); // enable uart irq
+        auto d2s3Irq = (uint8_t) IrqVec::DMA2_Stream3;
+        MMIO32(NVIC_ENA+4*(d2s3Irq/32)) = 1<<(d2s3Irq%32); // enable dma irq
 
         return *this;
     }
 
-    void irqHandler () {
+    void uartIrqHandler () {
         auto status = MMIO32(dev.base+sr);
         if (status & (1<<4)) {
-            printf("IDLE %x %x\n", status, MMIO32(0x40011C00+dr));
+            printf("IDLE %x %c\n", status, MMIO32(0x40011C00+dr));
         } else {
-            printf("RX? %x %x\n", status, MMIO32(0x40011C00+dr));
+            printf("RX? %x %c\n", status, MMIO32(0x40011C00+dr));
         }
+    }
+
+    void dmaIrqHandler () {
+        auto status = MMIO32(DMA2+0x00); // LISR
+        if (status & (1<<27))
+            printf("XFER %x\n", status);
+        if (status & (1<<26))
+            printf("HALF %x\n", status);
+        MMIO32(DMA2+0x08) = status; // LIFCR
     }
 
     void baud (uint32_t rate, uint32_t hz =defaultHz) {
@@ -73,11 +99,13 @@ wait_ms(2); // FIXME ???
     }
 
     DevInfo const& dev;
+    uint8_t rxBuf [10];
 private:
     constexpr static auto sr  = 0x00; // status
     constexpr static auto dr  = 0x04; // data
     constexpr static auto brr = 0x08; // baud rate
     constexpr static auto cr1 = 0x0C; // control reg 1
+    constexpr static auto cr3 = 0x14; // control reg 3
 };
 
 void pinInfo (int uart, int tx, int rx) {
@@ -110,6 +138,7 @@ int main () {
     pinInfo(uart8 , tx8 , rx8 );
     pinInfo(uart9 , tx9 , rx9 );
     pinInfo(uart10, tx10, rx10);
+wait_ms(2); // FIXME ???
 
     //Uart ser2  (uart2 , tx2 , rx2);
     //Uart ser8  (uart8 , tx8 , rx8);
@@ -134,6 +163,10 @@ int main () {
                 printf("dr %c\n",    MMIO8(base+0x04));
             wait_ms(1);
         }
+        auto p = uartMap[9];
+        for (int i = 0; i < sizeof p->rxBuf; ++i)
+            printf(" %02x", p->rxBuf[i]);
+        printf("\n");
     }
 
     printf("main\n");
