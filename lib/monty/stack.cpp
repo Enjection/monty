@@ -144,6 +144,7 @@ auto Event::triggerExpired (uint32_t now) -> uint32_t {
             auto& task = _queue[n].asType<Stacklet>();
             uint16_t remain = task._transfer - now; // must be modulo 16-bit!
             if (remain == 0 || remain > 60000) { // can exceed deadline by max ≈ 5s
+                --queued;
                 _queue.remove(n);
                 Stacklet::ready.append(task);
                 //task.timedOut(*this);

@@ -301,6 +301,10 @@ static void di_cmd () {
             (int) MMIO32(uid), (int) MMIO32(uid+4), (int) MMIO32(uid+8));
 }
 
+static void ec_cmd () {
+    Stacklet::current = nullptr;
+}
+
 static void pd_cmd () {
     powerDown();
 }
@@ -319,6 +323,7 @@ Command const commands [] = {
     { "bc *  set boot command [cmd ...]"   , (void(*)()) bc_cmd },
     { "bv    show build version"           , bv_cmd },
     { "di    show device info"             , di_cmd },
+    { "ec    exit console task"            , ec_cmd },
     { "gc    trigger garbage collection"   , Stacklet::gcAll },
     { "gr    generate a GC report"         , gcReport },
 #if HAS_MRFS
@@ -335,7 +340,7 @@ static auto execCmd (char const* buf) -> bool {
     for (auto& cmd : commands)
         if (memcmp(buf, cmd.desc, 2) == 0 && (buf[2] == 0 || buf[2] == ' ')) {
             cmd.f1(buf);
-            return true;
+            return Stacklet::current != nullptr;
         }
 #if HAS_PYVM
     auto data = vmImport(buf);

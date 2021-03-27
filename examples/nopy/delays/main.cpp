@@ -28,7 +28,6 @@ struct Ticker : Event {
         };
     }
     ~Ticker () {
-printf("~Ticker?\n");
         VTableRam().systick = []() { ++ticks; }; // perhaps just disable it
         deregHandler();
     }
@@ -37,7 +36,8 @@ printf("~Ticker?\n");
         leds[5] = 1;
         auto t = triggerExpired(ticks);
         leds[5] = 0;
-        //assert(t > 0);
+        if (t == 0)
+            deregHandler(); // TODO bit of a hack to clean up this way
         return {};
     }
 
@@ -61,7 +61,11 @@ struct Toggler : Stacklet {
         leds[num] = 1;
         msWait(100);
         leds[num] = 0;
-        return true; //++count < 10;
+        if (++count >= 10) {
+            current = nullptr;
+            return false;
+        }
+        return true;
     }
 };
 
