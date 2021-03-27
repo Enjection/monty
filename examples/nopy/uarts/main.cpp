@@ -51,8 +51,6 @@ struct Uart : Object {
         VTableRam().uart10 = []() { uartMap[9]->uartIrqHandler(); };
         VTableRam().dma2_stream3 = []() { uartMap[9]->dmaIrqHandler(); };
 
-        memset(rxBuf, 0xFF, sizeof rxBuf);
-
         auto dma2s3 = DMA2 + 0x18*3;
         MMIO32(dma2s3+0x14) = sizeof rxBuf;     // S3NDTR
         MMIO32(dma2s3+0x18) = dev.base + dr;    // S3PAR
@@ -61,7 +59,7 @@ struct Uart : Object {
         MMIO32(dma2s3+0x10) = // S3CR: CHSEL 9, MINC, CIRC, TCIE, HTIE, EN
             (9<<25) | (1<<10) | (1<<8) | (1<<4) | (1<<3) | (1<<0);
 
-        baud(rate, F_CPU); // assume PLL has already been set up
+        baud(rate, F_CPU); // assume that the clock is running full speed
 
         MMIO32(dev.base+cr1) =
             (1<<13) | (1<<4) | (1<<3) | (1<<2); // UE, IDLEIE, TE, RE
@@ -79,19 +77,17 @@ struct Uart : Object {
     void uartIrqHandler () {
         auto status = MMIO32(dev.base+sr);
         if (status & (1<<4)) {
-            printf("IDLE %x %02x\n", status, MMIO32(0x40011C00+dr));
-        } else {
-            printf("RX? %x %02x\n", status, MMIO32(0x40011C00+dr));
+            MMIO32(0x40011C00+dr); // clears idle interrupt
+            auto dma2s3 = DMA2 + 0x18*3;
+            fill = sizeof rxBuf - MMIO32(dma2s3+0x14); // S3NDTR
         }
     }
 
     void dmaIrqHandler () {
         auto status = MMIO32(DMA2+0x00); // LISR
-        if (status & (1<<27))
-            printf("XFER\n");
-        if (status & (1<<26))
-            printf("HALF\n");
-        MMIO32(DMA2+0x08) = status; // LIFCR
+        fill = status & (1<<26) ? sizeof rxBuf / 2 :
+                status & (1<<27) ? sizeof rxBuf : 0;
+        MMIO32(DMA2+0x08) = status;      // LIFCR
     }
 
     void baud (uint32_t rate, uint32_t hz =defaultHz) {
@@ -100,6 +96,7 @@ struct Uart : Object {
 
     DevInfo const& dev;
     uint8_t rxBuf [10];
+    volatile uint16_t fill = 0;
 private:
     constexpr static auto sr  = 0x00; // status
     constexpr static auto dr  = 0x04; // data
@@ -143,7 +140,9 @@ wait_ms(2); // FIXME ???
     //Uart ser2  (uart2 , tx2 , rx2);
     //Uart ser8  (uart8 , tx8 , rx8);
     //Uart ser9  (uart9 , tx9 , rx9);
-    Uart ser10 (uart10, tx10, rx10, 9600); //921600);
+    Uart ser10 (uart10, tx10, rx10, 2500000);
+
+    memset(ser10.rxBuf, 0xFF, sizeof ser10.rxBuf);
 
     auto base = ser10.dev.base;
 #if 0
@@ -158,16 +157,17 @@ wait_ms(2); // FIXME ???
 #endif
     char buf [20];
     for (int i = 0; i < 6; ++i) {
-        sprintf(buf, "Hello world %d%d%d\n", i, i, i);
+        //sprintf(buf, "Hello world %d%d%d\n", i, i, i);
+        //sprintf(buf, "Hi%d", i);
+        sprintf(buf, "Hello%d", i);
         for (auto s = buf; *s != 0; ++s) {
             while ((MMIO32(base) & (1<<7)) == 0) {}
             MMIO8(base+0x04) = *s;
         }
         wait_ms(250);
-        auto p = uartMap[9];
-        for (int i = 0; i < sizeof p->rxBuf; ++i)
-            printf(" %02x", p->rxBuf[i]);
-        printf("\n");
+        for (size_t i = 0; i < sizeof ser10.rxBuf; ++i)
+            printf(" %02x", ser10.rxBuf[i]);
+        printf(" fill %d\n", ser10.fill);
     }
 
     printf("main\n");
