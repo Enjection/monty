@@ -30,7 +30,8 @@ uint8_t irqArg [100]; // TODO wrong size
 
 struct Uart* uartMap [sizeof uartInfo / sizeof *uartInfo];
 
-static void installIrq (uint8_t irq, void (*handler)(), uint8_t arg) {
+void installIrq (uint8_t irq, void (*handler)(), uint8_t arg) {
+    assert(irq < sizeof irqArg);
     irqArg[irq] = arg;
     (&VTableRam().wwdg)[irq] = handler;
 
@@ -156,9 +157,9 @@ int main () {
     pinInfo(uart10, tx10, rx10);
 wait_ms(2); // FIXME ???
 
-    //Uart ser2  (uart2); ser2.init(tx2 , rx2);
-    //Uart ser8  (uart8); ser8.init(tx8 , rx8);
-    //Uart ser9  (uart9); ser9.init(tx9 , rx9);
+    Uart ser2 (uart2); ser2.init(tx2 , rx2);
+    Uart ser8 (uart8); ser8.init(tx8 , rx8);
+    Uart ser9 (uart9); ser9.init(tx9 , rx9);
     Uart ser10 (uart10); ser10.init(tx10, rx10, 2500000);
 
     auto base = ser10.dev.base;
