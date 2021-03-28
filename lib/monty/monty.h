@@ -732,7 +732,7 @@ namespace monty {
 
         static int queued;
         static Vector triggers;
-    private:
+    protected:
         Vector _queue;
         bool _value = false;
         int8_t _id = -1;

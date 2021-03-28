@@ -31,6 +31,7 @@ uint8_t irqArg [100]; // TODO wrong size
 struct Uart* uartMap [sizeof uartInfo / sizeof *uartInfo];
 
 void installIrq (uint8_t irq, void (*handler)(), uint8_t arg) {
+    //printf("install %d arg %d\n", irq, arg);
     assert(irq < sizeof irqArg);
     irqArg[irq] = arg;
     (&VTableRam().wwdg)[irq] = handler;
@@ -39,9 +40,15 @@ void installIrq (uint8_t irq, void (*handler)(), uint8_t arg) {
     MMIO32(NVIC_ENA+4*(irq/32)) = 1 << (irq%32);
 }
 
-struct Uart {
-    Uart (int n) : dev (findDev(uartInfo, n)) { if (dev.num != n) dev.num = 0; }
-    ~Uart () { deinit(); }
+struct Uart : Event {
+    Uart (int n) : dev (findDev(uartInfo, n)) {
+        if (dev.num == n)
+            regHandler();
+        else
+            dev.num = 0;
+    }
+
+    ~Uart () override { deinit(); }
 
     void init (uint8_t tx, uint8_t rx, uint32_t rate =115200) {
         assert(dev.num > 0);
@@ -67,9 +74,9 @@ struct Uart {
 
         baud(rate, F_CPU); // assume that the clock is running full speed
 
+        MMIO32(dev.base+cr3) = (1<<7) | (1<<6) | (1<<0); // DMAT, DMAR, EIE
         MMIO32(dev.base+cr1) =
             (1<<13) | (1<<4) | (1<<3) | (1<<2); // UE, IDLEIE, TE, RE
-        MMIO32(dev.base+cr3) = (1<<7) | (1<<6); // DMAT, DMAR
 
         installIrq((uint8_t) dev.irq, uartIrq, dev.pos);
         installIrq(dmaInfo[dev.rxDma].streams[dev.rxStream], uartIrq, dev.pos);
@@ -94,8 +101,7 @@ struct Uart {
     // the actual interrupt handler, with access to the object fields
     void uartIrqHandler () {
         auto status = MMIO32(dev.base+sr);
-        if (status & (1<<4)) // IDLE
-            MMIO32(dev.base+dr); // clear idle interrupt
+        MMIO32(dev.base+dr); // clear idle interrupt and errors
 
         auto rx = dev.rxStream;
         uint8_t rxStat = dmaBase(rx&~3) >> 8*(rx&3); // LISR or HISR
@@ -111,7 +117,7 @@ struct Uart {
         if ((txStat & (1<<3)) != 0 && txFill > 0)    // TCIF
             txStart(txNext, txFill);
 
-        // TODO trigger upper half
+        Stacklet::setPending(_id);
     }
 
     void baud (uint32_t rate, uint32_t hz =defaultHz) const {
@@ -159,6 +165,41 @@ void pinInfo (int uart, int tx, int rx) {
             findAlt(altTX, tx, uart), findAlt(altRX, rx, uart));
 }
 
+void delay (int ms) {
+    auto start = ticks;
+    while (ticks - start < ms)
+        Stacklet::current->yield();
+}
+
+struct Listener : Stacklet {
+    Listener (Uart& dev) : uart (dev) {}
+
+    auto run () -> bool override {
+        uart.wait();
+        uart.clear();
+        printf("\t\t%2d f %d @ %d\n", uart.dev.num, uart.rxFill(), ticks);
+        return true;
+    }
+
+    Uart& uart;
+};
+
+struct Talker : Stacklet {
+    Talker (Uart& dev, int ms) : uart (dev), period (ms) {}
+
+    auto run () -> bool override {
+        delay(period);
+        static char buf [20];
+        sprintf(buf, "@ %d -> %d", ticks, uart.dev.num);
+        printf("%s [%d]\n", buf, strlen(buf)); delay(3);
+        uart.txStart(buf, strlen(buf));
+        return true;
+    }
+
+    Uart& uart;
+    int period;
+};
+
 int main () {
     arch::init(100*1024);
 
@@ -173,24 +214,24 @@ int main () {
     using altpins::Pin; // not the one from JeeH
 
     const auto uart2  = (uint8_t)  2, tx2  = Pin("D5"), rx2  = Pin("D6");
-    const auto uart8  = (uint8_t)  8, tx8  = Pin("F9"), rx8  = Pin("F8");
+    //const auto uart8  = (uint8_t)  8, tx8  = Pin("F9"), rx8  = Pin("F8");
     const auto uart9  = (uint8_t)  9, tx9  = Pin("G1"), rx9  = Pin("G0");
     const auto uart10 = (uint8_t) 10, tx10 = Pin("E3"), rx10 = Pin("E2");
 
     pinInfo(uart2 , tx2 , rx2 );
-    pinInfo(uart8 , tx8 , rx8 );
+    //pinInfo(uart8 , tx8 , rx8 );
     pinInfo(uart9 , tx9 , rx9 );
     pinInfo(uart10, tx10, rx10);
 
-    Uart ser2 (uart2); ser2.init(tx2 , rx2);
-    Uart ser8 (uart8); ser8.init(tx8 , rx8);
-    Uart ser9 (uart9); ser9.init(tx9 , rx9);
-    Uart ser10 (uart10); ser10.init(tx10, rx10, 2500000);
+    Uart ser2 (uart2); ser2.init(tx2 , rx2, 921600);
+    //Uart ser8 (uart8); ser8.init(tx8 , rx8);
+    Uart ser9 (uart9); ser9.init(tx9 , rx9, 921600);
+    Uart ser10 (uart10); ser10.init(tx10, rx10, 921600);
 
-    printf("uart %d b\n", sizeof ser10);
+    //printf("uart %d b\n", sizeof ser2);
 
-#if 0
-    auto base = ser10.dev.base;
+#if 1
+    auto base = ser2.dev.base;
     printf("sr %08x\n", MMIO32(base+0x00));
     MMIO8(base+0x04) = 'J';
     printf("sr %08x\n", MMIO32(base+0x00));
@@ -200,23 +241,33 @@ int main () {
     printf("dr %c\n",    MMIO8(base+0x04));
     printf("sr %08x\n", MMIO32(base+0x00));
 #endif
-    memset(ser10.rxBuf, '.', sizeof ser10.rxBuf);
+#if 0
+    memset(ser2.rxBuf, '.', sizeof ser2.rxBuf);
     char buf [20];
     for (int i = 0; i < 6; ++i) {
         //sprintf(buf, "Hello world %d%d!", i, i); // 15
         sprintf(buf, "Hello%d", i); // 6
         //sprintf(buf, "Hi%d?", i); // 4
-        ser10.txStart(buf, 3);
-        ser10.txNext = buf + 3;
-        ser10.txFill = strlen(buf) - 3;
+        ser2.txStart(buf, 3);
+        ser2.txNext = buf + 3;
+        ser2.txFill = strlen(buf) - 3;
         wait_ms(100);
-        for (size_t i = 0; i < sizeof ser10.rxBuf; ++i)
-            printf(" %c", ser10.rxBuf[i]);
-        printf("   fill %d\n", ser10.rxFill());
+        for (size_t i = 0; i < sizeof ser2.rxBuf; ++i)
+            printf(" %c", ser2.rxBuf[i]);
+        printf("   fill %d\n", ser2.rxFill());
         wait_ms(10);
     }
-
+#endif
     printf("main\n");
+
+#if 1
+    Stacklet::ready.append(new Listener (ser2));
+    Stacklet::ready.append(new Listener (ser9));
+    Stacklet::ready.append(new Listener (ser10));
+    Stacklet::ready.append(new Talker (ser10, 500));
+    Stacklet::ready.append(new Talker (ser2, 1600));
+    Stacklet::ready.append(new Talker (ser9, 2700));
+#endif
 
     auto task = arch::cliTask();
     if (task != nullptr)
