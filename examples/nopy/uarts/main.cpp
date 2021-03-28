@@ -74,9 +74,9 @@ struct Uart : Event {
 
         baud(rate, F_CPU); // assume that the clock is running full speed
 
-        MMIO32(dev.base+cr3) = (1<<7) | (1<<6) | (1<<0); // DMAT, DMAR, EIE
         MMIO32(dev.base+cr1) =
             (1<<13) | (1<<4) | (1<<3) | (1<<2); // UE, IDLEIE, TE, RE
+        MMIO32(dev.base+cr3) = (1<<7) | (1<<6); // DMAT, DMAR
 
         installIrq((uint8_t) dev.irq, uartIrq, dev.pos);
         installIrq(dmaInfo[dev.rxDma].streams[dev.rxStream], uartIrq, dev.pos);
@@ -100,15 +100,12 @@ struct Uart : Event {
 
     // the actual interrupt handler, with access to the object fields
     void uartIrqHandler () {
-        auto status = MMIO32(dev.base+sr);
-        MMIO32(dev.base+dr); // clear idle interrupt and errors
+        (void) MMIO32(dev.base+sr); // read uart status register
+        (void) MMIO32(dev.base+dr); // clear idle interrupt and errors
 
         auto rx = dev.rxStream;
         uint8_t rxStat = dmaBase(rx&~3) >> 8*(rx&3); // LISR or HISR
         dmaBase(0x08+(rx&~3)) = rxStat << 8*(rx&3);  // LIFCR or HIFCR
-
-        // whatever the interrupt cause, update the fill index
-        //rxFill = sizeof rxBuf - dmaRX(0x14); // SxNDTR
 
         auto tx = dev.txStream;
         uint8_t txStat = dmaBase(tx&~3) >> 8*(tx&3); // LISR or HISR
@@ -165,7 +162,7 @@ void pinInfo (int uart, int tx, int rx) {
             findAlt(altTX, tx, uart), findAlt(altRX, rx, uart));
 }
 
-void delay (int ms) {
+void delay (uint32_t ms) {
     auto start = ticks;
     while (ticks - start < ms)
         Stacklet::current->yield();
@@ -213,7 +210,7 @@ int main () {
 
     using altpins::Pin; // not the one from JeeH
 
-    const auto uart2  = (uint8_t)  2, tx2  = Pin("D5"), rx2  = Pin("D6");
+    const auto uart2  = (uint8_t)  2, tx2  = Pin("A2"), rx2  = Pin("A3");
     //const auto uart8  = (uint8_t)  8, tx8  = Pin("F9"), rx8  = Pin("F8");
     const auto uart9  = (uint8_t)  9, tx9  = Pin("G1"), rx9  = Pin("G0");
     const auto uart10 = (uint8_t) 10, tx10 = Pin("E3"), rx10 = Pin("E2");
