@@ -29,10 +29,10 @@ struct {
     void* driver;
 } dispatchMap [100]; // TODO wrong size
 
+// TODO this really should be the default handler
 static void irqHandler () {
-    uint32_t psr;
-    asm volatile ("mrs %0, psr" : "=r" (psr));
-    auto [handler, driver] = dispatchMap[(uint8_t) (psr-0x10)];
+    auto vecNum = MMIO8(0xE000ED04); // ICSR
+    auto [handler, driver] = dispatchMap[vecNum-0x10];
     handler(driver);
 }
 
