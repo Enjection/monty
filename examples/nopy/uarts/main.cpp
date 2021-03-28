@@ -24,6 +24,10 @@ using namespace altpins;
 
 jeeh::Pin leds [9];
 
+// see https://interrupt.memfault.com/blog/arm-cortex-m-exceptions-and-nvic
+
+struct Uart* uartMap [sizeof uartInfo / sizeof *uartInfo];
+
 struct {
     void (*handler)(void*);
     void* driver;
@@ -47,16 +51,22 @@ static void installIrq (IrqVec irq, void (*fun)(void*), void* obj) {
 
 struct Uart {
     static void uartIrq (void* ptr) { ((Uart*) ptr)->uartIrqHandler(); }
-    static void rxDmaIrq (void* ptr) { ((Uart*) ptr)->rxDmaIrqHandler(); }
 
-    Uart (int n) : dev (findDev(uartInfo, n)) {}
+    Uart (int n) : dev (findDev(uartInfo, n)) {
+        if (dev.num != n) dev.num = 0; // mark as invalid
+    }
 
     Uart (int n, uint8_t tx, uint8_t rx, uint32_t rate =115200)
         : Uart (n) { if (n == dev.num) init(tx, rx, rate); }
 
-    auto init (uint8_t tx, uint8_t rx, uint32_t rate =115200) -> Uart& {
-        Periph::bitSet(RCC_APB1ENR+4*(dev.ena/32), dev.ena%32); // enable clock
-        Periph::bitSet(RCC_AHB1ENR, 21+dev.rxDma); // enable DMA clock
+    ~Uart () { deinit(); }
+
+    void init (uint8_t tx, uint8_t rx, uint32_t rate =115200) {
+        assert(dev.num > 0);
+        uartMap[dev.pos] = this;
+
+        Periph::bitSet(RCC_APB1ENR+4*(dev.ena/32), dev.ena%32); // uart on
+        Periph::bitSet(RCC_AHB1ENR, 21+dev.rxDma);              // dma on
 
         // TODO need a simpler way, still using JeeH pinmodes
         auto m = (int) Pinmode::alt_out;
@@ -76,25 +86,28 @@ struct Uart {
         MMIO32(dev.base+cr3) = (1<<6); // DMAR
 
         installIrq(dev.irq, uartIrq, this);
-        installIrq(IrqVec::DMA2_Stream3, rxDmaIrq, this);
+        installIrq(dmaInfo[dev.rxDma].streams[dev.rxStream], uartIrq, this);
+    }
 
-        return *this;
+    void deinit () {
+        if (dev.num == 0)
+            return;
+        Periph::bitClear(RCC_APB1ENR+4*(dev.ena/32), dev.ena%32); // uart off
+        Periph::bitClear(RCC_AHB1ENR, 21+dev.rxDma);              // dma off
+        uartMap[dev.pos] = nullptr; // TODO can there be a pending irq?
     }
 
     void uartIrqHandler () {
         auto status = MMIO32(dev.base+sr);
-        if (status & (1<<4)) { // IDLE
-            MMIO32(dev.base+dr); // clears idle interrupt
-            rxFill = sizeof rxBuf - dmaRX(0x14); // SxNDTR
-        }
-    }
+        if (status & (1<<4)) // IDLE
+            MMIO32(dev.base+dr); // clear idle interrupt
 
-    void rxDmaIrqHandler () {
         auto stream = dev.rxStream;
-        auto status = dmaBase(stream/4); // LISR or HISR
-        dmaBase(0x08+stream/4) = status; // LIFCR or HIFCR
-        rxFill = status & (1<<(2+8*(stream%4))) ? sizeof rxBuf / 2 : // CHTIF
-                 status & (1<<(3+8*(stream%4))) ? sizeof rxBuf : 0;  // CTCIF
+        uint8_t dmaStat = dmaBase(stream/4) >> 8*(stream%4); // LISR or HISR
+        dmaBase(0x08+stream/4) = dmaStat << 8*(stream%4);    // LIFCR or HIFCR
+
+        // whatever the reason, update the fill index
+        rxFill = sizeof rxBuf - dmaRX(0x14); // SxNDTR
     }
 
     void baud (uint32_t rate, uint32_t hz =defaultHz) {
@@ -106,7 +119,7 @@ struct Uart {
     uint8_t rxBuf [10]; // TODO volatile?
 private:
     auto dmaBase (int off) -> volatile uint32_t& {
-        return MMIO32((dev.rxDma == 0 ? DMA1 : DMA2) + off);
+        return MMIO32(dmaInfo[dev.rxDma].base + off);
     }
     auto dmaRX (int off) -> volatile uint32_t& {
         return dmaBase(off + 0x18 * dev.rxStream);
@@ -154,10 +167,10 @@ int main () {
     pinInfo(uart10, tx10, rx10);
 wait_ms(2); // FIXME ???
 
-    //Uart ser2  (uart2 , tx2 , rx2);
-    //Uart ser8  (uart8 , tx8 , rx8);
-    //Uart ser9  (uart9 , tx9 , rx9);
-    Uart ser10 (uart10, tx10, rx10, 2500000);
+    //Uart ser2  (uart2); ser2.init(tx2 , rx2);
+    //Uart ser8  (uart8); ser8.init(tx8 , rx8);
+    //Uart ser9  (uart9); ser9.init(tx9 , rx9);
+    Uart ser10 (uart10); ser10.init(tx10, rx10, 2500000);
 
     auto base = ser10.dev.base;
 #if 0
@@ -179,7 +192,7 @@ wait_ms(2); // FIXME ???
             while ((MMIO32(base) & (1<<7)) == 0) {}
             MMIO8(base+0x04) = *s;
         }
-        wait_ms(250);
+        wait_ms(100);
         for (size_t i = 0; i < sizeof ser10.rxBuf; ++i)
             printf(" %02x", ser10.rxBuf[i]);
         printf(" rxFill %d\n", ser10.rxFill);

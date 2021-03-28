@@ -41,8 +41,13 @@ enum struct IrqVec : uint8_t {
     //CG>
 };
 
+struct DmaInfo {
+    uint32_t base;
+    IrqVec streams [8];
+};
+
 struct DevInfo {
-    uint8_t num, ena;
+    uint8_t pos :4, num :4, ena;
     uint8_t rxDma :1, rxChan :4, rxStream :3;
     uint8_t txDma :1, txChan :4, txStream :3;
     IrqVec irq;
@@ -56,6 +61,10 @@ constexpr auto findDev (DevInfo const (&map) [N], int num) -> DevInfo const& {
             return e;
     return map[0]; // verify num to check that it was found
 }
+
+DmaInfo const dmaInfo [] = {
+    %s
+};
 
 DevInfo const uartInfo [] = {
     %s
@@ -125,6 +134,17 @@ for k in sorted(irqs.keys(), key=uartsort):
     u = uartfix(k)
     irqvecs.append(f"{u:<21} = {v:3},  // {g}")
 
+dmas = []
+for k, v in zip(*(iter(patch("dma")),) * 2):
+    dmas.append("{ %s, {" % k)
+    streams = 8 * ["WWDG"] # nonsensical name
+    for i in irqs:
+        if i.startswith(k) and v in i:
+            streams[int(i[-1])] = i
+    for s in streams:
+        dmas.append("    IrqVec::%s," % s)
+    dmas.append("}},")
+
 uarts = []
 for p in sorted(groups["USART"], key=uartsort):
     enaBits = patch("ena_uart")
@@ -140,8 +160,8 @@ for p in sorted(groups["USART"], key=uartsort):
         txd, txc, txs = t[:1], t[2:-2], t[-1:]
         if t == "-": 
             txd, txc, txs = "2", "15", "0" # unlikely value ...
-        uarts.append("{%2d, %2s, %s,%2s, %s, %s,%2s, %s, IrqVec::%-6s, %-6s}," % \
-                     (n, e, int(rxd)-1, rxc, rxs, int(txd)-1, txc, txs, u, u))
+        uarts.append("{ %d,%2d, %2s, %s,%2s, %s, %s,%2s, %s, IrqVec::%-6s, %-6s}," % \
+            (len(uarts), n, e, int(rxd)-1, rxc, rxs, int(txd)-1, txc, txs, u, u))
 
 spis = []
 for p in sorted(groups["SPI"], key=uartsort):
@@ -150,8 +170,8 @@ for p in sorted(groups["SPI"], key=uartsort):
         n = int(re.sub('\D+', '', p))
         if p in irqs:
             e = enaBits[n-1] if n-1 < len(enaBits) else "0"
-            spis.append("{ %d, %s, 0, 0, 0, 0, 0, 0, IrqVec::%s, %s }," % \
-                        (n, e, p, p))
+            spis.append("{ %d, %d, %s, 0, 0, 0, 0, 0, 0, IrqVec::%s, %s }," % \
+                        (len(spis), n, e, p, p))
         else:
             print("no IrqVec for %s, ignoring" % p, file=sys.stderr)
 
@@ -170,5 +190,6 @@ if 1:
                       "\n".join(periphs),
                       "\n".join(regs),
                       "\n    ".join(irqvecs),
+                      "\n    ".join(dmas),
                       "\n    ".join(uarts),
                       "\n    ".join(spis)))

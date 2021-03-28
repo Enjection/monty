@@ -162,8 +162,13 @@ enum struct IrqVec : uint8_t {
     //CG>
 };
 
+struct DmaInfo {
+    uint32_t base;
+    IrqVec streams [8];
+};
+
 struct DevInfo {
-    uint8_t num, ena;
+    uint8_t pos :4, num :4, ena;
     uint8_t rxDma :1, rxChan :4, rxStream :3;
     uint8_t txDma :1, txChan :4, txStream :3;
     IrqVec irq;
@@ -178,17 +183,40 @@ constexpr auto findDev (DevInfo const (&map) [N], int num) -> DevInfo const& {
     return map[0]; // verify num to check that it was found
 }
 
+DmaInfo const dmaInfo [] = {
+    { DMA1, {
+        IrqVec::WWDG,
+        IrqVec::DMA1_CH1,
+        IrqVec::DMA1_CH2,
+        IrqVec::DMA1_CH3,
+        IrqVec::DMA1_CH4,
+        IrqVec::DMA1_CH5,
+        IrqVec::DMA1_CH6,
+        IrqVec::DMA1_CH7,
+    }},
+    { DMA2, {
+        IrqVec::WWDG,
+        IrqVec::DMA2_CH1,
+        IrqVec::DMA2_CH2,
+        IrqVec::DMA2_CH3,
+        IrqVec::DMA2_CH4,
+        IrqVec::DMA2_CH5,
+        IrqVec::DMA2_CH6,
+        IrqVec::DMA2_CH7,
+    }},
+};
+
 DevInfo const uartInfo [] = {
-    { 1, 78, 0, 0, 0, 0, 0, 0, IrqVec::UART1 , UART1 },
-    { 2, 17, 0, 0, 0, 0, 0, 0, IrqVec::UART2 , UART2 },
-    { 3, 18, 0, 0, 0, 0, 0, 0, IrqVec::UART3 , UART3 },
-    { 4, 19, 0, 0, 0, 0, 0, 0, IrqVec::UART4 , UART4 },
+    { 0, 1, 78, 0, 0, 0, 0, 0, 0, IrqVec::UART1 , UART1 },
+    { 1, 2, 17, 0, 0, 0, 0, 0, 0, IrqVec::UART2 , UART2 },
+    { 2, 3, 18, 0, 0, 0, 0, 0, 0, IrqVec::UART3 , UART3 },
+    { 3, 4, 19, 0, 0, 0, 0, 0, 0, IrqVec::UART4 , UART4 },
 };
 
 DevInfo const spiInfo [] = {
-    { 1, 76, 0, 0, 0, 0, 0, 0, IrqVec::SPI1, SPI1 },
-    { 2, 14, 0, 0, 0, 0, 0, 0, IrqVec::SPI2, SPI2 },
-    { 3, 15, 0, 0, 0, 0, 0, 0, IrqVec::SPI3, SPI3 },
+    { 0, 1, 76, 0, 0, 0, 0, 0, 0, IrqVec::SPI1, SPI1 },
+    { 1, 2, 14, 0, 0, 0, 0, 0, 0, IrqVec::SPI2, SPI2 },
+    { 2, 3, 15, 0, 0, 0, 0, 0, 0, IrqVec::SPI3, SPI3 },
 };
 
 // end of generated file
