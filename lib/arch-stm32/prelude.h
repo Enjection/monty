@@ -186,10 +186,10 @@ DmaInfo const dmaInfo [] = {
 };
 
 DevInfo const uartInfo [] = {
-    { 0, 1, 78, 0, 0, 0, 0, 0, 0, IrqVec::UART1 , UART1 },
-    { 1, 2, 17, 0, 0, 0, 0, 0, 0, IrqVec::UART2 , UART2 },
-    { 2, 3, 18, 0, 0, 0, 0, 0, 0, IrqVec::UART3 , UART3 },
-    { 3, 4, 19, 0, 0, 0, 0, 0, 0, IrqVec::UART4 , UART4 },
+    { 0, 1, 78, 0, 2, 5, 0, 2, 4, IrqVec::UART1 , UART1 },
+    { 1, 2, 17, 0, 2, 6, 0, 2, 7, IrqVec::UART2 , UART2 },
+    { 2, 3, 18, 0, 2, 3, 0, 2, 2, IrqVec::UART3 , UART3 },
+    { 3, 4, 19, 1, 2, 5, 1, 2, 3, IrqVec::UART4 , UART4 },
 };
 
 DevInfo const spiInfo [] = {
