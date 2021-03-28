@@ -162,10 +162,7 @@ enum struct IrqVec : uint8_t {
     //CG>
 };
 
-struct DmaInfo {
-    uint32_t base;
-    IrqVec streams [8];
-};
+struct DmaInfo { uint32_t base; uint8_t streams [8]; };
 
 struct DevInfo {
     uint8_t pos :4, num :4, ena;
@@ -184,26 +181,8 @@ constexpr auto findDev (DevInfo const (&map) [N], int num) -> DevInfo const& {
 }
 
 DmaInfo const dmaInfo [] = {
-    { DMA1, {
-        IrqVec::WWDG,
-        IrqVec::DMA1_CH1,
-        IrqVec::DMA1_CH2,
-        IrqVec::DMA1_CH3,
-        IrqVec::DMA1_CH4,
-        IrqVec::DMA1_CH5,
-        IrqVec::DMA1_CH6,
-        IrqVec::DMA1_CH7,
-    }},
-    { DMA2, {
-        IrqVec::WWDG,
-        IrqVec::DMA2_CH1,
-        IrqVec::DMA2_CH2,
-        IrqVec::DMA2_CH3,
-        IrqVec::DMA2_CH4,
-        IrqVec::DMA2_CH5,
-        IrqVec::DMA2_CH6,
-        IrqVec::DMA2_CH7,
-    }},
+    { DMA1, { 0, 11, 12, 13, 14, 15, 16, 17 }},
+    { DMA2, { 0, 56, 57, 58, 59, 60, 68, 69 }},
 };
 
 DevInfo const uartInfo [] = {

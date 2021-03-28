@@ -26,39 +26,20 @@ jeeh::Pin leds [9];
 
 // see https://interrupt.memfault.com/blog/arm-cortex-m-exceptions-and-nvic
 
+uint8_t irqArg [100]; // TODO wrong size
+
 struct Uart* uartMap [sizeof uartInfo / sizeof *uartInfo];
 
-struct {
-    void (*handler)(void*);
-    void* driver;
-} dispatchMap [100]; // TODO wrong size
-
-// TODO this really should be the default handler
-static void irqHandler () {
-    auto vecNum = MMIO8(0xE000ED04); // ICSR
-    auto [handler, driver] = dispatchMap[vecNum-0x10];
-    handler(driver);
-}
-
-static void installIrq (IrqVec irq, void (*fun)(void*), void* obj) {
-    auto n = (uint8_t) irq;
-    dispatchMap[n] = { fun, obj };
-    (&VTableRam().wwdg)[n] = irqHandler;
+static void installIrq (uint8_t irq, void (*handler)(), uint8_t arg) {
+    irqArg[irq] = arg;
+    (&VTableRam().wwdg)[irq] = handler;
 
     constexpr uint32_t NVIC_ENA = 0xE000E100;
-    MMIO32(NVIC_ENA+4*(n/32)) = 1 << (n%32);
+    MMIO32(NVIC_ENA+4*(irq/32)) = 1 << (irq%32);
 }
 
 struct Uart {
-    static void uartIrq (void* ptr) { ((Uart*) ptr)->uartIrqHandler(); }
-
-    Uart (int n) : dev (findDev(uartInfo, n)) {
-        if (dev.num != n) dev.num = 0; // mark as invalid
-    }
-
-    Uart (int n, uint8_t tx, uint8_t rx, uint32_t rate =115200)
-        : Uart (n) { if (n == dev.num) init(tx, rx, rate); }
-
+    Uart (int n) : dev (findDev(uartInfo, n)) { if (dev.num != n) dev.num = 0; }
     ~Uart () { deinit(); }
 
     void init (uint8_t tx, uint8_t rx, uint32_t rate =115200) {
@@ -85,8 +66,8 @@ struct Uart {
             (1<<13) | (1<<4) | (1<<3) | (1<<2); // UE, IDLEIE, TE, RE
         MMIO32(dev.base+cr3) = (1<<6); // DMAR
 
-        installIrq(dev.irq, uartIrq, this);
-        installIrq(dmaInfo[dev.rxDma].streams[dev.rxStream], uartIrq, this);
+        installIrq((uint8_t) dev.irq, uartIrq, dev.pos);
+        installIrq(dmaInfo[dev.rxDma].streams[dev.rxStream], uartIrq, dev.pos);
     }
 
     void deinit () {
@@ -97,6 +78,14 @@ struct Uart {
         uartMap[dev.pos] = nullptr; // TODO can there be a pending irq?
     }
 
+    // this is installed as IRQ handler in the hardware IRQ vector
+    static void uartIrq () {
+        auto vecNum = MMIO8(0xE000ED04); // ICSR
+        auto arg = irqArg[vecNum-0x10];
+        uartMap[arg]->uartIrqHandler();
+    }
+
+    // the actual interrupt handler, with access to the object fields
     void uartIrqHandler () {
         auto status = MMIO32(dev.base+sr);
         if (status & (1<<4)) // IDLE

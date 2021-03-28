@@ -41,10 +41,7 @@ enum struct IrqVec : uint8_t {
     //CG>
 };
 
-struct DmaInfo {
-    uint32_t base;
-    IrqVec streams [8];
-};
+struct DmaInfo { uint32_t base; uint8_t streams [8]; };
 
 struct DevInfo {
     uint8_t pos :4, num :4, ena;
@@ -136,14 +133,11 @@ for k in sorted(irqs.keys(), key=uartsort):
 
 dmas = []
 for k, v in zip(*(iter(patch("dma")),) * 2):
-    dmas.append("{ %s, {" % k)
-    streams = 8 * ["WWDG"] # nonsensical name
+    streams = 8 * ["0"]
     for i in irqs:
         if i.startswith(k) and v in i:
-            streams[int(i[-1])] = i
-    for s in streams:
-        dmas.append("    IrqVec::%s," % s)
-    dmas.append("}},")
+            streams[int(i[-1])] = str(irqs[i][0])
+    dmas.append("{ %s, { %s }}," % (k, ", ".join(streams)))
 
 uarts = []
 for p in sorted(groups["USART"], key=uartsort):
