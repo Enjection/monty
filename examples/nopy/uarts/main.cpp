@@ -61,14 +61,19 @@ struct Uart {
         dmaRX(0x10) = // SxCR: CHSEL, MINC, CIRC, TCIE, HTIE, EN
             (dev.rxChan<<25) | (1<<10) | (1<<8) | (1<<4) | (1<<3) | (1<<0);
 
+        dmaTX(0x18) = dev.base + dr;    // SxPAR
+        dmaTX(0x10) = // SxCR: CHSEL, MINC, DIR, TCIE
+            (dev.txChan<<25) | (1<<10) | (1<<6) | (1<<4);
+
         baud(rate, F_CPU); // assume that the clock is running full speed
 
         MMIO32(dev.base+cr1) =
             (1<<13) | (1<<4) | (1<<3) | (1<<2); // UE, IDLEIE, TE, RE
-        MMIO32(dev.base+cr3) = (1<<6); // DMAR
+        MMIO32(dev.base+cr3) = (1<<7) | (1<<6); // DMAT, DMAR
 
         installIrq((uint8_t) dev.irq, uartIrq, dev.pos);
         installIrq(dmaInfo[dev.rxDma].streams[dev.rxStream], uartIrq, dev.pos);
+        installIrq(dmaInfo[dev.txDma].streams[dev.txStream], uartIrq, dev.pos);
     }
 
     void deinit () {
@@ -92,29 +97,50 @@ struct Uart {
         if (status & (1<<4)) // IDLE
             MMIO32(dev.base+dr); // clear idle interrupt
 
-        auto stream = dev.rxStream;
-        uint8_t dmaStat = dmaBase(stream/4) >> 8*(stream%4); // LISR or HISR
-        dmaBase(0x08+stream/4) = dmaStat << 8*(stream%4);    // LIFCR or HIFCR
+        auto rx = dev.rxStream;
+        uint8_t rxStat = dmaBase(rx&~3) >> 8*(rx&3); // LISR or HISR
+        dmaBase(0x08+(rx&~3)) = rxStat << 8*(rx&3);  // LIFCR or HIFCR
 
-        // whatever the reason, update the fill index
-        rxFill = sizeof rxBuf - dmaRX(0x14); // SxNDTR
+        // whatever the interrupt cause, update the fill index
+        //rxFill = sizeof rxBuf - dmaRX(0x14); // SxNDTR
+
+        auto tx = dev.txStream;
+        uint8_t txStat = dmaBase(tx&~3) >> 8*(tx&3); // LISR or HISR
+        dmaBase(0x08+(tx&~3)) = txStat << 8*(tx&3);  // LIFCR or HIFCR
+
+        if ((txStat & (1<<3)) != 0 && txFill > 0)    // TCIF
+            txStart(txNext, txFill);
+
+        // TODO trigger upper half
     }
 
-    void baud (uint32_t rate, uint32_t hz =defaultHz) {
+    void baud (uint32_t rate, uint32_t hz =defaultHz) const {
         MMIO32(dev.base+brr) = (hz + rate/2) / rate;
     }
 
+    auto rxFill () const -> uint16_t {
+        return sizeof rxBuf - dmaRX(0x14); // SxNDTR
+    }
+
+    void txStart (void const* ptr, uint16_t len) {
+        dmaTX(0x14) = len;            // SxNDTR
+        dmaTX(0x1C) = (uint32_t) ptr; // SxM0AR
+        dmaTX(0x10) |= (1<<0);        // EN
+        txFill = 0;
+    }
+
     DevInfo dev;
-    volatile uint16_t rxFill = 0;
+    void const* txNext;
+    volatile uint16_t txFill = 0;
     uint8_t rxBuf [10]; // TODO volatile?
 private:
-    auto dmaBase (int off) -> volatile uint32_t& {
+    auto dmaBase (int off) const -> volatile uint32_t& {
         return MMIO32(dmaInfo[dev.rxDma].base + off);
     }
-    auto dmaRX (int off) -> volatile uint32_t& {
+    auto dmaRX (int off) const -> volatile uint32_t& {
         return dmaBase(off + 0x18 * dev.rxStream);
     }
-    auto dmaTX (int off) -> volatile uint32_t& {
+    auto dmaTX (int off) const -> volatile uint32_t& {
         return dmaBase(off + 0x18 * dev.txStream);
     }
 
@@ -155,15 +181,16 @@ int main () {
     pinInfo(uart8 , tx8 , rx8 );
     pinInfo(uart9 , tx9 , rx9 );
     pinInfo(uart10, tx10, rx10);
-wait_ms(2); // FIXME ???
 
     Uart ser2 (uart2); ser2.init(tx2 , rx2);
     Uart ser8 (uart8); ser8.init(tx8 , rx8);
     Uart ser9 (uart9); ser9.init(tx9 , rx9);
     Uart ser10 (uart10); ser10.init(tx10, rx10, 2500000);
 
-    auto base = ser10.dev.base;
+    printf("uart %d b\n", sizeof ser10);
+
 #if 0
+    auto base = ser10.dev.base;
     printf("sr %08x\n", MMIO32(base+0x00));
     MMIO8(base+0x04) = 'J';
     printf("sr %08x\n", MMIO32(base+0x00));
@@ -173,19 +200,20 @@ wait_ms(2); // FIXME ???
     printf("dr %c\n",    MMIO8(base+0x04));
     printf("sr %08x\n", MMIO32(base+0x00));
 #endif
+    memset(ser10.rxBuf, '.', sizeof ser10.rxBuf);
     char buf [20];
     for (int i = 0; i < 6; ++i) {
-        //sprintf(buf, "Hello world %d%d%d\n", i, i, i);
-        //sprintf(buf, "Hi%d", i);
-        sprintf(buf, "Hello%d", i);
-        for (auto s = buf; *s != 0; ++s) {
-            while ((MMIO32(base) & (1<<7)) == 0) {}
-            MMIO8(base+0x04) = *s;
-        }
+        //sprintf(buf, "Hello world %d%d!", i, i); // 15
+        sprintf(buf, "Hello%d", i); // 6
+        //sprintf(buf, "Hi%d?", i); // 4
+        ser10.txStart(buf, 3);
+        ser10.txNext = buf + 3;
+        ser10.txFill = strlen(buf) - 3;
         wait_ms(100);
         for (size_t i = 0; i < sizeof ser10.rxBuf; ++i)
-            printf(" %02x", ser10.rxBuf[i]);
-        printf(" rxFill %d\n", ser10.rxFill);
+            printf(" %c", ser10.rxBuf[i]);
+        printf("   fill %d\n", ser10.rxFill());
+        wait_ms(10);
     }
 
     printf("main\n");
