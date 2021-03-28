@@ -24,27 +24,39 @@ using namespace altpins;
 
 jeeh::Pin leds [9];
 
-// TODO some of the code below is still family-specific
+struct {
+    void (*handler)(void*);
+    void* driver;
+} dispatchMap [100]; // TODO wrong size
 
-static struct Uart* uartMap [sizeof uartInfo / sizeof *uartInfo];
-
-static void nvicEnable (IrqVec irq) {
-    constexpr uint32_t NVIC_ENA = 0xE000E100;
-    MMIO32(NVIC_ENA+4*(((int) irq) / 32)) = 1 << (((int) irq) % 32);
+static void irqHandler () {
+    uint32_t psr;
+    asm volatile ("mrs %0, psr" : "=r" (psr));
+    auto [handler, driver] = dispatchMap[(uint8_t) (psr-0x10)];
+    handler(driver);
 }
 
-struct Uart : Object {
+static void installIrq (IrqVec irq, void (*fun)(void*), void* obj) {
+    auto n = (uint8_t) irq;
+    dispatchMap[n] = { fun, obj };
+    (&VTableRam().wwdg)[n] = irqHandler;
+
+    constexpr uint32_t NVIC_ENA = 0xE000E100;
+    MMIO32(NVIC_ENA+4*(n/32)) = 1 << (n%32);
+}
+
+struct Uart {
+    static void uartIrq (void* ptr) { ((Uart*) ptr)->uartIrqHandler(); }
+    static void rxDmaIrq (void* ptr) { ((Uart*) ptr)->rxDmaIrqHandler(); }
+
     Uart (int n) : dev (findDev(uartInfo, n)) {}
 
     Uart (int n, uint8_t tx, uint8_t rx, uint32_t rate =115200)
         : Uart (n) { if (n == dev.num) init(tx, rx, rate); }
 
     auto init (uint8_t tx, uint8_t rx, uint32_t rate =115200) -> Uart& {
-        uartMap[dev.num-1] = this; // for static access
-
         Periph::bitSet(RCC_APB1ENR+4*(dev.ena/32), dev.ena%32); // enable clock
-
-        Periph::bitSet(RCC_AHB1ENR, 21+dev.rxDma); // enable DMA2 clock
+        Periph::bitSet(RCC_AHB1ENR, 21+dev.rxDma); // enable DMA clock
 
         // TODO need a simpler way, still using JeeH pinmodes
         auto m = (int) Pinmode::alt_out;
@@ -63,29 +75,26 @@ struct Uart : Object {
             (1<<13) | (1<<4) | (1<<3) | (1<<2); // UE, IDLEIE, TE, RE
         MMIO32(dev.base+cr3) = (1<<6); // DMAR
 
-        // TODO still hard-coded
-        VTableRam().uart10 = []() { uartMap[9]->uartIrqHandler(); };
-        VTableRam().dma2_stream3 = []() { uartMap[9]->dmaIrqHandler(); };
-
-        nvicEnable(dev.irq);
-        nvicEnable(IrqVec::DMA2_Stream3);
+        installIrq(dev.irq, uartIrq, this);
+        installIrq(IrqVec::DMA2_Stream3, rxDmaIrq, this);
 
         return *this;
     }
 
     void uartIrqHandler () {
         auto status = MMIO32(dev.base+sr);
-        if (status & (1<<4)) {
+        if (status & (1<<4)) { // IDLE
             MMIO32(dev.base+dr); // clears idle interrupt
-            fill = sizeof rxBuf - dmaRX(0x14); // SxNDTR
+            rxFill = sizeof rxBuf - dmaRX(0x14); // SxNDTR
         }
     }
 
-    void dmaIrqHandler () {
-        auto status = dmaBase(0x00); // LISR
-        fill = status & (1<<26) ? sizeof rxBuf / 2 :
-                status & (1<<27) ? sizeof rxBuf : 0;
-        dmaBase(0x08) = status;      // LIFCR
+    void rxDmaIrqHandler () {
+        auto stream = dev.rxStream;
+        auto status = dmaBase(stream/4); // LISR or HISR
+        dmaBase(0x08+stream/4) = status; // LIFCR or HIFCR
+        rxFill = status & (1<<(2+8*(stream%4))) ? sizeof rxBuf / 2 : // CHTIF
+                 status & (1<<(3+8*(stream%4))) ? sizeof rxBuf : 0;  // CTCIF
     }
 
     void baud (uint32_t rate, uint32_t hz =defaultHz) {
@@ -93,17 +102,17 @@ struct Uart : Object {
     }
 
     DevInfo dev;
-    uint8_t rxBuf [10];
-    volatile uint16_t fill = 0;
+    volatile uint16_t rxFill = 0;
+    uint8_t rxBuf [10]; // TODO volatile?
 private:
     auto dmaBase (int off) -> volatile uint32_t& {
         return MMIO32((dev.rxDma == 0 ? DMA1 : DMA2) + off);
     }
     auto dmaRX (int off) -> volatile uint32_t& {
-        return dmaBase(off + 0x18*dev.rxStream);
+        return dmaBase(off + 0x18 * dev.rxStream);
     }
     auto dmaTX (int off) -> volatile uint32_t& {
-        return dmaBase(off + 0x18*dev.txStream);
+        return dmaBase(off + 0x18 * dev.txStream);
     }
 
     constexpr static auto sr  = 0x00; // status
@@ -150,8 +159,6 @@ wait_ms(2); // FIXME ???
     //Uart ser9  (uart9 , tx9 , rx9);
     Uart ser10 (uart10, tx10, rx10, 2500000);
 
-    memset(ser10.rxBuf, 0xFF, sizeof ser10.rxBuf);
-
     auto base = ser10.dev.base;
 #if 0
     printf("sr %08x\n", MMIO32(base+0x00));
@@ -175,7 +182,7 @@ wait_ms(2); // FIXME ???
         wait_ms(250);
         for (size_t i = 0; i < sizeof ser10.rxBuf; ++i)
             printf(" %02x", ser10.rxBuf[i]);
-        printf(" fill %d\n", ser10.fill);
+        printf(" rxFill %d\n", ser10.rxFill);
     }
 
     printf("main\n");

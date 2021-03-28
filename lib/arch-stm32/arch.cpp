@@ -34,6 +34,32 @@ UartBufDev< PinA<9>, PinB<7>, 100 > console;
 UartBufDev< PinA<9>, PinA<10>, 100 > console;
 #endif
 
+// print a string on the polled uart, can be used with interrupts disabled
+// ... but the elapsed time waiting for the uart will slow things down a lot
+void kputs (char const* msg) {
+    auto& polled = (decltype(console)::base&) console;
+    while (*msg)
+        polled.putc(*msg++);
+}
+
+// give up, but not before trying to send a final message to the console port
+void panic (char const* msg) {
+    for (int i = 0; i < 10000000; ++i) asm (""); // give uart time to settle
+    asm volatile ("cpsid if"); // disable interrupts and faults
+    kputs("\n*** panic: "); kputs(msg); kputs(" ***\n");
+    while (true) {} // hang
+}
+
+// set up and enable the main fault handlers
+extern "C" void HardFault_Handler  () { panic("hard fault"); };
+extern "C" void MemManage_Handler  () { panic("mem fault"); };
+extern "C" void BusFault_Handler   () { panic("bus fault"); };
+extern "C" void UsageFault_Handler () { panic("usage fault"); };
+
+void setupFaultHandlers () {
+    MMIO32(0xE000ED24) |= 0b111<<16; // SCB->SHCSR |= (USG|BUS|MEM)FAULTENA
+}
+
 static void outch (int c) {
     console.putc(c);
 }
@@ -391,6 +417,7 @@ void arch::init (int size) {
     console.baud(115200, fullSpeedClock());
 #endif
 
+    setupFaultHandlers();
     printf("\n"); // TODO yuck, the uart TX sends a 0xFF junk char after reset
 
 #if HAS_MRFS
