@@ -9,7 +9,6 @@ struct Uart : Event {
     ~Uart () override { deinit(); }
 
     void init (uint8_t tx, uint8_t rx, uint32_t rate =115200) {
-        assert(dev.num > 0);
         uartMap[dev.pos] = this;
 
         Periph::bitSet(RCC_APB1ENR+4*(dev.ena/32), dev.ena%32); // uart on
@@ -37,9 +36,9 @@ struct Uart : Event {
         devReg(CR1) = 0b0001'1101; // IDLEIE, TE, RE, UE
         devReg(CR3) = 0b1100'0000; // DMAT, DMAR
 
-        installIrq((uint8_t) dev.irq, uartIrq, dev.pos);
-        installIrq(dmaInfo[dev.rxDma].streams[dev.rxStream], uartIrq, dev.pos);
-        installIrq(dmaInfo[dev.txDma].streams[dev.txStream], uartIrq, dev.pos);
+        installIrq((uint8_t) dev.irq);
+        installIrq(dmaInfo[dev.rxDma].streams[dev.rxStream]);
+        installIrq(dmaInfo[dev.txDma].streams[dev.txStream]);
     }
 
     void deinit () {
@@ -50,11 +49,15 @@ struct Uart : Event {
         uartMap[dev.pos] = nullptr; // TODO can there be a pending irq?
     }
 
-    // this is installed as IRQ handler in the hardware IRQ vector
-    static void uartIrq () {
-        auto vecNum = MMIO8(0xE000ED04); // ICSR
-        auto arg = irqArg[vecNum-0x10];
-        uartMap[arg]->uartIrqHandler();
+    // install the uart IRQ dispatch handler in the hardware IRQ vector
+    void installIrq (uint8_t irq) {
+        irqArg[irq] = dev.pos;
+        (&VTableRam().wwdg)[irq] = []() {
+            auto vecNum = MMIO8(0xE000ED04); // ICSR
+            auto arg = irqArg[vecNum-0x10];
+            uartMap[arg]->uartIrqHandler();
+        };
+        nvicEnable(irq);
     }
 
     // the actual interrupt handler, with access to the uart object

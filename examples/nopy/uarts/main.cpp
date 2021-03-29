@@ -30,14 +30,17 @@ uint8_t irqArg [100]; // TODO wrong size
 
 struct Uart* uartMap [sizeof uartInfo / sizeof *uartInfo];
 
+void nvicEnable (uint8_t irq) {
+    constexpr uint32_t NVIC_ENA = 0xE000E100;
+    MMIO32(NVIC_ENA+4*(irq/32)) = 1 << (irq%32);
+}
+
 void installIrq (uint8_t irq, void (*handler)(), uint8_t arg) {
     //printf("install %d arg %d\n", irq, arg);
     assert(irq < sizeof irqArg);
     irqArg[irq] = arg;
     (&VTableRam().wwdg)[irq] = handler;
-
-    constexpr uint32_t NVIC_ENA = 0xE000E100;
-    MMIO32(NVIC_ENA+4*(irq/32)) = 1 << (irq%32);
+    nvicEnable(irq);
 }
 
 #if STM32F4
