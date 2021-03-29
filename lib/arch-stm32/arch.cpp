@@ -410,11 +410,11 @@ using namespace altpins;
 void arch::init (int size) {
     console.init();
 #if STM32F4 || NUCLEO_H743ZI || DEVEBOX_H743
-    console.baud(115200, fullSpeedClock()/4);
+    console.baud(921600, fullSpeedClock()/4);
 #elif STM32F723xx || DISCO_F746NG || STM32F469xx || STM32F769xx
-    console.baud(115200, fullSpeedClock()/2);
+    console.baud(921600, fullSpeedClock()/2);
 #else
-    console.baud(115200, fullSpeedClock());
+    console.baud(921600, fullSpeedClock());
 #endif
 
     setupFaultHandlers();

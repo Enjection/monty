@@ -66,7 +66,7 @@ platform = ststm32
 framework = cmsis
 build_flags = ${env.build_flags} -Wno-format -DSTM32
 lib_deps = JeeH
-monitor_speed = 115200
+monitor_speed = 921600
 test_transport = custom
 
 [env:nucleo-l432]

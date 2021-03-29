@@ -124,7 +124,7 @@ A convenient workflow is to re-build & re-upload the firmware and run Python
 tests, all in one step, e.g. `inv flash runner` or `inv flash runner -t hello`.
 
 These "remote" tests take a little more time, due to the uploading and serial
-communication involved (the console runs at 115200 baud). There is also the
+communication involved (the console runs at 921600 baud). There is also the
 possibility that the board will "hang" during the Python tests. The test runner
 uses timeouts to detect and report this, but a reset (or re-upload) will be
 needed to get the board out of this state.

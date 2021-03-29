@@ -6,7 +6,7 @@ To build and run (this echos the underlying cmd used to do the work):
 Processing nucleo-l432 (board: nucleo_l432kc; platform: ststm32; framework: cmsis)
 --- Available filters and text transformations: colorize, debug, default, direct, hexlify, log2file, nocontrol, printable, send_on_enter, time
 --- More details at http://bit.ly/pio-monitor-filters
---- Miniterm on /dev/cu.usbmodem143202  115200,8,N,1 ---
+--- Miniterm on /dev/cu.usbmodem143202  921600,8,N,1 ---
 --- Quit: Ctrl+C | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H ---
 659540 0
 �

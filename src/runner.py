@@ -28,7 +28,7 @@ def openSerialPort():
     serials = findSerialPorts()
     for prod, dev, serid in serials:
         print(f"{prod}: {dev} ser# {serid}")
-        port = serial.Serial(dev, 115200, timeout=0.1)
+        port = serial.Serial(dev, 921600, timeout=0.1)
     assert len(serials) == 1, f"{len(serials)} serial ports found"
     port.readlines() # clear out any old pending input
     return port
@@ -185,7 +185,7 @@ if __name__ == "__main__":
         while True:
             try:
                 line = ser.readline()
-                if line[:1] in [b'\xFE', b'\xFF']:
+                if line[:1] in b'\xE0\xF0\xF8\xFC\xFE\xFF':
                     continue # yuck: ignore power-up noise from UART TX
             except:
                 ok = False

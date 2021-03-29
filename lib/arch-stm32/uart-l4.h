@@ -80,7 +80,8 @@ struct Uart : Event {
     DevInfo dev;
     void const* txNext;
     volatile uint16_t txFill = 0;
-    uint8_t rxBuf [10];
+    uint8_t rxBuf [100];
+    uint8_t txSpare [50];
 private:
     auto devReg (int off) const -> volatile uint32_t& {
         return MMIO32(dev.base+off);
