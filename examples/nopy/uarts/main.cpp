@@ -50,9 +50,9 @@ constexpr auto configAlt (AltPins const (&map) [N], int pin, int dev) -> int {
 }
 
 #if STM32F4
-#include "dev-F4.h"
+#include "uart-f4.h"
 #elif STM32L4
-#include "dev-L4.h"
+#include "uart-l4.h"
 #endif
 
 void pinInfo (int uart, int tx, int rx) {

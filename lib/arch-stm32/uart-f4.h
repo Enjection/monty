@@ -44,7 +44,7 @@ struct Uart : Event {
         });
     }
 
-    // the actual interrupt handler, with access to the object fields
+    // the actual interrupt handler, with access to the uart object
     void irqHandler () {
         (uint32_t) devReg(SR); // read uart status register
         (uint32_t) devReg(DR); // clear idle interrupt and errors
