@@ -41,12 +41,18 @@ void nvicEnable (uint8_t irq, uint8_t arg, void (*fun)()) {
 }
 
 template< size_t N >
-constexpr auto configAlt (AltPins const (&map) [N], int pin, int dev) -> int {
+void configAlt (AltPins const (&map) [N], int pin, int dev) {
     auto n = findAlt(map, pin, dev);
     if (n > 0) {
         jeeh::Pin t ('A'+(pin>>4), pin&0xF);
         t.mode((int) Pinmode::alt_out, n); // TODO still using JeeH pinmodes
     }
+}
+
+static void systemReset [[noreturn]] () {
+    // ARM Cortex specific
+    MMIO32(0xE000ED0C) = (0x5FA<<16) | (1<<2); // SCB AIRCR reset
+    while (true) {}
 }
 
 #if STM32F4
@@ -59,7 +65,7 @@ struct Serial : Uart {
     Serial (int num, char const* txDef, char const* rxDef) : Uart (num) {
         assert(dev.num > 0);
         init();
-        baud(230400, F_CPU);
+        baud(57600, F_CPU);
         configAlt(altTX, altpins::Pin(txDef), num);
         configAlt(altRX, altpins::Pin(rxDef), num);
     }
@@ -73,7 +79,7 @@ struct Serial : Uart {
                 if (end < rxTake)
                     end = sizeof rxBuf;
                 assert(end > rxTake);
-                return { rxBuf+rxTake, end-rxTake };
+                return { rxBuf+rxTake, (uint32_t) (end-rxTake) };
             }
             wait();
             clear();
@@ -96,6 +102,12 @@ struct Serial : Uart {
 private:
     uint16_t rxTake = 0;
 };
+
+void delay (uint32_t ms) {
+    auto start = ticks;
+    while (ticks - start < ms)
+        Stacklet::current->yield();
+}
 
 struct Listener : Stacklet {
     Listener (Serial& uart) : uart (uart) {}
@@ -120,12 +132,19 @@ struct Talker : Stacklet {
 
     auto run () -> bool override {
         uart.send(nullptr, 0);
-
+#if 1
         static char buf [20];
         static int n;
         sprintf(buf, "%d\n", ++n);
-
         uart.send(buf, strlen(buf));
+#else
+        delay(1000);
+        uart.send("haha\n", 5);
+        delay(1000);
+        uart.send("howdy\n", 6);
+        delay(1000);
+        uart.send("boom!\n\3\3", 8);
+#endif
         return true;
     }
 

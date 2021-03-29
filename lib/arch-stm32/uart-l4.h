@@ -49,7 +49,13 @@ struct Uart : Event {
 
     // the actual interrupt handler, with access to the uart object
     void irqHandler () {
-        devReg(ICR) = 0b0001'1111; // clear idle and error flags
+        if (devReg(SR) & (1<<4)) { // is this an rx-idle interrupt?
+            auto fill = rxFill();
+            if (fill >= 2 && rxBuf[fill-1] == 0x03 && rxBuf[fill-2] == 0x03)
+                systemReset(); // two CTRL-C's in a row *and* idling: reset!
+        }
+
+        devReg(CR) = 0b0001'1111; // clear idle and error flags
 
         auto rxSh = 4*(dev.rxStream-1), txSh = 4*(dev.txStream-1);
 //      auto stat = dmaReg(ISR);
@@ -94,6 +100,6 @@ private:
         return dmaReg(off+0x14*(dev.txStream-1));
     }
 
-    enum { CR1=0x00,CR3=0x08,BRR=0x0C,SR=0x1C,ICR=0x20,RDR=0x24,TDR=0x28 };
+    enum { CR1=0x00,CR3=0x08,BRR=0x0C,SR=0x1C,CR=0x20,RDR=0x24,TDR=0x28 };
     enum { ISR=0x00,IFCR=0x04,CCR=0x08,CNDTR=0x0C,CPAR=0x10,CMAR=0x14,CSELR=0xA8 };
 };

@@ -41,12 +41,18 @@ void nvicEnable (uint8_t irq, uint8_t arg, void (*fun)()) {
 }
 
 template< size_t N >
-constexpr auto configAlt (AltPins const (&map) [N], int pin, int dev) -> int {
+void configAlt (AltPins const (&map) [N], int pin, int dev) {
     auto n = findAlt(map, pin, dev);
     if (n > 0) {
         jeeh::Pin t ('A'+(pin>>4), pin&0xF);
         t.mode((int) Pinmode::alt_out, n); // TODO still using JeeH pinmodes
     }
+}
+
+static void systemReset [[noreturn]] () {
+    // ARM Cortex specific
+    MMIO32(0xE000ED0C) = (0x5FA<<16) | (1<<2); // SCB AIRCR reset
+    while (true) {}
 }
 
 #if STM32F4
