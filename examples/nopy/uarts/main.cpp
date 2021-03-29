@@ -30,26 +30,22 @@ uint8_t irqArg [100]; // TODO wrong size
 
 struct Uart* uartMap [sizeof uartInfo / sizeof *uartInfo];
 
-void nvicEnable (uint8_t irq) {
+void nvicEnable (uint8_t irq, uint8_t arg, void (*fun)()) {
+    assert(irq < sizeof irqArg);
+    irqArg[irq] = arg;
+
+    (&VTableRam().wwdg)[irq] = fun;
+
     constexpr uint32_t NVIC_ENA = 0xE000E100;
     MMIO32(NVIC_ENA+4*(irq/32)) = 1 << (irq%32);
 }
 
-void installIrq (uint8_t irq, void (*handler)(), uint8_t arg) {
-    //printf("install %d arg %d\n", irq, arg);
-    assert(irq < sizeof irqArg);
-    irqArg[irq] = arg;
-    (&VTableRam().wwdg)[irq] = handler;
-    nvicEnable(irq);
-}
-
 template< size_t N >
 constexpr auto configAlt (AltPins const (&map) [N], int pin, int dev) -> int {
-    // TODO need a simpler way, still using JeeH pinmodes
     auto n = findAlt(map, pin, dev);
     if (n > 0) {
         jeeh::Pin t ('A'+(pin>>4), pin&0xF);
-        t.mode((int) Pinmode::alt_out, n);
+        t.mode((int) Pinmode::alt_out, n); // TODO still using JeeH pinmodes
     }
 }
 
@@ -102,17 +98,21 @@ struct Talker : Stacklet {
     int ms;
 };
 
-int main () {
-#if STM32F4
-    arch::init(100*1024);
+void initLeds (char const* def, int num) {
+    jeeh::Pin::define(def, leds, num);
 
-    jeeh::Pin::define("B0:P,B7:P,B14:P,A5:P,A6:P,A7:P,D14:P,D15:P,F12:P", leds, 9);
-
-    for (int i = 0; i < 18; ++i) {
-        leds[i%9] = true;
+    for (int i = 0; i < 2*num; ++i) {
+        leds[i%num] = true;
         wait_ms(100);
-        leds[i%9] = false;
+        leds[i%num] = false;
     }
+}
+
+int main () {
+    arch::init(12*1024);
+
+#if STM32F4
+    initLeds("B0:P,B7:P,B14:P,A5:P,A6:P,A7:P,D14:P,D15:P,F12:P", 9);
 
     using altpins::Pin; // not the one from JeeH
 
@@ -121,13 +121,26 @@ int main () {
     const auto uart10 = (uint8_t) 10, tx10 = Pin("E3"), rx10 = Pin("E2");
 
     pinInfo(uart2 , tx2 , rx2 );
-    //pinInfo(uart8 , tx8 , rx8 );
     pinInfo(uart9 , tx9 , rx9 );
     pinInfo(uart10, tx10, rx10);
 
-    Uart ser2 (uart2); ser2.init(tx2 , rx2, 921600);
-    Uart ser9 (uart9); ser9.init(tx9 , rx9, 921600);
-    Uart ser10 (uart10); ser10.init(tx10, rx10, 921600);
+    Uart ser2 (uart2);
+    ser2.init();
+    ser2.baud(921600, F_CPU);
+    configAlt(altTX, tx2, 2);
+    configAlt(altRX, rx2, 2);
+
+    Uart ser9 (uart9);
+    ser9.init();
+    ser9.baud(921600, F_CPU);
+    configAlt(altTX, tx9, 9);
+    configAlt(altRX, rx9, 9);
+
+    Uart ser10 (uart10);
+    ser10.init();
+    ser10.baud(921600, F_CPU);
+    configAlt(altTX, tx10, 10);
+    configAlt(altRX, rx10, 10);
 
     //printf("uart %d b\n", sizeof ser2);
 
@@ -168,15 +181,7 @@ int main () {
     Stacklet::ready.append(new Talker (ser9, 2700));
 #endif
 #elif STM32L4
-    arch::init(12*1024);
-
-    jeeh::Pin::define("A6:P,A5:P,A4:P,A3:P,A1:P,A0:P,B3:P", leds, 7);
-
-    for (int i = 0; i < 14; ++i) {
-        leds[i%7] = true;
-        wait_ms(100);
-        leds[i%7] = false;
-    }
+    initLeds("A6:P,A5:P,A4:P,A3:P,A1:P,A0:P,B3:P", 7);
 
     using altpins::Pin; // not the one from JeeH
 
@@ -184,10 +189,14 @@ int main () {
 
     pinInfo(uart1 , tx1 , rx1 );
 
-    Uart ser1 (uart1); ser1.init(tx1 , rx1, 921600);
+    Uart ser1 (uart1);
+    ser1.init();
+    ser1.baud(921600, F_CPU);
+    configAlt(altTX, tx1, 1);
+    configAlt(altRX, rx1, 1);
 
-    auto base = ser1.dev.base;
 #if 0
+    auto base = ser1.dev.base;
     printf("sr %08x\n", MMIO32(base+0x1C));
     MMIO8(base+0x28) = 'L';
     printf("sr %08x\n", MMIO32(base+0x1C));

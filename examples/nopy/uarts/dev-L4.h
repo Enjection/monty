@@ -4,14 +4,11 @@ struct Uart : Event {
     }
     ~Uart () override { deinit(); }
 
-    void init (uint8_t tx, uint8_t rx, uint32_t rate =115200) {
-        uartMap[dev.pos] = this;
-
+    void init () {
         Periph::bitSet(RCC_APB1ENR, dev.ena);   // uart on
         Periph::bitSet(RCC_AHB1ENR, dev.rxDma); // dma on
 
-        configAlt(altTX, tx, dev.num);
-        configAlt(altRX, rx, dev.num);
+        uartMap[dev.pos] = this;
 
         auto rxSh = 4*(dev.rxStream-1), txSh = 4*(dev.txStream-1);
         dmaReg(CSELR) = (dmaReg(CSELR) & ~(0xF<<rxSh) & ~(0xF<<txSh)) |
@@ -24,8 +21,6 @@ struct Uart : Event {
 
         dmaTX(CPAR) = dev.base + TDR;
         dmaTX(CCR) = 0b1001'0010; // MINC, DIR, TCIE
-
-        baud(rate, F_CPU); // assume that the clock is running full speed
 
         devReg(CR1) = 0b0001'1101; // IDLEIE, TE, RE, UE
         devReg(CR3) = 0b1100'0000; // DMAT, DMAR
@@ -45,32 +40,28 @@ struct Uart : Event {
 
     // install the uart IRQ dispatch handler in the hardware IRQ vector
     void installIrq (uint8_t irq) {
-        irqArg[irq] = dev.pos;
-
-        (&VTableRam().wwdg)[irq] = []() {
+        nvicEnable(irq, dev.pos, []() {
             auto vecNum = MMIO8(0xE000ED04); // ICSR
             auto arg = irqArg[vecNum-0x10];
-            uartMap[arg]->uartIrqHandler();
-        };
-
-        nvicEnable(irq);
+            uartMap[arg]->irqHandler();
+        });
     }
 
     // the actual interrupt handler, with access to the uart object
-    void uartIrqHandler () {
+    void irqHandler () {
         devReg(ICR) = 0b0001'1111; // clear idle and error flags
 
         auto rxSh = 4*(dev.rxStream-1), txSh = 4*(dev.txStream-1);
-        auto dmaIsr = dmaReg(ISR);
+        auto stat = dmaReg(ISR);
         dmaReg(IFCR) = (1<<rxSh) | (1<<txSh); // global clear rx and tx dma
 
-        if ((dmaIsr & (1<<(1+txSh))) != 0 && txFill > 0) // TCIF
+        if ((stat & (1<<(1+txSh))) != 0 && txFill > 0) // TCIF
             txStart(txNext, txFill);
 
         Stacklet::setPending(_id);
     }
 
-    void baud (uint32_t rate, uint32_t hz =defaultHz) const {
+    void baud (uint32_t rate, uint32_t hz) const {
         devReg(BRR) = (hz + rate/2) / rate;
     }
 
