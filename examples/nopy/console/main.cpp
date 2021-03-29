@@ -59,25 +59,56 @@ struct Serial : Uart {
     Serial (int num, char const* txDef, char const* rxDef) : Uart (num) {
         assert(dev.num > 0);
         init();
-        baud(921600, F_CPU);
+        baud(230400, F_CPU);
         configAlt(altTX, altpins::Pin(txDef), num);
         configAlt(altRX, altpins::Pin(rxDef), num);
     }
-};
 
-void delay (uint32_t ms) {
-    auto start = ticks;
-    while (ticks - start < ms)
-        Stacklet::current->yield();
-}
+    struct Chunk { uint8_t* ptr; uint32_t len; };
+
+    auto receive () -> Chunk {
+        while (true) {
+            auto end = rxFill();
+            if (end != rxTake) {
+                if (end < rxTake)
+                    end = sizeof rxBuf;
+                assert(end > rxTake);
+                return { rxBuf+rxTake, end-rxTake };
+            }
+            wait();
+            clear();
+        }
+    }
+
+    void advance (uint32_t n) {
+        rxTake = (rxTake + n) % sizeof rxBuf;
+    }
+
+    void send (void const* ptr, uint16_t len) {
+        while (txBusy()) {
+            wait();
+            clear();
+        }
+        if (len > 0)
+            txStart(ptr, len);
+    }
+
+private:
+    uint16_t rxTake = 0;
+};
 
 struct Listener : Stacklet {
     Listener (Serial& uart) : uart (uart) {}
 
     auto run () -> bool override {
-        uart.wait();
-        uart.clear();
-        printf("\t\t%2d f %d @ %d\n", uart.dev.num, uart.rxFill(), ticks);
+        auto [ptr, len] = uart.receive();
+
+        char buf [len+1];
+        memcpy(buf, ptr, len);
+        buf[len] = 0;
+
+        printf("%s", buf);
+        uart.advance(len);
         return true;
     }
 
@@ -85,19 +116,20 @@ struct Listener : Stacklet {
 };
 
 struct Talker : Stacklet {
-    Talker (Serial& uart, int ms) : uart (uart), ms (ms) {}
+    Talker (Serial& uart) : uart (uart) {}
 
     auto run () -> bool override {
-        delay(ms);
+        uart.send(nullptr, 0);
+
         static char buf [20];
-        sprintf(buf, "@ %d -> %d", ticks, uart.dev.num);
-        printf("%s [%d]\n", buf, strlen(buf)); delay(3);
-        uart.txStart(buf, strlen(buf));
+        static int n;
+        sprintf(buf, "%d\n", ++n);
+
+        uart.send(buf, strlen(buf));
         return true;
     }
 
     Serial& uart;
-    int ms;
 };
 
 void initLeds (char const* def, int num) {
@@ -112,18 +144,19 @@ void initLeds (char const* def, int num) {
 
 int main () {
     arch::init(12*1024);
-
 #if STM32F4
     initLeds("B0:P,B7:P,B14:P,A5:P,A6:P,A7:P,D14:P,D15:P,F12:P", 9);
     Serial serial (2, "A2", "A3");
+    //Serial serial (3, "D8", "D9");
 #elif STM32L4
     initLeds("A6:P,A5:P,A4:P,A3:P,A1:P,A0:P,B3:P", 7);
     Serial serial (1, "A9", "A10");
+    //Serial serial (2, "A2", "A15");
 #endif
     printf("main\n");
 
     Stacklet::ready.append(new Listener (serial));
-    Stacklet::ready.append(new Talker (serial, 500));
+    Stacklet::ready.append(new Talker (serial));
 
     auto task = arch::cliTask();
     if (task != nullptr)
@@ -131,8 +164,11 @@ int main () {
     else
         printf("no task\n");
 
-    while (Stacklet::runLoop())
+    while (Stacklet::runLoop()) {
+        leds[6] = 0;
         arch::idle();
+        leds[6] = 1;
+    }
 
     printf("done\n");
     arch::done();

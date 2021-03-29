@@ -54,32 +54,31 @@ struct Uart : Event {
         dmaReg(LIFCR+(rx&~3)) = rxStat << 8*(rx&3);
         uint8_t txStat = dmaReg(LISR+(tx&~3)) >> 8*(tx&3);
         dmaReg(LIFCR+(tx&~3)) = txStat << 8*(tx&3);
-
-        if ((txStat & (1<<3)) != 0 && txFill > 0) // TCIF
+/*
+        if ((txStat & (1<<3)) != 0) { // TCIF
             txStart(txNext, txFill);
-
+            txFill = 0;
+        }
+*/
         Stacklet::setPending(_id);
     }
 
-    void baud (uint32_t rate, uint32_t hz) const {
-        devReg(BRR) = (hz + rate/2) / rate;
-    }
-
-    auto rxFill () const -> uint16_t {
-        return sizeof rxBuf - dmaRX(SNDTR);
-    }
+    void baud (uint32_t bd, uint32_t hz) const { devReg(BRR) = (hz+bd/2)/bd; }
+    auto rxFill () const -> uint16_t { return sizeof rxBuf - dmaRX(SNDTR); }
+    auto txBusy () const -> bool { return dmaTX(SNDTR) != 0; }
 
     void txStart (void const* ptr, uint16_t len) {
-        dmaTX(SCR) &= ~1; // ~EN
-        dmaTX(SNDTR) = len;
-        dmaTX(SM0AR) = (uint32_t) ptr;
-        dmaTX(SCR) |= 1; // EN
-        txFill = 0;
+        if (len > 0) {
+            dmaTX(SCR) &= ~1; // ~EN
+            dmaTX(SNDTR) = len;
+            dmaTX(SM0AR) = (uint32_t) ptr;
+            dmaTX(SCR) |= 1; // EN
+        }
     }
 
     DevInfo dev;
-    void const* txNext;
-    volatile uint16_t txFill = 0;
+//  void const* txNext;
+//  volatile uint16_t txFill = 0;
     uint8_t rxBuf [100];
 private:
     auto devReg (int off) const -> volatile uint32_t& {

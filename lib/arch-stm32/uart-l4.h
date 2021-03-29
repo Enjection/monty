@@ -52,34 +52,33 @@ struct Uart : Event {
         devReg(ICR) = 0b0001'1111; // clear idle and error flags
 
         auto rxSh = 4*(dev.rxStream-1), txSh = 4*(dev.txStream-1);
-        auto stat = dmaReg(ISR);
+//      auto stat = dmaReg(ISR);
         dmaReg(IFCR) = (1<<rxSh) | (1<<txSh); // global clear rx and tx dma
-
-        if ((stat & (1<<(1+txSh))) != 0 && txFill > 0) // TCIF
+/*
+        if ((stat & (1<<(1+txSh))) != 0) { // TCIF
             txStart(txNext, txFill);
-
+            txFill = 0;
+        }
+*/
         Stacklet::setPending(_id);
     }
 
-    void baud (uint32_t rate, uint32_t hz) const {
-        devReg(BRR) = (hz + rate/2) / rate;
-    }
-
-    auto rxFill () const -> uint16_t {
-        return sizeof rxBuf - dmaRX(CNDTR);
-    }
+    void baud (uint32_t bd, uint32_t hz) const { devReg(BRR) = (hz+bd/2)/bd; }
+    auto rxFill () const -> uint16_t { return sizeof rxBuf - dmaRX(CNDTR); }
+    auto txBusy () const -> bool { return dmaTX(CNDTR) != 0; }
 
     void txStart (void const* ptr, uint16_t len) {
-        dmaTX(CCR) &= ~1; // ~EN
-        dmaTX(CNDTR) = len;
-        dmaTX(CMAR) = (uint32_t) ptr;
-        dmaTX(CCR) |= 1; // EN
-        txFill = 0;
+        if (len > 0) {
+            dmaTX(CCR) &= ~1; // ~EN
+            dmaTX(CNDTR) = len;
+            dmaTX(CMAR) = (uint32_t) ptr;
+            dmaTX(CCR) |= 1; // EN
+        }
     }
 
     DevInfo dev;
-    void const* txNext;
-    volatile uint16_t txFill = 0;
+//  void const* txNext;
+//  volatile uint16_t txFill = 0;
     uint8_t rxBuf [100];
 private:
     auto devReg (int off) const -> volatile uint32_t& {
