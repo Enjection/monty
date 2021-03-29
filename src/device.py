@@ -102,7 +102,7 @@ for p in sorted(parser.get_device().peripherals, key=lambda p: uartsort(p.name))
         groups[g] = []
     groups[g].append(u)
 
-    periphs.append("constexpr auto %-13s = 0x%08x;  // %s" % (uartfix(u), b, g))
+    periphs.append("constexpr auto %-13s = 0x%08X;  // %s" % (uartfix(u), b, g))
 
     for x in p.interrupts:
         irqs[x.name] = (x.value, g)

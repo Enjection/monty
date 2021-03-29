@@ -1,0 +1,139 @@
+#include <monty.h>
+#include <arch.h>
+#include <jee.h>
+#include <jee-stm32.h>
+#include <cassert>
+
+namespace altpins {
+#include "altpins.h"
+}
+
+using namespace monty;
+using namespace device;
+using namespace altpins;
+
+// led 1 = B0  #0 green
+// led 2 = B7  #1 blue
+// led 3 = B14 #2 red
+// led A = A5  #3 white
+// led B = A6  #4 blue
+// led C = A7  #5 green
+// led D = D14 #6 yellow
+// led E = D15 #7 orange
+// led F = F12 #8 red
+
+jeeh::Pin leds [9];
+
+// see https://interrupt.memfault.com/blog/arm-cortex-m-exceptions-and-nvic
+
+uint8_t irqArg [100]; // TODO wrong size
+
+struct Uart* uartMap [sizeof uartInfo / sizeof *uartInfo];
+
+void nvicEnable (uint8_t irq, uint8_t arg, void (*fun)()) {
+    assert(irq < sizeof irqArg);
+    irqArg[irq] = arg;
+
+    (&VTableRam().wwdg)[irq] = fun;
+
+    constexpr uint32_t NVIC_ENA = 0xE000E100;
+    MMIO32(NVIC_ENA+4*(irq/32)) = 1 << (irq%32);
+}
+
+template< size_t N >
+constexpr auto configAlt (AltPins const (&map) [N], int pin, int dev) -> int {
+    auto n = findAlt(map, pin, dev);
+    if (n > 0) {
+        jeeh::Pin t ('A'+(pin>>4), pin&0xF);
+        t.mode((int) Pinmode::alt_out, n); // TODO still using JeeH pinmodes
+    }
+}
+
+#if STM32F4
+#include "uart-f4.h"
+#elif STM32L4
+#include "uart-l4.h"
+#endif
+
+struct Serial : Uart {
+    Serial (int num, char const* txDef, char const* rxDef) : Uart (num) {
+        assert(dev.num > 0);
+        init();
+        baud(921600, F_CPU);
+        configAlt(altTX, altpins::Pin(txDef), num);
+        configAlt(altRX, altpins::Pin(rxDef), num);
+    }
+};
+
+void delay (uint32_t ms) {
+    auto start = ticks;
+    while (ticks - start < ms)
+        Stacklet::current->yield();
+}
+
+struct Listener : Stacklet {
+    Listener (Serial& uart) : uart (uart) {}
+
+    auto run () -> bool override {
+        uart.wait();
+        uart.clear();
+        printf("\t\t%2d f %d @ %d\n", uart.dev.num, uart.rxFill(), ticks);
+        return true;
+    }
+
+    Serial& uart;
+};
+
+struct Talker : Stacklet {
+    Talker (Serial& uart, int ms) : uart (uart), ms (ms) {}
+
+    auto run () -> bool override {
+        delay(ms);
+        static char buf [20];
+        sprintf(buf, "@ %d -> %d", ticks, uart.dev.num);
+        printf("%s [%d]\n", buf, strlen(buf)); delay(3);
+        uart.txStart(buf, strlen(buf));
+        return true;
+    }
+
+    Serial& uart;
+    int ms;
+};
+
+void initLeds (char const* def, int num) {
+    jeeh::Pin::define(def, leds, num);
+
+    for (int i = 0; i < 2*num; ++i) {
+        leds[i%num] = true;
+        wait_ms(50);
+        leds[i%num] = false;
+    }
+}
+
+int main () {
+    arch::init(12*1024);
+
+#if STM32F4
+    initLeds("B0:P,B7:P,B14:P,A5:P,A6:P,A7:P,D14:P,D15:P,F12:P", 9);
+    Serial serial (2, "A2", "A3");
+#elif STM32L4
+    initLeds("A6:P,A5:P,A4:P,A3:P,A1:P,A0:P,B3:P", 7);
+    Serial serial (1, "A9", "A10");
+#endif
+    printf("main\n");
+
+    Stacklet::ready.append(new Listener (serial));
+    Stacklet::ready.append(new Talker (serial, 500));
+
+    auto task = arch::cliTask();
+    if (task != nullptr)
+        Stacklet::ready.append(task);
+    else
+        printf("no task\n");
+
+    while (Stacklet::runLoop())
+        arch::idle();
+
+    printf("done\n");
+    arch::done();
+}
