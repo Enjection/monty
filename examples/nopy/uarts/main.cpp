@@ -43,6 +43,16 @@ void installIrq (uint8_t irq, void (*handler)(), uint8_t arg) {
     nvicEnable(irq);
 }
 
+template< size_t N >
+constexpr auto configAlt (AltPins const (&map) [N], int pin, int dev) -> int {
+    // TODO need a simpler way, still using JeeH pinmodes
+    auto n = findAlt(map, pin, dev);
+    if (n > 0) {
+        jeeh::Pin t ('A'+(pin>>4), pin&0xF);
+        t.mode((int) Pinmode::alt_out, n);
+    }
+}
+
 #if STM32F4
 #include "dev-F4.h"
 #elif STM32L4
@@ -64,7 +74,7 @@ void delay (uint32_t ms) {
 }
 
 struct Listener : Stacklet {
-    Listener (Uart& dev) : uart (dev) {}
+    Listener (Uart& uart) : uart (uart) {}
 
     auto run () -> bool override {
         uart.wait();
@@ -77,10 +87,10 @@ struct Listener : Stacklet {
 };
 
 struct Talker : Stacklet {
-    Talker (Uart& dev, int ms) : uart (dev), period (ms) {}
+    Talker (Uart& uart, int ms) : uart (uart), ms (ms) {}
 
     auto run () -> bool override {
-        delay(period);
+        delay(ms);
         static char buf [20];
         sprintf(buf, "@ %d -> %d", ticks, uart.dev.num);
         printf("%s [%d]\n", buf, strlen(buf)); delay(3);
@@ -89,7 +99,7 @@ struct Talker : Stacklet {
     }
 
     Uart& uart;
-    int period;
+    int ms;
 };
 
 int main () {

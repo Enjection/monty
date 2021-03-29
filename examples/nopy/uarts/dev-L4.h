@@ -1,27 +1,21 @@
 struct Uart : Event {
     Uart (int n) : dev (findDev(uartInfo, n)) {
-        if (dev.num == n)
-            regHandler();
-        else
-            dev.num = 0;
+        if (dev.num == n) regHandler(); else dev.num = 0;
     }
-
     ~Uart () override { deinit(); }
 
     void init (uint8_t tx, uint8_t rx, uint32_t rate =115200) {
         uartMap[dev.pos] = this;
 
-        Periph::bitSet(RCC_APB1ENR+4*(dev.ena/32), dev.ena%32); // uart on
-        Periph::bitSet(RCC_AHB1ENR, dev.rxDma);                 // dma on
+        Periph::bitSet(RCC_APB1ENR, dev.ena);   // uart on
+        Periph::bitSet(RCC_AHB1ENR, dev.rxDma); // dma on
 
-        // TODO need a simpler way, still using JeeH pinmodes
-        auto m = (int) Pinmode::alt_out;
-        jeeh::Pin t ('A'+(tx>>4), tx&0x1F); t.mode(m, findAlt(altTX, tx, dev.num));
-        jeeh::Pin r ('A'+(rx>>4), rx&0x1F); r.mode(m, findAlt(altRX, rx, dev.num));
+        configAlt(altTX, tx, dev.num);
+        configAlt(altRX, rx, dev.num);
 
         auto rxSh = 4*(dev.rxStream-1), txSh = 4*(dev.txStream-1);
         dmaReg(CSELR) = (dmaReg(CSELR) & ~(0xF<<rxSh) & ~(0xF<<txSh)) |
-                           (dev.rxChan<<rxSh) | (dev.txChan<<txSh);
+                                    (dev.rxChan<<rxSh) | (dev.txChan<<txSh);
 
         dmaRX(CNDTR) = sizeof rxBuf;
         dmaRX(CPAR) = dev.base + RDR;
@@ -29,7 +23,7 @@ struct Uart : Event {
         dmaRX(CCR) = 0b1010'0111; // MINC, CIRC, HTIE, TCIE, EN
 
         dmaTX(CPAR) = dev.base + TDR;
-        dmaTX(CCR) = 0b1001'0001; // MINC, DIR, TCIE
+        dmaTX(CCR) = 0b1001'0010; // MINC, DIR, TCIE
 
         baud(rate, F_CPU); // assume that the clock is running full speed
 
@@ -42,21 +36,23 @@ struct Uart : Event {
     }
 
     void deinit () {
-        if (dev.num == 0)
-            return;
-        Periph::bitClear(RCC_APB1ENR+4*(dev.ena/32), dev.ena%32); // uart off
-        Periph::bitClear(RCC_AHB1ENR, dev.rxDma);                 // dma off
-        uartMap[dev.pos] = nullptr; // TODO can there be a pending irq?
+        if (dev.num > 0) {
+            Periph::bitClear(RCC_APB1ENR, dev.ena);   // uart off
+            Periph::bitClear(RCC_AHB1ENR, dev.rxDma); // dma off
+            uartMap[dev.pos] = nullptr;
+        }
     }
 
     // install the uart IRQ dispatch handler in the hardware IRQ vector
     void installIrq (uint8_t irq) {
         irqArg[irq] = dev.pos;
+
         (&VTableRam().wwdg)[irq] = []() {
             auto vecNum = MMIO8(0xE000ED04); // ICSR
             auto arg = irqArg[vecNum-0x10];
             uartMap[arg]->uartIrqHandler();
         };
+
         nvicEnable(irq);
     }
 
@@ -93,7 +89,7 @@ struct Uart : Event {
     DevInfo dev;
     void const* txNext;
     volatile uint16_t txFill = 0;
-    uint8_t rxBuf [10]; // TODO volatile?
+    uint8_t rxBuf [10];
 private:
     auto devReg (int off) const -> volatile uint32_t& {
         return MMIO32(dev.base+off);

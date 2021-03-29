@@ -17,8 +17,8 @@ struct Uart : Event {
 
         // TODO need a simpler way, still using JeeH pinmodes
         auto m = (int) Pinmode::alt_out;
-        jeeh::Pin t ('A'+(tx>>4), tx&0x1F); t.mode(m, findAlt(altTX, tx, dev.num));
-        jeeh::Pin r ('A'+(rx>>4), rx&0x1F); r.mode(m, findAlt(altRX, rx, dev.num));
+        jeeh::Pin t ('A'+(tx>>4), tx&0xF); t.mode(m, findAlt(altTX, tx, dev.num));
+        jeeh::Pin r ('A'+(rx>>4), rx&0xF); r.mode(m, findAlt(altRX, rx, dev.num));
 
         dmaRX(0x14) = sizeof rxBuf;     // SxNDTR
         dmaRX(0x18) = dev.base + dr;    // SxPAR
