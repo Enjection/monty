@@ -58,6 +58,8 @@ struct Uart : Event {
         dmaReg(LIFCR+(rx&~3)) = rxStat << 8*(rx&3);
         uint8_t txStat = dmaReg(LISR+(tx&~3)) >> 8*(tx&3);
         dmaReg(LIFCR+(tx&~3)) = txStat << 8*(tx&3);
+
+leds[6] = (uint8_t) (dmaReg(LISR+(tx&~3)) >> 8*(tx&3)) != 0;
 /*
         if ((txStat & (1<<3)) != 0) { // TCIF
             txStart(txNext, txFill);
@@ -67,7 +69,7 @@ struct Uart : Event {
         Stacklet::setPending(_id);
     }
 
-    void baud (uint32_t bd, uint32_t hz) const { devReg(BRR) = (hz+bd/2)/bd; }
+    void baud (uint32_t bd, uint32_t hz) const { devReg(BRR) = (hz/4+bd/2)/bd; }
     auto rxFill () const -> uint16_t { return sizeof rxBuf - dmaRX(SNDTR); }
     auto txBusy () const -> bool { return dmaTX(SNDTR) != 0; }
 

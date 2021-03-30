@@ -126,6 +126,7 @@ struct Listener : Stacklet {
         //for (int i = 0; i < len; ++i)
         //    buf[i] ^= 0x20;
 
+//if (len > 1)
         uart.send(buf, len);
 
         return true;
@@ -145,9 +146,9 @@ struct Talker : Stacklet {
         sprintf(buf, "%d\n", ++n);
         uart.send(buf, strlen(buf));
 #else
-        delay(100);
+        delay(500);
         uart.send("haha\n", 5);
-        delay(100);
+        delay(200);
         uart.send("howdy\n", 6);
         delay(10000);
         uart.send("boom!\n\3\3", 8);
@@ -178,8 +179,8 @@ int main () {
 #endif
 #if STM32F4
     initLeds("B0:P,B7:P,B14:P,A5:P,A6:P,A7:P,D14:P,D15:P,F12:P", 9);
-    Serial serial (2, "A2", "A3");
-    //Serial serial (3, "D8", "D9");
+    //Serial serial (2, "A2", "A3");
+    Serial serial (3, "D8", "D9");
 #elif STM32L4
     initLeds("A6:P,A5:P,A4:P,A3:P,A1:P,A0:P,B3:P", 7);
     //Serial serial (1, "A9", "A10");
@@ -199,9 +200,9 @@ int main () {
 #endif
 
     while (Stacklet::runLoop()) {
-        leds[6] = 0;
+        //leds[6] = 0;
         arch::idle();
-        leds[6] = 1;
+        //leds[6] = 1;
     }
 
     //printf("done\n");
