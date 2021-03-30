@@ -58,10 +58,7 @@ struct Uart : Event {
         devReg(CR) = 0b0001'1111; // clear idle and error flags
 
         auto rxSh = 4*(dev.rxStream-1), txSh = 4*(dev.txStream-1);
-        auto stat = dmaReg(ISR);
-if ((stat & (1<<txSh)) != 0) {
-    leds[6] = 1; for (int i = 0; i < 1000; ++i) asm (""); leds[6] = 0;
-}
+//      auto stat = dmaReg(ISR);
         dmaReg(IFCR) = (1<<rxSh) | (1<<txSh); // global clear rx and tx dma
 /*
         if ((stat & (1<<(1+txSh))) != 0) { // TCIF
@@ -70,8 +67,6 @@ if ((stat & (1<<txSh)) != 0) {
         }
 */
         Stacklet::setPending(_id);
-//leds[6] = (devReg(SR) & 0x0F) != 0;
-//leds[6] = 1; for (int i = 0; i < 1000; ++i) asm (""); leds[6] = 0;
     }
 
     void baud (uint32_t bd, uint32_t hz) const { devReg(BRR) = (hz+bd/2)/bd; }
@@ -83,7 +78,6 @@ if ((stat & (1<<txSh)) != 0) {
             dmaTX(CCR) &= ~1; // ~EN
             dmaTX(CNDTR) = len;
             dmaTX(CMAR) = (uint32_t) ptr;
-devReg(CR) = (1<<6); // TCCF
             dmaTX(CCR) |= 1; // EN
         }
     }
