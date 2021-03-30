@@ -50,7 +50,6 @@ struct Uart : Event {
     // the actual interrupt handler, with access to the uart object
     void irqHandler () {
         if (devReg(SR) & (1<<4)) { // is this an rx-idle interrupt?
-            auto fill = rxFill();
             if (fill >= 2 && rxBuf[fill-1] == 0x03 && rxBuf[fill-2] == 0x03)
                 systemReset(); // two CTRL-C's in a row *and* idling: reset!
         }

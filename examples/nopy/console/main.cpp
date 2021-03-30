@@ -65,7 +65,7 @@ struct Serial : Uart {
     Serial (int num, char const* txDef, char const* rxDef) : Uart (num) {
         assert(dev.num > 0);
         init();
-        baud(57600, F_CPU);
+        baud(921600, F_CPU);
         configAlt(altTX, altpins::Pin(txDef), num);
         configAlt(altRX, altpins::Pin(rxDef), num);
     }
@@ -113,14 +113,21 @@ struct Listener : Stacklet {
     Listener (Serial& uart) : uart (uart) {}
 
     auto run () -> bool override {
+        uart.send(nullptr, 0);
+
         auto [ptr, len] = uart.receive();
+        assert(len > 0);
 
-        char buf [len+1];
+        static char buf [200];
         memcpy(buf, ptr, len);
-        buf[len] = 0;
-
-        printf("%s", buf);
         uart.advance(len);
+
+        //printf("%s", buf);
+        //for (int i = 0; i < len; ++i)
+        //    buf[i] ^= 0x20;
+
+        uart.send(buf, len);
+
         return true;
     }
 
@@ -132,17 +139,17 @@ struct Talker : Stacklet {
 
     auto run () -> bool override {
         uart.send(nullptr, 0);
-#if 1
+#if 0
         static char buf [20];
         static int n;
         sprintf(buf, "%d\n", ++n);
         uart.send(buf, strlen(buf));
 #else
-        delay(1000);
+        delay(100);
         uart.send("haha\n", 5);
-        delay(1000);
+        delay(100);
         uart.send("howdy\n", 6);
-        delay(1000);
+        delay(10000);
         uart.send("boom!\n\3\3", 8);
 #endif
         return true;
@@ -161,27 +168,35 @@ void initLeds (char const* def, int num) {
     }
 }
 
+#include <unistd.h> // for sbrk
 int main () {
+#if 1
+    gcSetup(sbrk(12*1024), 12*1024);
+    fullSpeedClock();
+#else
     arch::init(12*1024);
+#endif
 #if STM32F4
     initLeds("B0:P,B7:P,B14:P,A5:P,A6:P,A7:P,D14:P,D15:P,F12:P", 9);
     Serial serial (2, "A2", "A3");
     //Serial serial (3, "D8", "D9");
 #elif STM32L4
     initLeds("A6:P,A5:P,A4:P,A3:P,A1:P,A0:P,B3:P", 7);
-    Serial serial (1, "A9", "A10");
-    //Serial serial (2, "A2", "A15");
+    //Serial serial (1, "A9", "A10");
+    Serial serial (2, "A2", "A15");
 #endif
-    printf("main\n");
+    //printf("main\n");
 
     Stacklet::ready.append(new Listener (serial));
     Stacklet::ready.append(new Talker (serial));
 
+#if 0
     auto task = arch::cliTask();
     if (task != nullptr)
         Stacklet::ready.append(task);
     else
         printf("no task\n");
+#endif
 
     while (Stacklet::runLoop()) {
         leds[6] = 0;
@@ -189,6 +204,6 @@ int main () {
         leds[6] = 1;
     }
 
-    printf("done\n");
+    //printf("done\n");
     arch::done();
 }
