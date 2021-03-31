@@ -1,14 +1,10 @@
-struct Uart : Event {
-    Uart (int n) : dev (findDev(uartInfo, n)) {
-        if (dev.num == n) regHandler(); else dev.num = 0;
-    }
+struct Uart : Device {
+    Uart (int n) : dev (findDev(uartInfo, n)) { if (dev.num != n) dev.num = 0; }
     ~Uart () override { deinit(); }
 
     void init () {
         Periph::bitSet(RCC_APB1ENR, dev.ena);   // uart on
         Periph::bitSet(RCC_AHB1ENR, dev.rxDma); // dma on
-
-        uartMap[dev.pos] = this;
 
         auto rxSh = 4*(dev.rxStream-1), txSh = 4*(dev.txStream-1);
         dmaReg(CSELR) = (dmaReg(CSELR) & ~(0xF<<rxSh) & ~(0xF<<txSh)) |
@@ -34,17 +30,7 @@ struct Uart : Event {
         if (dev.num > 0) {
             Periph::bitClear(RCC_APB1ENR, dev.ena);   // uart off
             Periph::bitClear(RCC_AHB1ENR, dev.rxDma); // dma off
-            uartMap[dev.pos] = nullptr;
         }
-    }
-
-    // install the uart IRQ dispatch handler in the hardware IRQ vector
-    void installIrq (uint8_t irq) {
-        nvicEnable(irq, dev.pos, []() {
-            auto vecNum = MMIO8(0xE000ED04); // ICSR
-            auto arg = irqArg[vecNum-0x10];
-            uartMap[arg]->irqHandler();
-        });
     }
 
     // the actual interrupt handler, with access to the uart object
@@ -52,7 +38,7 @@ struct Uart : Event {
         if (devReg(SR) & (1<<4)) { // is this an rx-idle interrupt?
             auto fill = rxFill();
             if (fill >= 2 && rxBuf[fill-1] == 0x03 && rxBuf[fill-2] == 0x03)
-                systemReset(); // two CTRL-C's in a row *and* idling: reset!
+                reset(); // two CTRL-C's in a row *and* idling: reset!
         }
 
         devReg(CR) = 0b0001'1111; // clear idle and error flags
@@ -66,13 +52,12 @@ struct Uart : Event {
             txFill = 0;
         }
 */
-        Stacklet::setPending(_id);
+        trigger();
     }
 
     void baud (uint32_t bd, uint32_t hz) const { devReg(BRR) = (hz+bd/2)/bd; }
     auto rxFill () const -> uint16_t { return sizeof rxBuf - dmaRX(CNDTR); }
     auto txBusy () const -> bool { return dmaTX(CNDTR) != 0; }
-    //auto txBusy () const -> bool { return (devReg(SR) & (1<<6)) == 0; }
 
     void txStart (void const* ptr, uint16_t len) {
         if (len > 0) {

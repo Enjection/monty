@@ -1,14 +1,10 @@
-struct Uart : Event {
-    Uart (int n) : dev (findDev(uartInfo, n)) {
-        if (dev.num == n) regHandler(); else dev.num = 0;
-    }
+struct Uart : Device {
+    Uart (int n) : dev (findDev(uartInfo, n)) { if (dev.num != n) dev.num = 0; }
     ~Uart () override { deinit(); }
 
     void init () {
         Periph::bitSet(RCC_APB1ENR, dev.ena);      // uart on
         Periph::bitSet(RCC_AHB1ENR, 21+dev.rxDma); // dma on
-
-        uartMap[dev.pos] = this;
 
         dmaRX(SNDTR) = sizeof rxBuf;
         dmaRX(SPAR) = dev.base + DR;
@@ -31,25 +27,15 @@ struct Uart : Event {
         if (dev.num > 0) {
             Periph::bitClear(RCC_APB1ENR, dev.ena);      // uart off
             Periph::bitClear(RCC_AHB1ENR, 21+dev.rxDma); // dma off
-            uartMap[dev.pos] = nullptr;
         }
     }
 
-    // install the uart IRQ dispatch handler in the hardware IRQ vector
-    void installIrq (uint8_t irq) {
-        nvicEnable(irq, dev.pos, []() {
-            auto vecNum = MMIO8(0xE000ED04); // ICSR
-            auto arg = irqArg[vecNum-0x10];
-            uartMap[arg]->irqHandler();
-        });
-    }
-
     // the actual interrupt handler, with access to the uart object
-    void irqHandler () {
+    void irqHandler () override {
         if (devReg(SR) & (1<<4)) { // is this an rx-idle interrupt?
             auto fill = rxFill();
             if (fill >= 2 && rxBuf[fill-1] == 0x03 && rxBuf[fill-2] == 0x03)
-                systemReset(); // two CTRL-C's in a row *and* idling: reset!
+                reset(); // two CTRL-C's in a row *and* idling: reset!
         }
         (uint32_t) devReg(DR); // clear idle interrupt and errors
 
@@ -58,15 +44,13 @@ struct Uart : Event {
         dmaReg(LIFCR+(rx&~3)) = rxStat << 8*(rx&3);
         uint8_t txStat = dmaReg(LISR+(tx&~3)) >> 8*(tx&3);
         dmaReg(LIFCR+(tx&~3)) = txStat << 8*(tx&3);
-
-leds[6] = (uint8_t) (dmaReg(LISR+(tx&~3)) >> 8*(tx&3)) != 0;
 /*
         if ((txStat & (1<<3)) != 0) { // TCIF
             txStart(txNext, txFill);
             txFill = 0;
         }
 */
-        Stacklet::setPending(_id);
+        trigger();
     }
 
     void baud (uint32_t bd, uint32_t hz) const { devReg(BRR) = (hz/4+bd/2)/bd; }
