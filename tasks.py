@@ -347,8 +347,7 @@ if not root: # the following tasks are NOT available for use out-of-tree
         for ex in examples:
             if path.isfile("examples/%s/README.md" % ex):
                 print("building '%s' example" % ex)
-                c.run("pio run -c platformio.ini -d examples/%s -t size -s" % ex,
-                    warn=True)
+                c.run("cd examples/%s && inv generate && pio run -c ../../platformio.ini -t size -s" % ex, warn=True)
 
     @task
     def health(c):
