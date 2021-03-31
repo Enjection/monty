@@ -71,8 +71,8 @@ struct Uart : Event {
 
     void baud (uint32_t bd, uint32_t hz) const { devReg(BRR) = (hz+bd/2)/bd; }
     auto rxFill () const -> uint16_t { return sizeof rxBuf - dmaRX(CNDTR); }
-    //auto txBusy () const -> bool { return dmaTX(CNDTR) != 0; }
-    auto txBusy () const -> bool { return (devReg(SR) & (1<<6)) == 0; }
+    auto txBusy () const -> bool { return dmaTX(CNDTR) != 0; }
+    //auto txBusy () const -> bool { return (devReg(SR) & (1<<6)) == 0; }
 
     void txStart (void const* ptr, uint16_t len) {
         if (len > 0) {

@@ -107,6 +107,32 @@ private:
     uint16_t rxTake = 0;
 };
 
+static Serial* outDev;
+
+static char outBuf [50];
+static uint16_t outFill;
+
+static void outFlush () {
+    if (outFill > 0) {
+        assert(outDev != nullptr);
+        outDev->send(outBuf, outFill);
+        outDev->send(nullptr, 0);
+        outFill = 0;
+    }
+}
+
+static void outFun (int ch) {
+    outBuf[outFill++] = ch;
+    if (outFill >= sizeof outBuf)
+        outFlush();
+}
+
+static int debugf(char const* fmt, ...) {
+    va_list ap; va_start(ap, fmt); veprintf(outFun, fmt, ap); va_end(ap);
+    outFlush();
+    return 0;
+}
+
 void delay (uint32_t ms) {
     auto start = ticks;
     while (ticks - start < ms)
@@ -146,6 +172,7 @@ struct Talker : Stacklet {
     Talker (Serial& uart) : uart (uart) {}
 
     auto run () -> bool override {
+        debugf("bingo %d\n", ticks);
         printf("t");
         uart.send(nullptr, 0);
 #if 0
@@ -155,11 +182,11 @@ struct Talker : Stacklet {
         uart.send(buf, strlen(buf));
 #else
         delay(500);
-        uart.send("haha\n", 5);
-        delay(1000);
-        uart.send("howdy\n", 6);
+        debugf("<haha>");
+        delay(500);
+        debugf("<howdy>");
         delay(5000);
-        uart.send("boom !\n", 7);
+        debugf("<ha>");
 #endif
         printf("T\n");
         return true;
@@ -190,6 +217,8 @@ int main () {
     Serial serial (1, "A9", "A10");
     //Serial serial (2, "A2", "A15");
 #endif
+    outDev = &serial;
+
     printf("main\n");
 
     Stacklet::ready.append(new Listener (serial));
