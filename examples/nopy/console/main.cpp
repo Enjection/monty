@@ -80,7 +80,9 @@ struct Device : Event {
     }
 };
 
-#if STM32F4 || STM32F7
+#if STM32F1
+#include "uart-f1.h"
+#elif STM32F4 || STM32F7
 #include "uart-f4.h"
 #elif STM32L0
 #include "uart-l0.h"
@@ -91,8 +93,22 @@ struct Device : Event {
 struct Serial : Uart {
     Serial (int num, char const* txDef, char const* rxDef) : Uart (num) {
         assert(dev.num > 0);
+#if STM32F1
+        // TODO TX::mode(Pinmode::alt_out);
+        // TODO RX::mode(Pinmode::in_pullup);
+        //  hard-coded cases for now ...
+        switch (num) {
+            case 1: PinA<9>::mode(Pinmode::alt_out);
+                    PinA<10>::mode(Pinmode::in_pullup);
+                    break;
+            case 2: PinA<2>::mode(Pinmode::alt_out);
+                    PinA<3>::mode(Pinmode::in_pullup);
+                    break;
+        }
+#else
         configAlt(altTX, altpins::Pin(txDef), num);
         configAlt(altRX, altpins::Pin(rxDef), num);
+#endif
         init();
         baud(230400, F_CPU);
     }
@@ -235,7 +251,11 @@ void initLeds (char const* def, int num) {
 #include <unistd.h> // for sbrk
 int main () {
     arch::init(12*1024);
-#if STM32F4
+#if STM32F1
+    initLeds("A1:P", 1);
+    Serial serial (2, "A2", "A3");
+    //Serial serial (1, "A9", "A10");
+#elif STM32F4
     initLeds("B0:P,B7:P,B14:P,A5:P,A6:P,A7:P,D14:P,D15:P,F12:P", 9);
     Serial serial (2, "A2", "A3");
     //Serial serial (3, "D8", "D9");
