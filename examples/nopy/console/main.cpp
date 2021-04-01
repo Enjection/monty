@@ -80,8 +80,10 @@ struct Device : Event {
     }
 };
 
-#if STM32F4
+#if STM32F4 || STM32F7
 #include "uart-f4.h"
+#elif STM32L0
+#include "uart-l0.h"
 #elif STM32L4
 #include "uart-l4.h"
 #endif
@@ -237,6 +239,14 @@ int main () {
     initLeds("B0:P,B7:P,B14:P,A5:P,A6:P,A7:P,D14:P,D15:P,F12:P", 9);
     Serial serial (2, "A2", "A3");
     //Serial serial (3, "D8", "D9");
+#elif STM32F7
+    initLeds("A5:P,A7:P,B1:P", 3);
+    Serial serial (2, "A2", "A3");
+    //Serial serial (6, "C6", "C7");
+#elif STM32L0
+    initLeds("A5:P", 1);
+    Serial serial (1, "A9", "A10");
+    //Serial serial (2, "A2", "A3");
 #elif STM32L4
     initLeds("A6:P,A5:P,A4:P,A3:P,A1:P,A0:P,B3:P", 7);
     Serial serial (1, "A9", "A10");

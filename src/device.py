@@ -118,6 +118,12 @@ for p in sorted(parser.get_device().peripherals, key=lambda p: uartsort(p.name))
                         if uartfix(f.name).startswith("SPI"):
                             print(" ", r.name, off, f.name, f.bit_offset)
 
+# additional IRQs, missing or wrong in SVD
+for x in patch("irqs"):
+    n, i, g = x.split(",")
+    if n in groups[g]:
+        irqs[n] = (int(i), g)
+
 regs = []
 for r in ["rcc"]:
 # see https://stackoverflow.com/questions/1624883/ ... pfff
@@ -134,9 +140,15 @@ for k in sorted(irqs.keys(), key=uartsort):
 dmas = []
 for k, v in zip(*(iter(patch("dma")),) * 2):
     streams = 8 * ["0"]
-    for i in irqs:
-        if i.startswith(k) and v in i:
-            streams[int(i[-1])] = str(irqs[i][0])
+    for q in irqs:
+        if q.startswith(k) and v in q:
+            s = re.search(r"(\d)_(\d)$", q)
+            if s: # deal with "DMA1_Channel4_7"
+                first, last = s.group(1, 2)
+                for i in range(int(first), int(last)+1):
+                    streams[int(i)] = str(irqs[q][0])
+            else:
+                streams[int(q[-1])] = str(irqs[q][0])
     dmas.append("{ %s, { %s }}," % (k, ", ".join(streams)))
 
 uarts = []
