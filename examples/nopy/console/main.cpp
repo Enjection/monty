@@ -20,9 +20,8 @@ struct Serial : arch::Uart {
     Serial (int num, char const* txDef, char const* rxDef) : Uart (num) {
         assert(dev.num > 0);
 #if STM32F1
-        // TODO TX::mode(Pinmode::alt_out);
-        // TODO RX::mode(Pinmode::in_pullup);
-        //  hard-coded cases for now ...
+        // TODO hard-coded cases for now ...
+        (void) txDef; (void) rxDef;
         switch (num) {
             case 1: PinA<9>::mode(Pinmode::alt_out);
                     PinA<10>::mode(Pinmode::in_pullup);
@@ -36,7 +35,7 @@ struct Serial : arch::Uart {
         configAlt(altpins::altRX, altpins::Pin(rxDef), num);
 #endif
         init();
-        baud(230400, F_CPU);
+        baud(115200, F_CPU);
     }
 
     struct Chunk { uint8_t* ptr; uint32_t len; };
@@ -114,7 +113,6 @@ struct Listener : Stacklet {
     auto run () -> bool override {
         printf("l");
         uart.send(nullptr, 0);
-//static bool first = true; if (first) { uart.send("hey!",4); first = false; }
 
         auto [ptr, len] = uart.receive();
         assert(len > 0);
@@ -177,6 +175,8 @@ void initLeds (char const* def, int num) {
 #include <unistd.h> // for sbrk
 int main () {
     arch::init(12*1024);
+    printf("main\n");
+
 #if STM32F1
     initLeds("A1:P", 1);
     Serial serial (2, "A2", "A3");
@@ -200,23 +200,19 @@ int main () {
 #endif
     outDev = &serial;
 
-    printf("main\n");
-
     Stacklet::ready.append(new Listener (serial));
     Stacklet::ready.append(new Talker (serial));
 
-#if 0
     auto task = arch::cliTask();
     if (task != nullptr)
         Stacklet::ready.append(task);
     else
         printf("no task\n");
-#endif
 
     while (Stacklet::runLoop()) {
-        //leds[6] = 0;
+        leds[6] = 0;
         arch::idle();
-        //leds[6] = 1;
+        leds[6] = 1;
     }
 
     printf("done\n");
