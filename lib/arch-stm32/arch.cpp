@@ -1,17 +1,15 @@
 #include <monty.h>
 #include "arch.h"
 
-namespace altpins {
-#include "altpins.h"
-}
-
 #include <cassert>
 #include <unistd.h>
 
-#include <jee.h>
 #include <jee/text-ihex.h>
 
 using namespace monty;
+
+uint8_t arch::Device::irqMap [];
+arch::Device* arch::Device::devMap [];
 
 #if HAS_MRFS
 const auto mrfsBase = (mrfs::Info*) 0x08010000;
@@ -333,6 +331,10 @@ static void ec_cmd () {
     Stacklet::current = nullptr;
 }
 
+static void ms_cmd () {
+    printf("%d\n", (int) ticks);
+}
+
 static void pd_cmd () {
     powerDown();
 }
@@ -352,11 +354,12 @@ Command const commands [] = {
     { "bv    show build version"           , bv_cmd },
     { "di    show device info"             , di_cmd },
     { "ec    exit console task"            , ec_cmd },
-    { "gc    trigger garbage collection"   , Stacklet::gcAll },
+    { "gc    trigger GC"                   , Stacklet::gcAll },
     { "gr    generate a GC report"         , gcReport },
 #if HAS_MRFS
     { "ls    list files in MRFS"           , mrfs::dump },
 #endif
+    { "ms    current ms tick"              , ms_cmd },
     { "od    object dump"                  , Obj::dumpAll },
     { "pd    power down"                   , pd_cmd },
     { "sr    system reset"                 , systemReset },

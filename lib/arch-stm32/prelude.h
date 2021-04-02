@@ -160,6 +160,7 @@ enum struct IrqVec : uint8_t {
     USB_FS                =  67,  // USB
     WWDG                  =   0,  // WWDG
     //CG>
+    limit = 85
 };
 
 struct DmaInfo { uint32_t base; uint8_t streams [8]; };

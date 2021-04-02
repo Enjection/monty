@@ -39,6 +39,7 @@ enum struct IrqVec : uint8_t {
     //CG< irqvec
     %s
     //CG>
+    limit = %d
 };
 
 struct DmaInfo { uint32_t base; uint8_t streams [8]; };
@@ -90,6 +91,7 @@ def uartsort(s):
     return numsort(uartfix(s))
 
 irqs = {}
+irqLimit = 0
 groups = {}
 
 periphs = []
@@ -106,6 +108,8 @@ for p in sorted(parser.get_device().peripherals, key=lambda p: uartsort(p.name))
 
     for x in p.interrupts:
         irqs[x.name] = (x.value, g)
+        if irqLimit <= x.value:
+            irqLimit = x.value + 1
 
     if 0: # can be used to print out specific details
         for r in p.registers:
@@ -196,6 +200,7 @@ if 1:
                       "\n".join(periphs),
                       "\n".join(regs),
                       "\n    ".join(irqvecs),
+                      irqLimit,
                       "\n    ".join(dmas),
                       "\n    ".join(uarts),
                       "\n    ".join(spis)))

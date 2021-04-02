@@ -1,16 +1,8 @@
 #include <monty.h>
 #include <arch.h>
-#include <jee.h>
-#include <jee-stm32.h>
 #include <cassert>
 
-namespace altpins {
-#include "altpins.h"
-}
-
 using namespace monty;
-using namespace device;
-using namespace altpins;
 
 // led 1 = B0  #0 green
 // led 2 = B7  #1 blue
@@ -24,73 +16,7 @@ using namespace altpins;
 
 jeeh::Pin leds [9];
 
-// see https://interrupt.memfault.com/blog/arm-cortex-m-exceptions-and-nvic
-
-uint8_t irqMap [100];       // TODO wrong size
-struct Device* devMap [20]; // large enough to handle all device objects
-static_assert(sizeof devMap / sizeof *devMap < 256, "doesn't fit in irqMap");
-
-struct Device : Event {
-    Device () { regHandler(); }
-    ~Device () override { deregHandler(); } // TODO clear device slot
-
-    virtual void irqHandler () =0;
-
-    // install the uart IRQ dispatch handler in the hardware IRQ vector
-    void installIrq (uint32_t irq) {
-        assert(irq < sizeof irqMap);
-        for (auto& e : devMap) {
-            if (e == nullptr)
-                e = this;
-            if (e == this) {
-                irqMap[irq] = &e - devMap;
-
-                // TODO could be hard-coded, no need for RAM-based irq vector
-                (&VTableRam().wwdg)[irq] = []() {
-                    auto vecNum = MMIO8(0xE000ED04); // ICSR
-                    auto idx = irqMap[vecNum-0x10];
-                    devMap[idx]->irqHandler();
-                };
-
-                constexpr uint32_t NVIC_ENA = 0xE000E100;
-                MMIO32(NVIC_ENA+4*(irq/32)) = 1 << (irq%32);
-
-                return;
-            }
-        }
-        assert(false); // ran out of unused device slots
-    }
-
-    void trigger () { Stacklet::setPending(_id); }
-
-    template< size_t N >
-    static void configAlt (AltPins const (&map) [N], int pin, int dev) {
-        auto n = findAlt(map, pin, dev);
-        if (n > 0) {
-            jeeh::Pin t ('A'+(pin>>4), pin&0xF);
-            auto m = (int) Pinmode::alt_out | (int) Pinmode::in_pullup;
-            t.mode(m, n); // TODO still using JeeH pinmodes
-        }
-    }
-
-    static void reset [[noreturn]] () {
-        // ARM Cortex specific
-        MMIO32(0xE000ED0C) = (0x5FA<<16) | (1<<2); // SCB AIRCR reset
-        while (true) {}
-    }
-};
-
-#if STM32F1
-#include "uart-f1.h"
-#elif STM32F4 || STM32F7
-#include "uart-f4.h"
-#elif STM32L0
-#include "uart-l0.h"
-#elif STM32L4
-#include "uart-l4.h"
-#endif
-
-struct Serial : Uart {
+struct Serial : arch::Uart {
     Serial (int num, char const* txDef, char const* rxDef) : Uart (num) {
         assert(dev.num > 0);
 #if STM32F1
@@ -106,8 +32,8 @@ struct Serial : Uart {
                     break;
         }
 #else
-        configAlt(altTX, altpins::Pin(txDef), num);
-        configAlt(altRX, altpins::Pin(rxDef), num);
+        configAlt(altpins::altTX, altpins::Pin(txDef), num);
+        configAlt(altpins::altRX, altpins::Pin(rxDef), num);
 #endif
         init();
         baud(230400, F_CPU);
@@ -199,7 +125,7 @@ struct Listener : Stacklet {
         memcpy(buf, ptr, len);
         uart.advance(len);
 
-        printf("%d<", len);
+        printf("%d<", (int) len);
 
         printf("R");
         uart.send(buf, len);

@@ -1,8 +1,5 @@
 #include <monty.h>
 #include "arch.h"
-
-#include <jee.h>
-#include "jee-stm32.h"
 #include "jee-rf69.h"
 
 #include <cassert>
