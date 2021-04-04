@@ -98,7 +98,7 @@ constexpr auto Pin (char const* s) -> uint8_t {
     return (r << 4) | (n & 0x1F);
 }
 
-template< size_t N >
+template< uint32_t N >
 constexpr auto findAlt (AltPins const (&map) [N], int pin, int dev) -> int {
     for (auto e : map)
         if (pin == e.pin && dev == e.dev)
@@ -106,7 +106,7 @@ constexpr auto findAlt (AltPins const (&map) [N], int pin, int dev) -> int {
     return -1;
 }
 
-template< size_t N >
+template< uint32_t N >
 constexpr auto findAlt (AltPins const (&map) [N], char const* name, int dev) {
     return findAlt(map, Pin(name), dev);
 }

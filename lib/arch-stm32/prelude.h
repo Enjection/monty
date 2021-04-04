@@ -173,7 +173,7 @@ struct DevInfo {
     uint32_t base;
 };
 
-template< size_t N >
+template< uint32_t N >
 constexpr auto findDev (DevInfo const (&map) [N], int num) -> DevInfo const& {
     for (auto& e : map)
         if (num == e.num)
