@@ -85,7 +85,7 @@ namespace arch {
     struct Ticker : Device {
         Ticker () { installIrq(-1); } // SysTick
 
-        void irqHandler () {
+        void irqHandler () override {
             ++ticks;
             trigger();
         }
