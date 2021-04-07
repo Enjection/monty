@@ -19,6 +19,8 @@ void mcu::idle () {
 }
 
 int main () {
+    fastClock();
+
     mcu::Pin::define("A6:P,A5:P,A4:P,A3:P,A1:P,A0:P,B3:P", leds, 7);
 
     while (true) {
