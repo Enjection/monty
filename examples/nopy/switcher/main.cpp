@@ -1,8 +1,6 @@
 #include <monty.h>
 #include <arch.h>
-
 #include <jee.h>
-#include <jee-stm32.h>
 
 using namespace monty;
 

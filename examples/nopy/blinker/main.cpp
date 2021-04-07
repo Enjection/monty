@@ -32,7 +32,7 @@ void delay_ms (uint32_t ms) {
     auto now = ticks;
     while (ticks - now < ms)
         if (Stacklet::current != nullptr)
-            Stacklet::yield();
+            Stacklet::current->yield();
 }
 
 struct Toggler : Stacklet {
