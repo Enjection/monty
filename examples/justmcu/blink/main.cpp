@@ -5,7 +5,7 @@ using namespace mcu;
 // TODO the mcu::Pin struct clashes with the altpins::Pin function
 mcu::Pin leds [7];
 
-void mcu::failAt (void const* pc, void const* lr) {
+void mcu::failAt (void const*, void const*) {
     while (true) {
         leds[0].toggle(); // fast blink
         for (uint32_t i = 0; i < systemClock() >> 8; ++i) {}

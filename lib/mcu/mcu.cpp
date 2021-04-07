@@ -10,8 +10,6 @@ extern "C" void SystemCoreClockUpdate ();
 
 extern "C" void abort () { ensure(0); }
 
-// this is the recommended way to bail out
-void mcu::systemReset () __attribute__ ((alias ("abort")));
 // this appears to be used as placeholder in abstract class destructors
 extern "C" void __cxa_pure_virtual () __attribute__ ((alias ("abort")));
 // also bypass the std::{get,set}_terminate logic, and just abort
@@ -22,6 +20,11 @@ namespace mcu {
     uint8_t Device::irqMap [(int) device::IrqVec::limit];
     Device* Device::devMap [20];  // large enough to handle all device objects
     uint32_t volatile ticks;
+
+    void systemReset () {
+        mcu::SCB(0xD0C) = (0x5FA<<16) | (1<<2); // SCB AIRCR reset
+        while (true) {}
+    }
 
     void idle () { asm ("wfi"); } // weak idle handler, can be redefined
 
