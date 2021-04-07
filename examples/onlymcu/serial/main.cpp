@@ -41,7 +41,6 @@ int main () {
 
     while (true) {
         msWait(100);
-        auto t = millis();
         printf("%d\n", millis());
     }
 }
