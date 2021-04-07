@@ -19,14 +19,12 @@ void mcu::idle () {
 }
 
 int main () {
-    fastClock();
-
-    mcu::Pin::define("A6:P,A5:P,A4:P,A3:P,A1:P,A0:P,B3:P", leds, 7);
+    Pin::define("A6:P,A5,A4,A3,A1,A0,B3", leds, 7);
 
     while (true) {
         msWait(100);
         auto t = millis();
         for (int i = 2; i < 7; ++i)
-            leds[i] = t % i == 0;
+            leds[i] = (t / 100) % i == 0;
     }
 }

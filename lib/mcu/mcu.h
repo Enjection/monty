@@ -116,16 +116,16 @@ namespace mcu {
     #include "hw-map.h"
 
     struct Pin {
-        uint8_t _port =0xFF, _pin =0xFF;
-        
+        uint8_t _port :4, _pin :4;
+
+        constexpr Pin () : _port (15), _pin (0) {}
+
 #if STM32F1
         enum { CRL=0x00, CRH=0x04, IDR=0x08, ODR=0x0C, BSRR=0x10, BRR=0x14 };
 #else
         enum { MODER=0x00, TYPER=0x04, OSPEEDR=0x08, PUPDR=0x0C, IDR=0x10,
                 ODR=0x14, BSRR=0x18, AFRL=0x20, AFRH=0x24, BRR=0x28 };
 #endif
-
-        auto isValid () const { return _port < 16 && _pin < 16; }
 
         auto read () const { return (gpio32(IDR)>>_pin) & 1; }
         void write (int v) const { gpio32(BSRR) = (v ? 1 : 1<<16)<<_pin; }
@@ -135,23 +135,17 @@ namespace mcu {
         operator int () const { return read(); }
         void operator= (int v) const { write(v); }
 
-        // mode string: [AFDUPO][LNHV][<n>][,]
-        auto mode (char const* desc) const -> bool;
+        // pin definition string: [A-O][<pin#>]:[AFPO][DU][LNHV][<alt#>][,]
+        // return -1 on error, 0 if no mode set, or the mode (always > 0)
+        auto define (char const* desc) -> int;
 
-        // pin definition string: [A-P][<n>]:[<mode>][,]
-        auto define (char const* desc) {
-            _port = *desc++ - 'A';
-            _pin = 0;
-            while ('0' <= *desc && *desc <= '9')
-                _pin = 10 * _pin + *desc++ - '0';
-            return isValid() && (*desc++ != ':' || mode(desc));
-        }
-
-        // define multiple pins, returns ptr to error or nullptr
+        // define multiple pins, returns nullptr if ok, else ptr to error
         static auto define (char const* d, Pin* v, int n) -> char const*;
     private:
         auto gpio32 (int off) const -> IOWord { return GPIO(0x400*_port+off); }
-        void mode (int mval, int alt =0) const;
+        auto isValid () const { return _port < 15; }
+        auto mode (int) const -> int;
+        auto mode (char const* desc) const -> int;
     };
 
     struct BlockIRQ {
