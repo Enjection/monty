@@ -2,10 +2,12 @@
 #include <mcu.h>
 
 using namespace monty;
+using namespace mcu;
 
+// TODO the mcu::Pin struct clashes with the altpins::Pin function
 mcu::Pin leds [7];
 
-void mcu::failAt (void* pc, void const* lr) {
+void mcu::failAt (void const* pc, void const* lr) {
     while (true) {
         leds[0].toggle(); // fast blink
         for (uint32_t i = 0; i < systemClock() >> 8; ++i) {}
@@ -27,16 +29,16 @@ void mcu::idle () {
 // This also works outside stacklets (by falling back to a busy wait).
 
 auto monty::nowAsTicks () -> uint32_t {
-    return mcu::millis();
+    return millis();
 }
 
-void delay_ms (uint32_t ms) {
+void delay (uint32_t n) {
 #if 0
-    while (ms-- > 0)
-        mcu::msWait(1);
+    while (n-- > 0)
+        msWait(1);
 #else
     auto now = nowAsTicks();
-    while (nowAsTicks() - now < ms)
+    while (nowAsTicks() - now < n)
         if (Stacklet::current != nullptr)
             Stacklet::current->yield();
 #endif
@@ -49,16 +51,16 @@ struct Toggler : Stacklet {
 
     auto run () -> bool override {
         leds[num] = 1;
-        delay_ms(1);
+        delay(1);
         leds[num] = 0;
-        delay_ms(num+1);
+        delay(num+1);
         return true;
     }
 };
 
 int main () {
     mcu::Pin::define("A6:P,A5:P,A4:P,A3:P,A1:P,A0:P,B3:P", leds, 7);
-    mcu::msWait(100); // start systick at 10 Hz
+    msWait(100); // start systick at 10 Hz
 
     char mem [2000];
     gcSetup(mem, sizeof mem); // set up a small GC memory pool
@@ -70,7 +72,7 @@ int main () {
     // minimal loop to keep stacklets going
     while (Stacklet::runLoop()) {
         leds[0] = 1;
-        mcu::BlockIRQ crit;
+        BlockIRQ crit;
         if (Stacklet::pending == 0)
             asm ("wfi");
         leds[0] = 0;

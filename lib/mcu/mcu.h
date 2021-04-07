@@ -50,7 +50,7 @@ namespace mcu {
 
     void powerDown (bool standby =true);
     [[noreturn]] void systemReset ();
-    [[noreturn]] void failAt (void*, void const*);
+    [[noreturn]] void failAt (void const*, void const*);
 
     struct IOWord {
         uint32_t volatile& addr;

@@ -299,6 +299,14 @@ def watch(c, file, remote=False):
     cmd = [inRoot("src/watcher.py")] + remote*["-r"] + [file]
     c.run(" ".join(cmd), pty=True)
 
+@task
+def query(c, addr):
+    """lookup failAt address in firmware build using addr2line"""
+    env = cfg["platformio"].get("default_envs")
+    elf = ".pio/build/%s/firmware.elf" %env
+    print("in %s:\n  " % elf, end="")
+    c.run("arm-none-eabi-addr2line -e %s %s" % (elf, addr));
+
 # the following task is named differently when in-tree
 
 @task(name=("env" if root else "x-env"),
