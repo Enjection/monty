@@ -39,8 +39,12 @@ int main () {
     serial.baud(921600, hz);
     printf("%d Hz\n", hz);
 
+    msWait(1);
     while (true) {
-        msWait(100);
+        //msWait(100);
         printf("%d\n", millis());
+        auto [ptr, len] = serial.recv();
+        printf("%d %02x\n", len, *ptr);
+        serial.didRecv(1);
     }
 }

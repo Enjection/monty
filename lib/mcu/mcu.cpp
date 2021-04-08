@@ -170,7 +170,7 @@ namespace mcu {
     }
 
     void msWait (uint16_t ms) {
-        auto hz = SystemCoreClock;
+        auto hz = systemClock();
         SCB(0x14) = ms*(hz/1000)-1; // reload
         SCB(0x18) = 0;              // current
         SCB(0x10) = 0b111;          // control & status
