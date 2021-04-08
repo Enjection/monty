@@ -59,7 +59,7 @@ struct Toggler : Stacklet {
 };
 
 int main () {
-    mcu::Pin::define("A6:P,A5:P,A4:P,A3:P,A1:P,A0:P,B3:P", leds, 7);
+    mcu::Pin::define("A6:P,A5,A4,A3,A1,A0,B3", leds, 7);
     msWait(100); // start systick at 10 Hz
 
     char mem [2000];
