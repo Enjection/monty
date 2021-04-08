@@ -72,7 +72,9 @@ namespace mcu {
             }
         };
 
-        auto operator[] (int b) { return IOBit {(&addr)[b>>5], b & 0x1FU}; }
+        auto operator[] (int b) {
+            return IOBit {(&addr)[b>>5], (uint8_t) (b & 0x1FU)};
+        }
 #else
         // use bit-banding, only works for specific RAM and periperhal areas
         auto& operator[] (int b) {
