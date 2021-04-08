@@ -30,9 +30,11 @@ extern "C" int printf (char const*, ...);
 #endif
 
 namespace mcu {
-    enum ARM_Family { STM_F4, STM_L0, STM_L4 };
+    enum ARM_Family { STM_F4, STM_F7, STM_L0, STM_L4 };
 #if STM32F4
     constexpr auto FAMILY = STM_F4;
+#elif STM32F7
+    constexpr auto FAMILY = STM_F7;
 #elif STM32L0
     constexpr auto FAMILY = STM_L0;
 #elif STM32L4
@@ -58,7 +60,7 @@ namespace mcu {
         operator uint32_t () const { return addr; }
         void operator= (uint32_t v) const { addr = v; }
 
-#if STM32L0
+#if STM32L0 || STM32F7
         // simulated bit-banding, works with any address, but not atomic
         struct IOBit {
             uint32_t volatile& addr;

@@ -215,7 +215,6 @@ namespace mcu {
         RCC(0x00) = (range<<4) | (1<<3); // MSI 48 MHz, ~HSION, ~PLLON
         FLASH(0x00) = 0;                 // no ACR, no wait states
     }
-#endif
 
     auto fastClock (bool pll) -> uint32_t {
         PWR(0x00).mask(9, 2) = 0b01;    // VOS range 1
@@ -228,10 +227,12 @@ namespace mcu {
         PWR(0x00).mask(9, 2) = 0b10;    // VOS range 2
         return SystemCoreClock = low ? 100000 : 4000000;
     }
+#endif
 
     void powerDown (bool standby) {
         switch (FAMILY) {
             case STM_F4:
+            case STM_F7:
                 RCC(0x40)[28] = 1; // PWREN
                 PWR(0x00)[1] = standby; // PDDS if standby
                 break;
