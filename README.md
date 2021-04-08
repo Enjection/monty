@@ -34,7 +34,7 @@ target is a low-power ARM Cortex-M4 [Nucleo-L432KC][L432] (256+64 kB @ 80 MHz).
 » Good familiarity with C++17 and Python 3  
 » Lots of patience and a long-term perspective :-)
 
-This is a test run on native + embedded, as of mid-Feb 2021:
+This is a test run on native + embedded, as of April 2021:
 
 ```text
 $ cat verify/hello.py
@@ -42,14 +42,34 @@ import sys
 print('hello', sys.implementation, sys.version)
 $ inv native -f verify/hello.mpy
 main
-hello monty v1.0
+hello monty v1.1-22-g9e2d42d
 done
-$ inv python flash runner -i gcoll
-36 tests, 36 matches, 0 failures, 5 skipped, 0 ignored
+$ inv all
+Test    Environment    Status    Duration
+------  -------------  --------  ------------
+array   native         PASSED    00:00:01.582
+data    native         PASSED    00:00:00.674
+mem     native         PASSED    00:00:00.697
+repr    native         PASSED    00:00:00.686
+============================ 4 succeeded in 00:00:03.639 ============================
+42 tests, 42 matches, 0 failures, 4 skipped, 0 ignored
+Test    Environment    Status    Duration
+------  -------------  --------  ------------
+array   nucleo-l432    PASSED    00:00:05.551
+data    nucleo-l432    PASSED    00:00:03.587
+mem     nucleo-l432    PASSED    00:00:03.781
+repr    nucleo-l432    PASSED    00:00:03.551
+============================ 4 succeeded in 00:00:16.469 ============================
 Processing nucleo-l432 (board: nucleo_l432kc; platform: ststm32; framework: cmsis)
-STM32 STLink: /dev/cu.usbmodem143202 ser# 066BFF555052836687031442
-38 tests, 38 matches, 0 failures, 2 skipped, 1 ignored
-$
+STM32 STLink: /dev/cu.usbmodem145102 ser# 066BFF555052836687031442
+upload 0x05360 done, 21344 bytes sent
+STM32 STLink: /dev/cu.usbmodem145102 ser# 066BFF555052836687031442
+43 tests, 43 matches, 0 failures, 1 skipped, 2 ignored
+   text	   data	    bss	    dec	    hex	filename
+  55640	   2740	   2472	  60852	   edb4	.pio/build/nucleo-l432/firmware.elf
+  46048	   2740	   2472	  51260	   c83c	.pio/build/noassert/firmware.elf
+  35996	   2544	   2472	  41012	   a034	.pio/build/nopyvm/firmware.elf
+[...]
 ```
 
 The source code & docs are in the public domain and under active development.  
