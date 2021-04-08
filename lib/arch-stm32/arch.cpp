@@ -22,7 +22,7 @@ UartBufDev< PinA<2>, PinA<15>, 100 > console;
 UartBufDev< PinD<8>, PinD<9>, 100 > console;
 #elif STM32F469xx
 UartBufDev< PinB<10>, PinB<11>, 100 > console;
-#elif STM32F4 || NUCLEO_L073RZ || STM32F412Zx
+#elif STM32F4 || NUCLEO_L073RZ
 UartBufDev< PinA<2>, PinA<3>, 100 > console;
 #elif STM32F723xx
 UartBufDev< PinC<6>, PinC<7>, 100 > console;
