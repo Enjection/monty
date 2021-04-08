@@ -216,5 +216,78 @@ namespace mcu {
 
     using namespace device;
     using namespace altpins;
+#if STM32F7
+    #include "uart-stm32f7.h"
+#elif STM32L4
     #include "uart-stm32l4.h"
+#endif
+
+    struct Serial : Uart {
+        using Uart::Uart;
+
+        struct Chunk { uint8_t* buf; uint16_t len; };
+
+        auto recv () -> Chunk {
+            uint16_t end;
+            waitWhile([&]() {
+                end = rxNext();
+                return rxPull == end; // true if there's no data
+            });
+            if (end < rxPull)
+                end = sizeof rxBuf;
+            return {rxBuf+rxPull, (uint16_t) (end-rxPull)};
+        }
+
+        void didRecv (uint32_t len) {
+            rxPull = (rxPull + len) % sizeof rxBuf;
+        }
+
+        // there are 3 cases (note: #=sending, +=pending, .=free)
+        //
+        // txBuf: [   <-txLeft   txLast   txNext   ]
+        //        [...#################+++++++++...]
+        //
+        // txBuf: [   txLast   txNext   <-txLeft   ]
+        //        [#########+++++++++...###########]
+        //
+        // txBuf: [   txNext   <-txLeft   txLast   ]
+        //        [+++++++++...#################+++]
+        //
+        // txLeft() reads the "CNDTR" DMA register, which counts down to zero
+        // it's relative to txLast, which marks the current transfer limit
+        //
+        // when the DMA is done and txNext != txLast, a new xfer is started
+        // this happens at interrupt time and also adjusts txLast accordingly
+        // if txLast > txNext, two separate transfers need to be started
+
+        auto canSend () -> Chunk {
+            uint16_t avail;
+            waitWhile([&]() {
+                auto left = txLeft();
+                ensure(left < sizeof txBuf);
+                auto take = txWrap(txNext + sizeof txBuf - left);
+                avail = take > txNext ? take - txNext : sizeof txBuf - txNext;
+                return left != 0 || avail == 0;
+            });
+            ensure(avail > 0);
+            return {txBuf+txNext, avail};
+        }
+
+        void send (uint8_t const* p, uint32_t n) {
+            while (n > 0) {
+                auto [ptr, len] = canSend();
+                if (len > n)
+                    len = n;
+                memcpy(ptr, p, len);
+                txNext = txWrap(txNext + len);
+                if (txLeft() == 0)
+                    txStart();
+                p += len;
+                n -= len;
+            }
+        }
+
+    private:
+        uint16_t rxPull =0;
+    };
 }

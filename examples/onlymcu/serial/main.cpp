@@ -5,10 +5,10 @@
 
 using namespace mcu;
 
-Uart serial (2);
+Serial serial (2);
 
 Printer printer (&serial, [](void* obj, uint8_t const* ptr, int len) {
-    ((Uart*) obj)->send(ptr, len);
+    ((Serial*) obj)->send(ptr, len);
 });
 
 extern "C" int printf (const char* fmt, ...) {
