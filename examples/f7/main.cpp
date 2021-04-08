@@ -37,9 +37,9 @@ int main () {
 
     msWait(1);
     while (true) {
-        //msWait(100);
+        msWait(100);
         auto t = millis();
-debugf("hello %s\n", "world");
+        debugf("hello %d\n", t);
         led = (t / 100) % 5 == 0;
     }
 }
