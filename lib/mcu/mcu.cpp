@@ -170,6 +170,11 @@ namespace mcu {
     }
 
     void msWait (uint16_t ms) {
+        while (ms > 10) {
+            msWait(10); // TODO crude way to avoid 24-bit overflow in systick
+            ms -= 10;
+        }
+
         auto hz = systemClock();
         SCB(0x14) = ms*(hz/1000)-1; // reload
         SCB(0x18) = 0;              // current
@@ -189,7 +194,26 @@ namespace mcu {
         return ticks;
     }
 
-#if STM32L4
+#if STM32F7
+    void enableClkWithPLL () { // using internal 16 MHz HSI
+        constexpr auto MHZ = F_CPU/1000000;
+        FLASH(0x00) = 0x300 + MHZ/30;           // flash ACR, 0..7 wait states
+        RCC(0x00)[16] = 1;                      // HSEON
+        while (RCC(0x00)[17] == 0) {}           // wait for HSERDY
+        RCC(0x08) = (4<<13) | (5<<10) | (1<<0); // prescaler w/ HSE
+        RCC(0x04) = (8<<24) | (1<<22) | (0<<16) | (2*MHZ<<6) | (XTAL<<0);
+        RCC(0x00)[24] = 1;                      // PLLON
+        while (RCC(0x00)[25] == 0) {}           // wait for PLLRDY
+        RCC(0x08) = (0b100<<13) | (0b101<<10) | (0b10<<0);
+    }
+
+    auto fastClock (bool pll) -> uint32_t {
+        (void) pll; // TODO ignored
+        // TODO set LDO voltage range, and over-drive if needed
+        enableClkWithPLL();
+        return SystemCoreClock = F_CPU;
+    }
+#elif STM32L4
     void enableClkWithPLL () { // using internal 16 MHz HSI
         FLASH(0x00) = 0x704;                    // flash ACR, 4 wait states
         RCC(0x00)[8] = 1;                       // HSION

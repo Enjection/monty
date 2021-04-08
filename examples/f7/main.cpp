@@ -12,6 +12,9 @@ void mcu::failAt (void const*, void const*) {
 }
 
 int main () {
+    fastClock();
+    led.define("K3:P"); // set K3 to output "0", turns off the LCD backlight
+
     led.define("I1:P");
 
     while (true) {
