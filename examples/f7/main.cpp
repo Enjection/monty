@@ -65,9 +65,8 @@ debugf("33 %d Hz\n", hz);
     printf("%d Hz\n", hz);
 debugf("44\n");
 
-    msWait(1);
     while (true) {
-        msWait(100);
+        msWait(1000);
         auto t = millis();
 debugf("hello %d\n", t);
         //printf("hello %d\n", t);

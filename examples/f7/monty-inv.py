@@ -17,11 +17,11 @@ def map(c):
 
 @task
 def openocd(c):
-    """launch openocd, ready for uploads and servinf SWO on port 6464"""
+    """launch openocd, ready for uploads and serving SWO on port 6464"""
     print("launch 'nc 127.0.0.1 6464' in separate window to see SWO output")
     c.run("openocd -f board/stm32f7discovery.cfg"
           " -c 'tpiu config internal :6464 uart false 200000000 115200;"
-               "itm port 0 on'", pty=True)
+               "itm port 0 on'")
 
 # remove irrelevant tasks
 del mrfs, native, python, runner, test, upload, watch
