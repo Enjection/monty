@@ -6,29 +6,25 @@ struct Uart : Device {
     ~Uart () { deinit(); }
 
     void init () {
-debugf("I< %d %d\n", dev.ena, dev.rxDma);
         RCC(APB1ENR)[dev.ena] = 1;      // uart on
         RCC(AHB1ENR)[21+dev.rxDma] = 1; // dma on
-debugf("ena %x %x\n", (uint32_t) RCC(APB1ENR+4), (uint32_t) RCC(AHB1ENR));
-auto rx = dev.rxStream, tx = dev.txStream;
-debugf("rx c %d s %d tx c %d s %d\n", dev.rxChan, rx, dev.txChan, tx);
 
         dmaRX(SNDTR) = sizeof rxBuf;
-        dmaRX(SPAR) = dev.base + DR;
+        dmaRX(SPAR) = dev.base + RDR;
         dmaRX(SM0AR) = (uint32_t) rxBuf;
-        dmaRX(SCR) = // CHSEL, MINC, CIRC, TCIE, HTIE, EN
+        dmaRX(SCR) = // CHSEL MINC CIRC TCIE HTIE EN
             (dev.rxChan<<25) | 0b0101'0001'1001;
 
-        dmaTX(SPAR) = dev.base + DR;
-        dmaTX(SCR) = (dev.txChan<<25) | 0b0100'0101'0000; // CHSEL, MINC, DIR, TCIE
+        dmaTX(SPAR) = dev.base + TDR;
+        dmaTX(SCR) = (dev.txChan<<25) | 0b0100'0101'0000; // CHSEL MINC DIR TCIE
 
-        devReg(CR1) = 0b0010'0000'0001'1100; // UE, IDLEIE, TE, RE
-        devReg(CR3) = 0b1100'0000; // DMAT, DMAR
+        devReg(CR1) = FAMILY == STM_F4 ? // IDLEIE TE RE UE, different bits
+                0b0010'0000'0001'1100 : 0b0001'1101;
+        devReg(CR3) = 0b1100'0000; // DMAT DMAR
 
         irqInstall((uint8_t) dev.irq);
         irqInstall(dmaInfo[dev.rxDma].streams[dev.rxStream]);
         irqInstall(dmaInfo[dev.txDma].streams[dev.txStream]);
-debugf("I>");
     }
 
     void deinit () {
@@ -45,15 +41,11 @@ debugf("I>");
     void txStart () {
         auto len = txNext >= txLast ? txNext - txLast : sizeof txBuf - txLast;
         if (len > 0) {
-debugf("S< %x\n", (uint32_t) dmaTX(SCR));
-            //dmaTX(SCR)[0] = 0; // ~EN
-            //while (dmaTX(SCR)[0] != 0) {} // EN
             dmaTX(SNDTR) = len;
             dmaTX(SM0AR) = (uint32_t) txBuf + txLast;
             txLast = txWrap(txLast + len);
-            //while (devReg(SR)[7] == 0) {} // wait for TXE
+            while (devReg(SR)[7] == 0) {} // wait for TXE
             dmaTX(SCR)[0] = 1; // EN
-debugf("S> %x\n", (uint32_t) dmaTX(SCR));
         }
     }
 
@@ -81,14 +73,16 @@ private:
 
     // the actual interrupt handler, with access to the uart object
     void irqHandler () {
-debugf("Q>");
         if (devReg(SR) & (1<<4)) { // is this an rx-idle interrupt?
             auto next = rxNext();
             if (next >= 2 && rxBuf[next-1] == 0x03 && rxBuf[next-2] == 0x03)
                 systemReset(); // two CTRL-C's in a row *and* idling: reset!
         }
 
-        (uint32_t) devReg(DR); // clear idle and error flags
+        if constexpr (FAMILY == STM_F4)
+            (uint32_t) devReg(RDR); // clear idle and error flags
+        else // F7
+            devReg(CR) = 0b0001'1111; // clear idle and error flags
 
         auto rx = dev.rxStream, tx = dev.txStream;
         uint8_t rxStat = dmaReg(LISR+(rx&~3)) >> 8*(rx&3);
@@ -102,6 +96,10 @@ debugf("Q>");
         trigger();
     }
 
-    enum { SR=0x00,DR=0x04,BRR=0x08,CR1=0x0C,CR3=0x14 };
+#if STM32F4
+    enum { SR=0x00,RDR=0x04,TDR=0x04,BRR=0x08,CR1=0x0C,CR3=0x14 };
+#elif STM32F7
+    enum { CR1=0x00,CR3=0x08,BRR=0x0C,SR=0x1C,CR=0x20,RDR=0x24,TDR=0x28 };
+#endif
     enum { LISR=0x00,LIFCR=0x08,SCR=0x10,SNDTR=0x14,SPAR=0x18,SM0AR=0x1C };
 };

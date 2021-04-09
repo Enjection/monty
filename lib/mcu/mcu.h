@@ -215,10 +215,8 @@ namespace mcu {
 
     using namespace device;
     using namespace altpins;
-#if STM32F4
-    #include "uart-stm32f4.h"
-#elif STM32F7
-    #include "uart-stm32f7.h"
+#if STM32F4 || STM32F7
+    #include "uart-stm32f4f7.h"
 #elif STM32L4
     #include "uart-stm32l4.h"
 #endif
