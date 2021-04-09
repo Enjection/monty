@@ -15,6 +15,29 @@ extern "C" void __cxa_pure_virtual () __attribute__ ((alias ("abort")));
 // also bypass the std::{get,set}_terminate logic, and just abort
 namespace std { void terminate () __attribute__ ((alias ("abort"))); }
 
+Printer swoOut (nullptr, [](void*, uint8_t const* ptr, int len) {
+    using namespace mcu;
+    constexpr auto ITM8 =  io8<0xE000'0000>;
+    constexpr auto ITM  = io32<0xE000'0000>;
+    enum { TER=0xE00, TCR=0xE80, LAR=0xFB0 };
+
+    if (ITM(TCR)[0] && ITM(TER)[0])
+        while (--len >= 0) {
+            while (ITM(0)[0] == 0) {}
+            ITM8(0) = *ptr++;
+        }
+});
+
+Printer* stdOut = &swoOut;
+
+int printf (const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int result = stdOut->vprintf(fmt, ap);
+    va_end(ap);
+    return result;
+}
+
 namespace mcu {
     uint32_t Device::pending;
     uint8_t Device::irqMap [(int) device::IrqVec::limit];
@@ -26,7 +49,20 @@ namespace mcu {
         while (true) {}
     }
 
+    void failAt (void const* pc, void const* lr) { // weak, can be redefined
+        printf("failAt %p %p\n", pc, lr);
+        for (uint32_t i = 0; i < systemClock() >> 15; ++i) {}
+        systemReset();
+    }
+
     void idle () { asm ("wfi"); } // weak idle handler, can be redefined
+
+    void debugf (const char* fmt, ...) {
+        va_list ap;
+        va_start(ap, fmt);
+        swoOut.vprintf(fmt, ap);
+        va_end(ap);
+    }
 
     auto snprintf (char* buf, uint32_t len, const char* fmt, ...) -> int {
         struct Info { char* p; int n; } info {buf, (int) len};

@@ -24,10 +24,8 @@ namespace altpins {
   while (false)
 #endif
 
-#if JEEH
-// TODO kept in here for debugging
+extern struct Printer* stdOut;
 extern "C" int printf (char const*, ...);
-#endif
 
 namespace mcu {
     enum ARM_Family { STM_F4, STM_F7, STM_L0, STM_L4 };
@@ -41,8 +39,8 @@ namespace mcu {
     constexpr auto FAMILY = STM_L4;
 #endif
 
+    void debugf (const char* fmt, ...); // hard-wired to swoOut
     auto snprintf (char*, uint32_t, const char*, ...) -> int;
-    void debugf (const char* fmt, ...);
 
     auto micros () -> uint32_t;
     auto millis () -> uint32_t;
@@ -53,7 +51,7 @@ namespace mcu {
 
     void powerDown (bool standby =true);
     [[noreturn]] void systemReset ();
-    [[noreturn]] void failAt (void const*, void const*);
+    [[noreturn]] void failAt (void const*, void const*) __attribute__ ((weak));
 
     struct IOWord {
         uint32_t volatile& addr;
@@ -226,7 +224,13 @@ namespace mcu {
 #endif
 
     struct Serial : Uart {
-        using Uart::Uart;
+        Serial (int num, char const* pins =nullptr) : Uart (num) {
+            if (pins != nullptr) {
+                mcu::Pin txrx [2];
+                Pin::define(pins, txrx, 2);
+                init();
+            }
+        }
 
         struct Chunk { uint8_t* buf; uint16_t len; };
 
