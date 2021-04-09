@@ -2,7 +2,7 @@
 
 @task(flash, default=True)
 def all(c):
-    """compile and upload the "f7" demo"""
+    """compile and upload to the "f7" demo"""
 
 @task
 def disas(c):
@@ -15,11 +15,13 @@ def map(c):
     c.run("arm-none-eabi-nm -CnS .pio/build/disco-f750/firmware.elf |"
           "grep -v Handler")
 
-@task(flash)
-def gdb(c):
-    """compile and run in debugger to capture swo output"""
+@task
+def openocd(c):
+    """launch openocd, ready for uploads and servinf SWO on port 6464"""
     print("launch 'nc 127.0.0.1 6464' in separate window to see SWO output")
-    c.run("arm-none-eabi-gdb", pty=True)
+    c.run("openocd -f board/stm32f7discovery.cfg"
+          " -c 'tpiu config internal :6464 uart false 200000000 115200;"
+               "itm port 0 on'", pty=True)
 
 # remove irrelevant tasks
-del mrfs, native, python, runner, serial, test, upload, watch
+del mrfs, native, python, runner, test, upload, watch

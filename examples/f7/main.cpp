@@ -23,6 +23,21 @@ Printer debugf (nullptr, [](void*, uint8_t const* ptr, int len) {
         swoPutc(*ptr++);
 });
 
+Serial serial (1);
+
+Printer printer (&serial, [](void* obj, uint8_t const* ptr, int len) {
+    ((Serial*) obj)->send(ptr, len);
+});
+
+extern "C" int printf (const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int result = printer.vprintf(fmt, ap);
+    va_end(ap);
+
+    return result;
+}
+
 void mcu::failAt (void const* pc, void const* lr) {
     debugf("failAt %p %p\n", pc, lr);
     for (uint32_t i = 0; i < systemClock() >> 15; ++i) {}
@@ -31,15 +46,31 @@ void mcu::failAt (void const* pc, void const* lr) {
 
 int main () {
     fastClock();
+debugf("\nABC\n");
     led.define("K3:P"); // set PK3 pin low to turn off the LCD backlight
 
     led.define("I1:P");
+
+    mcu::Pin tx, rx; // TODO use the altpins info
+    tx.define("A9:PU7");
+    rx.define("B7:PU7");
+
+debugf("11\n");
+    serial.init();
+debugf("22\n");
+
+    auto hz = mcu::systemClock();
+    serial.baud(921600, hz/2);
+debugf("33 %d Hz\n", hz);
+    printf("%d Hz\n", hz);
+debugf("44\n");
 
     msWait(1);
     while (true) {
         msWait(100);
         auto t = millis();
-        debugf("hello %d\n", t);
+debugf("hello %d\n", t);
+        //printf("hello %d\n", t);
         led = (t / 100) % 5 == 0;
     }
 }
