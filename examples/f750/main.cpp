@@ -5,8 +5,6 @@
 
 using namespace mcu;
 
-mcu::Pin led;
-
 void spifTest (bool wipe =false) {
     // QSPI flash on F7508-DK:
     //  PD11 IO0 MOSI, PD12 IO1 MISO,
@@ -37,17 +35,20 @@ void spifTest (bool wipe =false) {
     uint8_t buf [16];
 
     spif.read(0x1000, buf, sizeof buf);
-    for (auto e : buf) printf(" %02x", e); printf(" %s", "\n");
+    for (auto e : buf) printf(" %02x", e);
+    printf(" %s", "\n");
 
     spif.write(0x1000, (uint8_t const*) "abc", 3);
 
     spif.read(0x1000, buf, sizeof buf);
-    for (auto e : buf) printf(" %02x", e); printf(" %s", "\n");
+    for (auto e : buf) printf(" %02x", e);
+    printf(" %s", "\n");
 
     spif.write(0x1000, (uint8_t const*) "ABCDE", 5);
 
     spif.read(0x1000, buf, sizeof buf);
-    for (auto e : buf) printf(" %02x", e); printf(" %s", "\n");
+    for (auto e : buf) printf(" %02x", e);
+    printf(" %s", "\n");
 }
 
 namespace mcu::qspi {
@@ -57,8 +58,7 @@ namespace mcu::qspi {
 
         RCC(0x38)[1] = 1; // QSPIEN in AHB3ENR
 
-        // see ST's ref man: RM0402 rev 6, section 12, p.288 (QUADSPI)
-        constexpr auto QSPI = io32<0xA0001000>;   // p.51
+        // see STM32F412 ref man: RM0402 rev 6, section 12, p.288 (QUADSPI)
         enum { CR=0x00, DCR=0x04, CCR=0x14 };
 
         // auto fsize = 24; // flash has 16 MB, 2^24 bytes
@@ -93,6 +93,7 @@ int main () {
     fastClock(); // OpenOCD expects a 200 MHz clock for SWO
     printf("@ %d MHz\n", systemClock() / 1'000'000); // falls back to debugf
 
+    mcu::Pin led;
     led.define("K3:P"); // set PK3 pin low to turn off the LCD backlight
     led.define("I1:P"); // ... then set the pin to the actual LED
 

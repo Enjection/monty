@@ -27,6 +27,7 @@ constexpr auto GPIO    = io32<0x4800'0000>;
 
 #endif
 
+constexpr auto QSPI    = io32<0xA000'1000>;
 constexpr auto DWT     = io32<0xE000'1000>;
 constexpr auto SCB     = io32<0xE000'E000>;
 constexpr auto NVIC    = io32<0xE000'E100>;
