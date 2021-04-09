@@ -6,8 +6,12 @@ struct Uart : Device {
     ~Uart () { deinit(); }
 
     void init () {
+debugf("I< %d %d\n", dev.ena, dev.rxDma);
         RCC(APB1ENR)[dev.ena] = 1;      // uart on
         RCC(AHB1ENR)[21+dev.rxDma] = 1; // dma on
+debugf("ena %x %x\n", (uint32_t) RCC(APB1ENR+4), (uint32_t) RCC(AHB1ENR));
+auto rx = dev.rxStream, tx = dev.txStream;
+debugf("rx c %d s %d tx c %d s %d\n", dev.rxChan, rx, dev.txChan, tx);
 
         dmaRX(SNDTR) = sizeof rxBuf;
         dmaRX(SPAR) = dev.base + DR;
@@ -24,6 +28,7 @@ struct Uart : Device {
         irqInstall((uint8_t) dev.irq);
         irqInstall(dmaInfo[dev.rxDma].streams[dev.rxStream]);
         irqInstall(dmaInfo[dev.txDma].streams[dev.txStream]);
+debugf("I>");
     }
 
     void deinit () {
@@ -40,13 +45,15 @@ struct Uart : Device {
     void txStart () {
         auto len = txNext >= txLast ? txNext - txLast : sizeof txBuf - txLast;
         if (len > 0) {
+debugf("S< %x\n", (uint32_t) dmaTX(SCR));
             //dmaTX(SCR)[0] = 0; // ~EN
-            while (dmaTX(SCR)[0] != 0) {} // EN
+            //while (dmaTX(SCR)[0] != 0) {} // EN
             dmaTX(SNDTR) = len;
             dmaTX(SM0AR) = (uint32_t) txBuf + txLast;
             txLast = txWrap(txLast + len);
             //while (devReg(SR)[7] == 0) {} // wait for TXE
             dmaTX(SCR)[0] = 1; // EN
+debugf("S> %x\n", (uint32_t) dmaTX(SCR));
         }
     }
 
@@ -74,6 +81,7 @@ private:
 
     // the actual interrupt handler, with access to the uart object
     void irqHandler () {
+debugf("Q>");
         if (devReg(SR) & (1<<4)) { // is this an rx-idle interrupt?
             auto next = rxNext();
             if (next >= 2 && rxBuf[next-1] == 0x03 && rxBuf[next-2] == 0x03)

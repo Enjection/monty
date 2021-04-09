@@ -287,10 +287,11 @@ def mrfs(c, offset=0, file=""):
     else:
         c.run("%s -u %s verify/*.py" % (mrfs, offset), pty=True)
 
-@task
-def serial(c):
+@task(help={"baud": "specify baudrate (default 921600)"})
+def serial(c, baud=921600):
     """serial terminal session, use in separate window"""
-    c.run(pio("run -t monitor -s"), pty=True)
+    ini = root or "."
+    c.run("pio device monitor -d %s -b %d --quiet" % (ini, baud), pty=True)
 
 @task(help={"file": "the Python script to send whenever it changes",
             "remote": "run script remotely iso natively"})

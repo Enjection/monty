@@ -5,37 +5,23 @@
 
 using namespace mcu;
 
-mcu::Pin led;
-
-static void swoPutc (int c) {
+static Printer swoOut (nullptr, [](void*, uint8_t const* ptr, int len) {
     constexpr auto ITM8 =  io8<0xE000'0000>;
     constexpr auto ITM  = io32<0xE000'0000>;
     enum { TER=0xE00, TCR=0xE80, LAR=0xFB0 };
 
-    if (ITM(TCR)[0] && ITM(TER)[0]) {
-        while (ITM(0)[0] == 0) {}
-        ITM8(0) = c;
-    }
-}
-
-Printer debugf (nullptr, [](void*, uint8_t const* ptr, int len) {
-    while (--len >= 0)
-        swoPutc(*ptr++);
+    if (ITM(TCR)[0] && ITM(TER)[0])
+        while (--len >= 0) {
+            while (ITM(0)[0] == 0) {}
+            ITM8(0) = *ptr++;
+        }
 });
 
-Serial serial (1);
-
-Printer printer (&serial, [](void* obj, uint8_t const* ptr, int len) {
-    ((Serial*) obj)->send(ptr, len);
-});
-
-extern "C" int printf (const char* fmt, ...) {
+void mcu::debugf (const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    int result = printer.vprintf(fmt, ap);
+    swoOut.vprintf(fmt, ap);
     va_end(ap);
-
-    return result;
 }
 
 void mcu::failAt (void const* pc, void const* lr) {
@@ -44,9 +30,25 @@ void mcu::failAt (void const* pc, void const* lr) {
     systemReset();
 }
 
+Serial serial (1);
+
+Printer printer (nullptr, [](void*, uint8_t const* ptr, int len) {
+    serial.send(ptr, len);
+});
+
+extern "C" int printf (const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int result = printer.vprintf(fmt, ap);
+    va_end(ap);
+    return result;
+}
+
+mcu::Pin led;
+
 int main () {
     fastClock();
-debugf("\nABC\n");
+debugf("\n------------\n%d Hz\n", systemClock());
     led.define("K3:P"); // set PK3 pin low to turn off the LCD backlight
 
     led.define("I1:P");
@@ -55,21 +57,14 @@ debugf("\nABC\n");
     tx.define("A9:PU7");
     rx.define("B7:PU7");
 
-debugf("11\n");
     serial.init();
-debugf("22\n");
-
-    auto hz = mcu::systemClock();
-    serial.baud(921600, hz/2);
-debugf("33 %d Hz\n", hz);
-    printf("%d Hz\n", hz);
-debugf("44\n");
+    serial.baud(921600, mcu::systemClock() / 2);
 
     while (true) {
-        msWait(1000);
+        msWait(100);
         auto t = millis();
-debugf("hello %d\n", t);
-        //printf("hello %d\n", t);
         led = (t / 100) % 5 == 0;
+        if (led)
+            printf("hello %d\n", t);
     }
 }
