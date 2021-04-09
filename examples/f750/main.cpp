@@ -89,6 +89,8 @@ void qspiTest () {
     printf(" %s", "\n");
 }
 
+#include "lcd.h"
+
 int main () {
     fastClock(); // OpenOCD expects a 200 MHz clock for SWO
     printf("@ %d MHz\n", systemClock() / 1'000'000); // falls back to debugf
@@ -109,6 +111,7 @@ int main () {
     //spifTest(0);
     //spifTest(1); // wipe all
     //qspiTest();
+    lcdTest();
 
     while (true) {
         msWait(100);
