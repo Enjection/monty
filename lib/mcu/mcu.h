@@ -151,22 +151,104 @@ namespace mcu {
         auto mode (char const* desc) const -> int;
     };
 
+    struct SpiGpio {
+        Pin _mosi, _miso, _sclk, _nsel;
+        uint8_t _cpol =0;
+
+        void init (char const* defs) {
+            Pin pins [4];
+            Pin::define(defs, pins, 4);
+            Pin::define(":PV,:F,:PV,:PV", pins, 4);
+            _mosi = pins[0]; _miso = pins[1]; _sclk = pins[2]; _nsel = pins[3];
+
+            disable();
+            _sclk = _cpol;
+        }
+
+        void enable () const { _nsel = 0; }
+        void disable () const { _nsel = 1; }
+
+        auto xfer (uint8_t v) const -> uint8_t {
+            for (int i = 0; i < 8; ++i) {
+                _mosi = v & 0x80;
+                v <<= 1;
+                _sclk = !_cpol;
+                v |= _miso;
+                _sclk = _cpol;
+            }
+            return v;
+        }
+
+        void read (uint8_t* buf, int len) const {
+            enable();
+            for (int i = 0; i < len; ++i)
+                buf[i] = xfer(0);
+            disable();
+        }
+
+        void write (uint8_t const* buf, int len) const {
+            enable();
+            for (int i = 0; i < len; ++i)
+                xfer(buf[i]);
+            disable();
+        }
+    };
+
+    struct SpiFlash : private SpiGpio {
+        using SpiGpio::init;
+
+        void reset () {
+            cmd(0x66); disable(); cmd(0x99); disable();
+        }
+
+        auto devId () {
+            cmd(0x9F);
+            int r = xfer(0) << 16; r |= xfer(0) << 8; r |= xfer(0);
+            disable();
+            return r;
+        }
+
+        auto size () { // e.g. W25Q64: 0xC84017 => 8192 KB
+            return 1 << ((devId()&0x1F) - 10);
+        }
+
+        void wipe () { // 0x60 doesn't work on Micron Tech (N25Q)
+            wcmd(0xC7); wait();
+        }
+
+        void erase (int offset) {
+            wcmd(0x20); w24b(offset); wait();
+        }
+
+        void read (int offset, uint8_t* buf, int len) {
+            cmd(0x0B); w24b(offset); xfer(0); SpiGpio::read(buf, len);
+        }
+
+        void write (int offset, uint8_t const* buf, int len) {
+            wcmd(0x02); w24b(offset); SpiGpio::write(buf, len); wait();
+        }
+
+    private:
+        void cmd (int arg) {
+            enable(); xfer(arg);
+        }
+        void wait () {
+            disable(); cmd(0x05); while (xfer(0) & 1) {} disable();
+        }
+        void wcmd (int arg) {
+            wait(); cmd(0x06); disable(); cmd(arg);
+        }
+        void w24b (int offset) {
+            xfer(offset >> 16); xfer(offset >> 8); xfer(offset);
+        }
+    };
+
     struct BlockIRQ {
         BlockIRQ () { asm ("cpsid i"); }
         ~BlockIRQ () { asm ("cpsie i"); }
     };
 
     void idle () __attribute__ ((weak)); // called with interrupts disabled
-
-/*
-    void mainLoop () {
-        while (Stacklet::runLoop()) {
-            BlockIRQ crit;
-            if (Device::pending == 0)
-                idle();
-        }
-    }
-*/
 
     struct Device {
         uint8_t _id;
