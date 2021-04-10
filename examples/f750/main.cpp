@@ -91,6 +91,23 @@ void qspiTest () {
 
 #include "lcd.h"
 
+static lcd::FrameBuffer<1> bg;
+static lcd::FrameBuffer<2> fg;
+
+void lcdTest () {
+    lcd::init();
+    bg.init();
+    fg.init();
+
+    for (int y = 0; y < lcd::HEIGHT; ++y)
+        for (int x = 0; x < lcd::WIDTH; ++x)
+            bg(x, y) = x ^ y;
+
+    for (int y = 0; y < lcd::HEIGHT; ++y)
+        for (int x = 0; x < lcd::WIDTH; ++x)
+            fg(x, y) = ((16*x)/lcd::WIDTH << 4) | (y >> 4);
+}
+
 int main () {
     fastClock(); // OpenOCD expects a 200 MHz clock for SWO
     printf("@ %d MHz\n", systemClock() / 1'000'000); // falls back to debugf
