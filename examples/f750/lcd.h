@@ -8,22 +8,33 @@ template <int N>
 struct FrameBuffer {
     constexpr static auto LTDC = io32<device::LTDC>;
     constexpr static auto LAYER = io32<device::LTDC+0x80*N>;
+    static_assert(N == 1 || N == 2);
 
     void init () {
         LAYER(0x04) = 0; // ~LEN in LxCR
         LAYER(0x08) = hv(HSYN+HBP+WIDTH-1, HSYN+HBP);  // LxWHPCR
         LAYER(0x0C) = hv(VSYN+VBP+HEIGHT-1, VSYN+VBP); // LxWVPCR
         LAYER(0x10) = 0;                               // LxCKCR
-        LAYER(0x14) = 0b101;                           // LxPFCR L8
+        LAYER(0x14) = N == 1 ? 0b101 : 0b110;          // LxPFCR L8/AL44
         LAYER(0x2C) = (uint32_t) data;                 // LxCFBAR
         LAYER(0x30) = hv(WIDTH, WIDTH+3);              // LxCFBLR
         LAYER(0x34) = HEIGHT;                          // LxCFBLNR
 
-        for (int i = 0; i < 256; ++i) {
-            auto rgb = ((i&0xE0) << 16) | ((i&0x1C) << 11) | ((i&0x03) << 6);
-            //auto rgb = (i << 16) | (i << 8) | (i << 0); // greyscale
-            LAYER(0x44) = (i<<24) | rgb;
-        }
+        if constexpr (N == 1)
+            for (int i = 0; i < 256; ++i) {
+                auto r = i>>5, g = (i>>2) & 7, b = i & 3;
+                auto rgb = (r<<21)|(r<<18)|(g<<13)|(g<<10)|(b<<6)|(b<<4)|(b<<2);
+                //auto rgb = (i << 16) | (i << 8) | (i << 0); // greyscale
+                LAYER(0x44) = (i<<24) | rgb;
+            }
+        else
+            for (int i = 0; i < 16; ++i) {
+                uint8_t r = -((i>>2)&1), g = -((i>>1)&1), b = -(i&1);
+                if (i < 8) {
+                    r >>= 2; g >>= 2; b >>= 2;
+                }
+                LAYER(0x44) = (i<<24) | (r<<16) | (g<<8) | b;
+            }
 
         LAYER(0x04) = (1<<4) | (1<<0); // CLUTEN & LEN in LxCR
         LAYER(0x1C) = 0;               // LxDCCR transparent
@@ -31,8 +42,13 @@ struct FrameBuffer {
         LTDC(0x24)[0] = 1; // IMR in SRCR
     }
 
+    auto& operator() (int x, int y) { return data[y][x]; }
+
     uint8_t data [HEIGHT][WIDTH];
 };
+
+static FrameBuffer<1> bg;
+static FrameBuffer<2> fg;
 
 void lcdTest () {
     // FIXME RCC name clash mcb/device
@@ -53,9 +69,9 @@ void lcdTest () {
     LTDC(0x10) = hv(HSYN+HBP+WIDTH-1, VSYN+VBP+HEIGHT-1);         // AWCR
     LTDC(0x14) = hv(HSYN+HBP+WIDTH+HFP-1, VSYN+VBP+HEIGHT+VFP-1); // TWCR
 
-    LTDC(0x2C) = 0;    // BCCR black
-    LTDC(0x18) = 1;    // LTDCEN in GCR
-    LTDC(0x24)[0] = 1; // IMR in SRCR
+    LTDC(0x2C) = 0;                // BCCR black
+    LTDC(0x18) = (1<<16) | (1<<0); // DEN & LTDCEN in GCR
+    LTDC(0x24)[0] = 1;             // IMR in SRCR
 
     mcu::Pin pins [28];
     Pin::define("I15:PV14,J0,J1,J2,J3,J4,J5,J6,"     // R0..7
@@ -72,10 +88,14 @@ void lcdTest () {
     mcu::Pin backlight;
     backlight.define("K3:U");    // turn backlight on
 
-    static FrameBuffer<1> fb;
-    fb.init();
+    bg.init();
+    fg.init();
 
     for (int y = 0; y < HEIGHT; ++y)
         for (int x = 0; x < WIDTH; ++x)
-            fb.data[y][x] = x ^ y;
+            bg(x, y) = x ^ y;
+
+    for (int y = 0; y < HEIGHT; ++y)
+        for (int x = 0; x < WIDTH; ++x)
+            fg(x, y) = ((16*x)/WIDTH << 4) | (y >> 4);
 }

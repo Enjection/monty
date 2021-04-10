@@ -111,7 +111,7 @@ int main () {
     //spifTest(0);
     //spifTest(1); // wipe all
     //qspiTest();
-    lcdTest();
+    //lcdTest();
 
     while (true) {
         msWait(100);
