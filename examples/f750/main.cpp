@@ -89,7 +89,9 @@ void qspiTest () {
     printf(" %s", "\n");
 }
 
+namespace lcd {
 #include "lcd.h"
+}
 
 static lcd::FrameBuffer<1> bg;
 static lcd::FrameBuffer<2> fg;
