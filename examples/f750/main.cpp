@@ -202,14 +202,10 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         DMA(TDLAR) = (uint32_t) txDesc;
         DMA(RDLAR) = (uint32_t) rxDesc;
 
-        MAC(MCR)[3] = 1; // TE
-        msWait(1);
-        MAC(MCR)[2] = 1; // RE
-        msWait(1);
+        MAC(MCR)[3] = 1; msWait(1); // TE
+        MAC(MCR)[2] = 1; msWait(1); // RE
 
-        DMA(OMR)[20] = 1; // FTF
-        msWait(1);
-
+        DMA(OMR)[20] = 1; msWait(1); // FTF
         DMA(OMR)[13] = 1; // ST
         DMA(OMR)[1] = 1;  // SR
 
