@@ -295,6 +295,8 @@ namespace mcu {
         static Device* devMap [];
     };
 
+    struct Chunk { uint8_t* buf; uint16_t len; };
+
     using namespace device;
     using namespace altpins;
 #if STM32F4 || STM32F7
@@ -311,8 +313,6 @@ namespace mcu {
                 init();
             }
         }
-
-        struct Chunk { uint8_t* buf; uint16_t len; };
 
         auto recv () -> Chunk {
             uint16_t end;

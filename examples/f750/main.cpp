@@ -5,6 +5,25 @@
 
 using namespace mcu;
 
+void dumpHex (void const* p, int n =16) {
+    for (int off = 0; off < n; off += 16) {
+        debugf(" %03x:", off);
+        for (int i = 0; i < 16; ++i) {
+            if (i % 4 == 0)
+                debugf(" ");
+            auto b = ((uint8_t const*) p)[off+i];
+            debugf("%02x", b);
+        }
+        for (int i = 0; i < 16; ++i) {
+            if (i % 4 == 0)
+                debugf(" ");
+            auto b = ((uint8_t const*) p)[off+i];
+            debugf("%c", ' ' <= b && b <= '~' ? b : '.');
+        }
+        debugf("\n");
+    }
+}
+
 void spifTest (bool wipe =false) {
     // QSPI flash on F7508-DK:
     //  PD11 IO0 MOSI, PD12 IO1 MISO,
@@ -118,24 +137,24 @@ namespace eth {
     constexpr auto RCC    = io32<0x4002'3800>;
     constexpr auto SYSCFG = io32<device::SYSCFG>;
 
-    constexpr auto DMA    = io32<ETHERNET_DMA>;
-    enum { BMR=0x00,RDLAR=0x0C,TDLAR=0x10,ASR=0x14,OMR=0x18 };
-    constexpr auto MAC    = io32<ETHERNET_MAC>;
-    enum { MCR=0x00,FFR=0x04,HTHR=0x08,HTLR=0x0C,MIIAR=0x10,MIIDR=0x14,FCR=0x18 };
+    constexpr auto DMA = io32<ETHERNET_DMA>;
+    enum { BMR=0x00,TPDR=0x04,RDLAR=0x0C,TDLAR=0x10,ASR=0x14,OMR=0x18 };
+
+    constexpr auto MAC = io32<ETHERNET_MAC>;
+    enum { CR=0x00,FFR=0x04,HTHR=0x08,HTLR=0x0C,MIIAR=0x10,MIIDR=0x14,FCR=0x18,
+           A0HR=0x40,A0LR=0x44 };
 
     struct DmaDesc {
-        uint32_t volatile stat;
+        int32_t volatile stat;
         uint32_t size;
         uint8_t* data;
         DmaDesc* next;
         uint32_t extStat, _gap, times [2];
     };
 
-    constexpr auto NRX = 3, NTX = 3, BUFSZ = 1524;
-    DmaDesc rxDesc [NRX], txDesc [NTX];
+    constexpr auto NRX = 4, NTX = 4, BUFSZ = 1524;
+    DmaDesc rxDesc [NRX], txDesc [NTX], *txNext = txDesc;
     uint8_t rxBufs [NRX][BUFSZ], txBufs [NTX][BUFSZ];
-
-    uint8_t macAddr [] = {0x11,0x22,0x33,0x44,0x55,0x66};
 
     auto readPhy (int reg) -> uint16_t {
         MAC(MIIAR) = (0<<11)|(reg<<6)|(0b100<<2)|(1<<0);
@@ -147,6 +166,49 @@ namespace eth {
         MAC(MIIAR) = (0<<11)|(reg<<6)|(0b100<<2)|(1<<1)|(1<<0);
         while (MAC(MIIAR)[0] == 1) {} // wait until MB clear
     }
+
+    using MacAddr = uint8_t [6];
+
+    template <typename T>
+    void dump (T const& p) { p.dumper(); }
+
+    template <>
+    void dump (MacAddr const& p) {
+        for (int i = 0; i < 6; ++i)
+            debugf("%c%02x", i == 0 ? ' ' : ':', p[i]);
+    }
+
+    template <typename T>
+    void show (char const* tag, T const& p) { debugf(" %s", tag); dump(p); }
+
+    struct Net16 {
+        constexpr Net16 (uint16_t v) : b1 {(uint8_t) (v>>8), (uint8_t) v} {}
+        operator uint16_t () const { return (b1[0]<<8) | b1[1]; }
+        void dumper () const { debugf(" %04x", (uint16_t) *this); }
+    private:
+        uint8_t b1 [2];
+    };
+
+    struct Net32 {
+        constexpr Net32 (uint32_t v) : b2 {(uint16_t) (v>>16), (uint16_t) v} {}
+        operator uint32_t () const { return (b2[0]<<16) | b2[1]; }
+        void dumper () const { debugf(" %08x", (uint32_t) *this); }
+    private:
+        Net16 b2 [2];
+    };
+
+    struct IpAddr : Net32 {
+        constexpr IpAddr (uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4)
+            : Net32 ((v1<<24)|(v2<<16)|(v3<<8)|v4) {}
+        void dumper () const {
+            auto p = (uint8_t const*) this;
+            for (int i = 0; i < 4; ++i)
+                debugf("%c%d", i == 0 ? ' ' : '.', p[i]);
+        }
+    };
+
+    MacAddr myMac {0x11,0x22,0x33,0x44,0x55,0x66};
+    IpAddr myIp {192,168,188,17};
 
     void init () {
 debugf("eth init\n");
@@ -166,26 +228,51 @@ debugf("eth init\n");
 
         //MAC(0x10).mask(2, 3) = 0b100; // CR in MAC
         writePhy(0, 0x8000); // PHY reset
-        msWait(250); // value?
-debugf("11 %d ms\n", millis());
+        msWait(250); // long
+auto t = millis();
         while ((readPhy(1) & (1<<2)) == 0) // wait for link
             msWait(1); // keep updating the ticks
-debugf("22 %d ms\n", millis());
+debugf("link %d ms\n", millis() - t);
         writePhy(0, 0x1000); // PHY auto-negotiation
         while ((readPhy(1) & (1<<5)) == 0) {} // wait for a-n complete
         auto r = readPhy(31);
-        auto duplex = (r>>4)&1, fast = (r>>3)&1;
+        auto duplex = (r>>4) & 1, fast = (r>>3) & 1;
 debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
 
-        MAC(MCR) = (MAC(MCR) & 0xFF20810F) |
-            (fast<<14) | (duplex<<11) | (1<<10); // IPCO
+        //MAC(CR) = (MAC(CR) & 0xFF20810F) |
+        //    (fast<<14) | (duplex<<11) | (1<<10); // IPCO
+        MAC(CR) = (1<<15) | (fast<<14) | (duplex<<11) | (1<<10); // IPCO
         msWait(1);
+debugf("cr %08x\n", (uint32_t) MAC(CR));
 
         // not set: MAC(FFR) MAC(HTHR) MAC(HTLR) MAC(FCR)
 
         DMA(BMR) = // AAB USP RDP FB PM PBL EDFE DA
             (1<<25)|(1<<24)|(1<<23)|(32<<17)|(1<<16)|(1<<14)|(32<<8)|(1<<7)|(1<<1);
         msWait(1);
+debugf("bmr %08x\n", (uint32_t) DMA(BMR));
+
+#if 0
+static void ETH_MACAddressConfig(ETH_HandleTypeDef *heth, uint32_t MacAddr, uint8_t *Addr)
+{
+  uint32_t tmpreg;
+  
+  /* Check the parameters */
+  assert_param(IS_ETH_MAC_ADDRESS0123(MacAddr));
+  
+  /* Calculate the selected MAC address high register */
+  tmpreg = ((uint32_t)Addr[5] << 8) | (uint32_t)Addr[4];
+  /* Load the selected MAC address high register */
+  (*(__IO uint32_t *)((uint32_t)(ETH_MAC_ADDR_HBASE + MacAddr))) = tmpreg;
+  /* Calculate the selected MAC address low register */
+  tmpreg = ((uint32_t)Addr[3] << 24) | ((uint32_t)Addr[2] << 16) | ((uint32_t)Addr[1] << 8) | Addr[0];
+  
+  /* Load the selected MAC address low register */
+  (*(__IO uint32_t *)((uint32_t)(ETH_MAC_ADDR_LBASE + MacAddr))) = tmpreg;
+}
+#endif
+        MAC(A0HR) = *(uint16_t const*) (myMac + 4);
+        MAC(A0LR) = *(uint32_t const*) myMac;
 
         for (int i = 0; i < NTX; ++i) {
             txDesc[i].stat = 0x00D0'0000; // TCH and checksum insertion
@@ -194,7 +281,8 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         }
 
         for (int i = 0; i < NRX; ++i) {
-            rxDesc[i].stat = (1<<31) | (1<<14) | BUFSZ; // OWN RCH SIZE
+            rxDesc[i].stat = (1<<31); // OWN
+            rxDesc[i].size = (1<<14) | BUFSZ; // RCH SIZE
             rxDesc[i].data = rxBufs[i];
             rxDesc[i].next = rxDesc + (i+1) % NRX;
         }
@@ -202,14 +290,164 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         DMA(TDLAR) = (uint32_t) txDesc;
         DMA(RDLAR) = (uint32_t) rxDesc;
 
-        MAC(MCR)[3] = 1; msWait(1); // TE
-        MAC(MCR)[2] = 1; msWait(1); // RE
+        MAC(CR)[3] = 1; msWait(1); // TE
+        MAC(CR)[2] = 1; msWait(1); // RE
+debugf("cr %08x\n", (uint32_t) MAC(CR));
 
-        DMA(OMR)[20] = 1; msWait(1); // FTF
+        DMA(OMR)[20] = 1; // FTF
         DMA(OMR)[13] = 1; // ST
         DMA(OMR)[1] = 1;  // SR
+        msWait(1);
 
 debugf("eth init end\n");
+    }
+
+    template <typename T>
+    void swap (T& a, T& b) { T t = a; a = b; b = t; }
+
+    template <>
+    void swap (MacAddr& a, MacAddr& b) {
+        MacAddr t;
+        memcpy(t, a, sizeof (MacAddr));
+        memcpy(a, b, sizeof (MacAddr));
+        memcpy(b, t, sizeof (MacAddr));
+    }
+
+    struct Frame {
+        MacAddr _dst, _src;
+        Net16 _typ;
+
+        void swapper () { swap(_dst, _src); }
+
+        void dumper () const {
+            show("dst", _dst); show("src", _src); show("typ", _typ);
+        }
+    };
+    static_assert(sizeof (Frame) == 14);
+
+    auto canSend () -> Chunk {
+        while (txNext->stat < 0)
+            msWait(1); // TODO stupid, this prevents reception
+        return { txNext->data, BUFSZ };
+    }
+
+    void send (uint8_t const* p, uint32_t n) {
+        ensure(p == txNext->data);
+        ensure(sizeof (Frame) <= n && n <= BUFSZ);
+        txNext->size = n;
+        txNext->stat = (0b1011<<28) | (3<<22) | (1<<20); // OWN LS FS CIC TCH
+        txNext = txNext->next;
+        DMA(TPDR) = 0; // resume DMA
+    }
+
+    struct Arp : Frame {
+        Net16 _hw, _proto;
+        uint8_t _macLen, _ipLen;
+        Net16 _op;
+        MacAddr _sendMac;
+        IpAddr _sendIp;
+        MacAddr _targMac;
+        IpAddr _targIp;
+
+        void swapper () {
+            Frame::swapper();
+            swap(_sendMac, _targMac);
+            swap(_sendIp, _targIp);
+        }
+
+        void dumper () const {
+            show("ARP", *(Frame const*) this); show("op", _op); debugf("\n    ");
+            ensure(_hw == 1 && _proto == 0x0800);
+            ensure(_macLen == 6 && _ipLen == 4);
+            show("send", _sendMac); dump(_sendIp);
+            show("targ", _targMac); dump(_targIp);
+        }
+
+        void received () {
+            //dumper(); debugf("\n");
+            if (_op == 1 && _targIp == myIp) { // ARP request
+                show("myIP", myIp); debugf("\n");
+                auto [ptr, len] = canSend();
+//debugf("cs %08x %d\n", ptr, len);
+                auto& out = *(Arp*) ptr;
+                out = *this; // start with all fields the same
+                out.swapper();
+                out._op = 2; // ARP reply
+                memcpy(out._sendMac, myMac, sizeof (MacAddr));
+debugf("send %d\n", sizeof out);
+                send(ptr, sizeof out);
+            }
+        }
+    };
+    static_assert(sizeof (Arp) == 42);
+
+    struct Ip4 : Frame {
+        uint8_t _versLen, _service;
+        Net16 _total, _id, _frag;
+        uint8_t _ttl, _proto;
+        Net16 _hCheck;
+        IpAddr _src, _dst;
+
+        void dumper () const {
+            show("IP4", *(Frame const*) this); debugf("\n    ");
+            show("total", _total);
+            show("id", _id);
+            show("frag", _frag);
+            show("hcheck", _hCheck);
+            debugf("\n     vl %x s %x ttl %x proto %x",
+                    _versLen, _service, _ttl, _proto);
+            show("src", _src);
+            show("dst", _dst);
+        }
+
+        void received ();
+    };
+    static_assert(sizeof (Ip4) == 34);
+
+    struct Udp : Ip4 {
+        Net16 _sPort, _dPort, _len, _sum;
+        uint8_t data [];
+
+        void dumper () const {
+            Ip4::dumper(); debugf("\n");
+            show("    UDP", _sPort); show("->", _dPort);
+            show("len", _len); show("sum", _sum);
+        }
+
+        void received () {
+            dumper(); debugf("\n");
+            dumpHex(data, _len-8);
+        }
+    };
+    static_assert(sizeof (Udp) == 42);
+
+    struct Tcp : Ip4 {
+        Net16 _sPort, _dPort;
+        Net32 _seq, _ack;
+        Net16 _code, _window, _sum, _urg;
+        uint8_t data [];
+
+        void dumper () const {
+            //Ip4::dumper(); debugf("\n");
+            show("    TCP", _sPort); show("->", _dPort);
+            show("seq", _seq); show("ack", _ack);
+            debugf("\n        ");
+            show("code", _code); show("window", _window);
+            show("sum", _sum); show("urg", _urg);
+        }
+
+        void received () {
+            //dumper(); debugf("\n");
+        }
+    };
+    static_assert(sizeof (Tcp) == 54);
+
+    void Ip4::received () {
+        //dumper(); debugf("\n");
+        switch (_proto) {
+            case 6:  ((Tcp*) this)->received(); break;
+            case 17: ((Udp*) this)->received(); break;
+        }
     }
 }
 
@@ -217,16 +455,20 @@ void ethTest () {
     using namespace eth;
     init();
 
+    DmaDesc* curr = rxDesc;
     while (true) {
-        msWait(1);
-        auto t = millis();
-        if (t % 1000 == 0) {
-            uint32_t asr = DMA(ASR);
-            debugf("asr %08x %4ds", asr, t/1000);
-            for (int i = 0; i < NRX; ++i)
-                debugf("  %d: %08x", i, rxDesc[i].stat);
-            debugf("\n");
-        }
+        if (curr->stat >= 0) {
+            auto& f = *(Frame*) curr->data;
+            switch (f._typ) {
+                case 0x0806: ((Arp&) f).received(); break;
+                case 0x0800: ((Ip4&) f).received(); break;
+                //default:     dump(f); debugf("\n"); break;
+            }
+            
+            curr->stat = (1<<31); // OWN
+            curr = curr->next;
+        } else
+            msWait(1);
     }
 }
 
@@ -246,6 +488,8 @@ int main () {
     });
 
     stdOut = &printer;
+debugf("hello\n");
+printf("hello %s\n", "f750");
 
     //spifTest(0);
     //spifTest(1); // wipe all
