@@ -41,7 +41,7 @@ int printf (const char* fmt, ...) {
 namespace mcu {
     uint32_t Device::pending;
     uint8_t Device::irqMap [(int) device::IrqVec::limit];
-    Device* Device::devMap [20];  // large enough to handle all device objects
+    Device* Device::devMap [20]; // large enough to handle all device objects
     uint32_t volatile ticks;
 
     void systemReset () {
