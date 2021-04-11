@@ -252,25 +252,6 @@ debugf("cr %08x\n", (uint32_t) MAC(CR));
         msWait(1);
 debugf("bmr %08x\n", (uint32_t) DMA(BMR));
 
-#if 0
-static void ETH_MACAddressConfig(ETH_HandleTypeDef *heth, uint32_t MacAddr, uint8_t *Addr)
-{
-  uint32_t tmpreg;
-  
-  /* Check the parameters */
-  assert_param(IS_ETH_MAC_ADDRESS0123(MacAddr));
-  
-  /* Calculate the selected MAC address high register */
-  tmpreg = ((uint32_t)Addr[5] << 8) | (uint32_t)Addr[4];
-  /* Load the selected MAC address high register */
-  (*(__IO uint32_t *)((uint32_t)(ETH_MAC_ADDR_HBASE + MacAddr))) = tmpreg;
-  /* Calculate the selected MAC address low register */
-  tmpreg = ((uint32_t)Addr[3] << 24) | ((uint32_t)Addr[2] << 16) | ((uint32_t)Addr[1] << 8) | Addr[0];
-  
-  /* Load the selected MAC address low register */
-  (*(__IO uint32_t *)((uint32_t)(ETH_MAC_ADDR_LBASE + MacAddr))) = tmpreg;
-}
-#endif
         MAC(A0HR) = *(uint16_t const*) (myMac + 4);
         MAC(A0LR) = *(uint32_t const*) myMac;
 
