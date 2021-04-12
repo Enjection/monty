@@ -364,9 +364,6 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         msWait(1);
     }
 
-    void txWake () {
-    }
-
     void poll () {
         while (rxNext->stat >= 0) {
             auto f = (Frame*) rxNext->data;
