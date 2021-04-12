@@ -141,6 +141,7 @@ namespace net {
     };
 
     struct Net16 {
+        Net16 () {}
         constexpr Net16 (uint16_t v) : b1 {(uint8_t) (v>>8), (uint8_t) v} {}
         operator uint16_t () const { return (b1[0]<<8) | b1[1]; }
     private:
@@ -148,6 +149,7 @@ namespace net {
     };
 
     struct Net32 {
+        Net32 () {}
         constexpr Net32 (uint32_t v) : b2 {(uint16_t) (v>>16), (uint16_t) v} {}
         operator uint32_t () const { return (b2[0]<<16) | b2[1]; }
     private:
@@ -155,7 +157,7 @@ namespace net {
     };
 
     struct IpAddr : Net32 {
-        constexpr IpAddr () : Net32 (0) {}
+        constexpr IpAddr (uint32_t v =0) : Net32 (v) {}
         constexpr IpAddr (uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4)
             : Net32 ((v1<<24)|(v2<<16)|(v3<<8)|v4) {}
 
@@ -166,11 +168,14 @@ namespace net {
         }
     };
 
+    MacAddr const wildMac {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+    IpAddr const wildIp {0xFFFFFFFF};
+
     struct Interface {
         MacAddr const _mac;
-        IpAddr _ip;
+        IpAddr _ip, _gw;
 
-        Interface (MacAddr mac) : _mac (mac) {}
+        Interface (MacAddr const& mac) : _mac (mac) {}
 
         virtual auto canSend () -> Chunk =0;
         virtual void send (uint8_t const* p, uint32_t n) =0;
@@ -180,18 +185,27 @@ namespace net {
         MacAddr _dst, _src;
         Net16 _typ;
 
+        Frame (Net16 typ) : _typ (typ) {}
+
+        void isReply (Interface const& ni) {
+            _dst = _src;
+            _src = ni._mac; 
+        }
+
         void received (Interface&); // dispatcher
     };
     static_assert(sizeof (Frame) == 14);
 
     struct Arp : Frame {
-        Net16 _hw, _proto;
-        uint8_t _macLen, _ipLen;
-        Net16 _op;
+        Net16 _hw =1, _proto =0x0800;
+        uint8_t _macLen =6, _ipLen =4;
+        Net16 _op =1;
         MacAddr _sendMac;
         IpAddr _sendIp;
         MacAddr _targMac;
         IpAddr _targIp;
+
+        Arp () : Frame (0x0806) {}
 
         void isReply (Interface const& ni) {
             _dst = _src;
@@ -218,11 +232,22 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
     static_assert(sizeof (Arp) == 42);
 
     struct Ip4 : Frame {
-        uint8_t _vers :4, _hlen :4, _tos;
-        Net16 _total, _id, _frag;
-        uint8_t _ttl, _proto;
+        uint8_t _versLen =0x45, _tos =0;
+        Net16 _total, _id, _frag =0;
+        uint8_t _ttl =255, _proto;
         Net16 _hcheck;
         IpAddr _srcIp, _dstIp;
+
+        Ip4 (uint8_t proto) : Frame (0x0800), _proto (proto) {
+            static uint16_t gid;
+            _id = ++gid;
+        }
+
+        void isReply (Interface const& ni) {
+            Frame::isReply(ni);
+            _dstIp = _srcIp;
+            _srcIp = ni._ip;
+        }
 
         void received (Interface&); // dispatcher
     };
@@ -230,13 +255,72 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
 
     struct Udp : Ip4 {
         Net16 _sPort, _dPort, _len, _sum;
-        uint8_t data [];
 
-        void received (Interface&) {
-            dumpHex(data, _len-8);
+        Udp () : Ip4 (17) {}
+
+        void isReply (Interface const& ni) {
+            Ip4::isReply(ni);
+            swap(_sPort, _dPort);
         }
+
+        void received (Interface&); // dispatcher
     };
     static_assert(sizeof (Udp) == 42);
+
+    struct Dhcp : Udp {
+        uint8_t _op =1, _htype =1, _hlen =6, _hops =0;
+        Net32 _tid =0;
+        Net16 _sec =0, _flags =(1<<15);
+        IpAddr _clientIp, _yourIp, _serverIp, _gwIp;
+        uint8_t _clientHw [16], _hostName [64], _fileName [128];
+        uint8_t _options [312];
+
+        Dhcp () {
+            _dst = wildMac;
+            _dstIp = wildIp;
+            _dPort = 67;
+            _sPort = 68;
+            memset(_clientHw, 0, 16+64+128+312);
+            static uint8_t cookie [] {99, 130, 83, 99};
+            memcpy(_options, cookie, sizeof cookie);
+        }
+
+        void discover (Interface& ni) {
+            _src = ni._mac;
+            memcpy(_clientHw, ni._mac.b, sizeof ni._mac);
+            static uint8_t const opts [] {
+                53,1, 1,  55,3, 1, 3, 6,  255
+            };
+            memcpy(_options+4, opts, sizeof opts);
+            _len = 310-42;
+            ni.send((uint8_t const*) this, _len+42);
+        }
+
+        auto request (Interface& ni) {
+            isReply(ni);
+            _op = 2; // DHCP reply
+            _clientIp = _yourIp;
+            memcpy(_clientHw, ni._mac.b, sizeof ni._mac);
+            static uint8_t const opts [] {
+                53,1, 3,  54,4, 0,0,0,0,  50,4, 0,0,0,0,  255
+            };
+            memcpy(_options+4, opts, sizeof opts);
+            memcpy(_options+9, &_serverIp, 4);
+            memcpy(_options+15, &_yourIp, 4);
+            _len = 320-42;
+            return 320;
+        }
+
+        void received (Interface& ni) {
+            if (_options[6] == 2) { // offer
+debugf("DHCP"); _yourIp.dumper(); _serverIp.dumper(); debugf("\n");
+                ni._ip = _yourIp;
+                ni.send((uint8_t const*) this, request(ni));
+debugf("   sent dhcp accept\n");
+            }
+        }
+    };
+    static_assert(sizeof (Dhcp) == 590);
 
     struct Tcp : Ip4 {
         Net16 _sPort, _dPort;
@@ -244,9 +328,18 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         Net16 _code, _window, _sum, _urg;
         uint8_t data [];
 
+        Tcp () : Ip4 (6) {}
+
         void received (Interface&) {}
     };
     static_assert(sizeof (Tcp) == 54);
+
+    void Udp::received (Interface& ni) {
+        switch (_dPort) {
+            case 68: ((Dhcp*) this)->received(ni); break;
+            //default: dumpHex((uint8_t const*) this + sizeof (Udp), _len-8);
+        }
+    }
 
     void Ip4::received (Interface& ni) {
         switch (_proto) {
@@ -377,7 +470,7 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
     }
 
     void irqHandler () override {
-debugf("E! msr %08x dsr %08x\n", (uint32_t) MAC(MSR), (uint32_t) DMA(DSR));
+//debugf("E! msr %08x dsr %08x\n", (uint32_t) MAC(MSR), (uint32_t) DMA(DSR));
         DMA(DSR) = (1<<16) | (1<<6) | (1<<0); // clear NIS RS TS
 
         trigger();
@@ -401,22 +494,39 @@ debugf("E! msr %08x dsr %08x\n", (uint32_t) MAC(MSR), (uint32_t) DMA(DSR));
     }
 
     void send (uint8_t const* p, uint32_t n) override {
-        ensure(p == txNext->data);
         ensure(sizeof (Frame) <= n && n <= BUFSZ);
+        if (p != txNext->data) {
+            auto [ptr, len] = canSend();
+            (void) len;
+debugf("copy %p -> %p #%d\n", p, ptr, n);
+            memcpy(ptr, p, n);
+        }
+auto x = txNext;
         txNext->size = n;
         txNext->stat = (0b1111<<28) | (3<<22) | (1<<20); // OWN IC LS FS CIC TCH
         txNext = txNext->next;
         DMA(TPDR) = 0; // resume DMA
+while (x->stat < 0) asm ("dsb");
+asm ("dsb");
+debugf("tx msr %08x dsr %08x stat %08x\n",
+        (uint32_t) MAC(MSR), (uint32_t) DMA(DSR), x->stat);
     }
 };
 
 void ethTest () {
-    Eth eth {{0x11,0x22,0x33,0x44,0x55,0x66}};
+    Eth eth {{0x34,0x31,0xC4,0x8E,0x32,0x66}};
     eth._ip = {192,168,188,17};
     eth.init();
+
+
     while (true) {
         eth.poll();
         msWait(1);
+        if (millis() == 2000) {
+            static net::Dhcp dhcp;
+            debugf("d %p\n", &dhcp);
+            dhcp.discover(eth);
+        }
     }
 }
 
