@@ -169,22 +169,9 @@ namespace eth {
 
     using MacAddr = uint8_t [6];
 
-    template <typename T>
-    void dump (T const& p) { p.dumper(); }
-
-    template <>
-    void dump (MacAddr const& p) {
-        for (int i = 0; i < 6; ++i)
-            debugf("%c%02x", i == 0 ? ' ' : ':', p[i]);
-    }
-
-    template <typename T>
-    void show (char const* tag, T const& p) { debugf(" %s", tag); dump(p); }
-
     struct Net16 {
         constexpr Net16 (uint16_t v) : b1 {(uint8_t) (v>>8), (uint8_t) v} {}
         operator uint16_t () const { return (b1[0]<<8) | b1[1]; }
-        void dumper () const { debugf(" %04x", (uint16_t) *this); }
     private:
         uint8_t b1 [2];
     };
@@ -192,7 +179,6 @@ namespace eth {
     struct Net32 {
         constexpr Net32 (uint32_t v) : b2 {(uint16_t) (v>>16), (uint16_t) v} {}
         operator uint32_t () const { return (b2[0]<<16) | b2[1]; }
-        void dumper () const { debugf(" %08x", (uint32_t) *this); }
     private:
         Net16 b2 [2];
     };
@@ -200,6 +186,7 @@ namespace eth {
     struct IpAddr : Net32 {
         constexpr IpAddr (uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4)
             : Net32 ((v1<<24)|(v2<<16)|(v3<<8)|v4) {}
+
         void dumper () const {
             auto p = (uint8_t const*) this;
             for (int i = 0; i < 4; ++i)
@@ -243,14 +230,12 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         //    (fast<<14) | (duplex<<11) | (1<<10); // IPCO
         MAC(CR) = (1<<15) | (fast<<14) | (duplex<<11) | (1<<10); // IPCO
         msWait(1);
-debugf("cr %08x\n", (uint32_t) MAC(CR));
 
         // not set: MAC(FFR) MAC(HTHR) MAC(HTLR) MAC(FCR)
 
         DMA(BMR) = // AAB USP RDP FB PM PBL EDFE DA
             (1<<25)|(1<<24)|(1<<23)|(32<<17)|(1<<16)|(1<<14)|(32<<8)|(1<<7)|(1<<1);
         msWait(1);
-debugf("bmr %08x\n", (uint32_t) DMA(BMR));
 
         MAC(A0HR) = *(uint16_t const*) (myMac + 4);
         MAC(A0LR) = *(uint32_t const*) myMac;
@@ -273,7 +258,6 @@ debugf("bmr %08x\n", (uint32_t) DMA(BMR));
 
         MAC(CR)[3] = 1; msWait(1); // TE
         MAC(CR)[2] = 1; msWait(1); // RE
-debugf("cr %08x\n", (uint32_t) MAC(CR));
 
         DMA(OMR)[20] = 1; // FTF
         DMA(OMR)[13] = 1; // ST
@@ -299,10 +283,6 @@ debugf("eth init end\n");
         Net16 _typ;
 
         void swapper () { swap(_dst, _src); }
-
-        void dumper () const {
-            show("dst", _dst); show("src", _src); show("typ", _typ);
-        }
     };
     static_assert(sizeof (Frame) == 14);
 
@@ -336,26 +316,16 @@ debugf("eth init end\n");
             swap(_sendIp, _targIp);
         }
 
-        void dumper () const {
-            show("ARP", *(Frame const*) this); show("op", _op); debugf("\n    ");
-            ensure(_hw == 1 && _proto == 0x0800);
-            ensure(_macLen == 6 && _ipLen == 4);
-            show("send", _sendMac); dump(_sendIp);
-            show("targ", _targMac); dump(_targIp);
-        }
-
         void received () {
-            //dumper(); debugf("\n");
             if (_op == 1 && _targIp == myIp) { // ARP request
-                show("myIP", myIp); debugf("\n");
                 auto [ptr, len] = canSend();
-//debugf("cs %08x %d\n", ptr, len);
                 auto& out = *(Arp*) ptr;
+                ensure(len >= sizeof out);
                 out = *this; // start with all fields the same
                 out.swapper();
                 out._op = 2; // ARP reply
                 memcpy(out._sendMac, myMac, sizeof (MacAddr));
-debugf("send %d\n", sizeof out);
+debugf("ARP"); _sendIp.dumper(); debugf("\n");
                 send(ptr, sizeof out);
             }
         }
@@ -369,18 +339,6 @@ debugf("send %d\n", sizeof out);
         Net16 _hCheck;
         IpAddr _src, _dst;
 
-        void dumper () const {
-            show("IP4", *(Frame const*) this); debugf("\n    ");
-            show("total", _total);
-            show("id", _id);
-            show("frag", _frag);
-            show("hcheck", _hCheck);
-            debugf("\n     vl %x s %x ttl %x proto %x",
-                    _versLen, _service, _ttl, _proto);
-            show("src", _src);
-            show("dst", _dst);
-        }
-
         void received ();
     };
     static_assert(sizeof (Ip4) == 34);
@@ -389,14 +347,7 @@ debugf("send %d\n", sizeof out);
         Net16 _sPort, _dPort, _len, _sum;
         uint8_t data [];
 
-        void dumper () const {
-            Ip4::dumper(); debugf("\n");
-            show("    UDP", _sPort); show("->", _dPort);
-            show("len", _len); show("sum", _sum);
-        }
-
         void received () {
-            dumper(); debugf("\n");
             dumpHex(data, _len-8);
         }
     };
@@ -408,23 +359,11 @@ debugf("send %d\n", sizeof out);
         Net16 _code, _window, _sum, _urg;
         uint8_t data [];
 
-        void dumper () const {
-            //Ip4::dumper(); debugf("\n");
-            show("    TCP", _sPort); show("->", _dPort);
-            show("seq", _seq); show("ack", _ack);
-            debugf("\n        ");
-            show("code", _code); show("window", _window);
-            show("sum", _sum); show("urg", _urg);
-        }
-
-        void received () {
-            //dumper(); debugf("\n");
-        }
+        void received () {}
     };
     static_assert(sizeof (Tcp) == 54);
 
     void Ip4::received () {
-        //dumper(); debugf("\n");
         switch (_proto) {
             case 6:  ((Tcp*) this)->received(); break;
             case 17: ((Udp*) this)->received(); break;
@@ -443,7 +382,7 @@ void ethTest () {
             switch (f._typ) {
                 case 0x0806: ((Arp&) f).received(); break;
                 case 0x0800: ((Ip4&) f).received(); break;
-                //default:     dump(f); debugf("\n"); break;
+                //default:     debugf("frame %04x\n", (int) f._typ); break;
             }
             
             curr->stat = (1<<31); // OWN
