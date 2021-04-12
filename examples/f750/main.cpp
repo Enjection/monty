@@ -132,12 +132,11 @@ void lcdTest () {
             fg(x, y) = ((16*x)/lcd::WIDTH << 4) | (y >> 4);
 }
 
-namespace eth { // foward declarations
+namespace net {
+    // forward declarations
     auto canSend () -> Chunk;
     void send (uint8_t const* p, uint32_t n);
-}
 
-namespace net {
     template <typename T>
     void swap (T& a, T& b) { T t = a; a = b; b = t; }
 
@@ -203,13 +202,13 @@ namespace net {
         void received () {
             if (_op == 1 && _targIp == myIp) { // ARP request
 debugf("ARP"); _sendIp.dumper(); debugf("\n");
-                auto [ptr, len] = eth::canSend();
+                auto [ptr, len] = canSend();
                 auto& out = *(Arp*) ptr;
                 ensure(len >= sizeof out);
                 out = *this; // start with all fields the same
                 out.isReply();
                 out._op = 2; // ARP reply
-                eth::send(ptr, sizeof out);
+                send(ptr, sizeof out);
             }
         }
     };
@@ -262,17 +261,15 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
     }
 }
 
-namespace eth {
-    using namespace net;
-
+struct Eth {
     // FIXME RCC name clash mcb/device
-    constexpr auto RCC    = io32<0x4002'3800>;
-    constexpr auto SYSCFG = io32<device::SYSCFG>;
+    constexpr static auto RCC    = io32<0x4002'3800>;
+    constexpr static auto SYSCFG = io32<device::SYSCFG>;
 
-    constexpr auto DMA = io32<ETHERNET_DMA>;
+    constexpr static auto DMA = io32<ETHERNET_DMA>;
     enum { BMR=0x00,TPDR=0x04,RDLAR=0x0C,TDLAR=0x10,ASR=0x14,OMR=0x18 };
 
-    constexpr auto MAC = io32<ETHERNET_MAC>;
+    constexpr static auto MAC = io32<ETHERNET_MAC>;
     enum { CR=0x00,FFR=0x04,HTHR=0x08,HTLR=0x0C,MIIAR=0x10,MIIDR=0x14,FCR=0x18,
            A0HR=0x40,A0LR=0x44 };
 
@@ -295,7 +292,7 @@ namespace eth {
         uint32_t extStat, _gap, times [2];
     };
 
-    constexpr auto NRX = 4, NTX = 4, BUFSZ = 1524;
+    constexpr static auto NRX = 4, NTX = 4, BUFSZ = 1524;
     DmaDesc rxDesc [NRX], txDesc [NTX];
     DmaDesc *rxNext = rxDesc, *txNext = txDesc;
     uint8_t rxBufs [NRX][BUFSZ], txBufs [NTX][BUFSZ];
@@ -366,7 +363,7 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
 
     void poll () {
         while (rxNext->stat >= 0) {
-            auto f = (Frame*) rxNext->data;
+            auto f = (net::Frame*) rxNext->data;
             f->received();
             rxNext->stat = (1<<31); // OWN
             rxNext = rxNext->next;
@@ -383,18 +380,23 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
 
     void send (uint8_t const* p, uint32_t n) {
         ensure(p == txNext->data);
-        ensure(sizeof (Frame) <= n && n <= BUFSZ);
+        ensure(sizeof (net::Frame) <= n && n <= BUFSZ);
         txNext->size = n;
         txNext->stat = (0b1011<<28) | (3<<22) | (1<<20); // OWN LS FS CIC TCH
         txNext = txNext->next;
         DMA(TPDR) = 0; // resume DMA
     }
-}
+};
+
+Eth eth;
+
+auto net::canSend () -> Chunk { return eth.canSend(); }
+void net::send (uint8_t const* p, uint32_t n) { eth.send(p, n); }
 
 void ethTest () {
-    eth::init(net::myMac.b);
+    eth.init(net::myMac.b);
     while (true) {
-        eth::poll();
+        eth.poll();
         msWait(1);
     }
 }
