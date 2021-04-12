@@ -167,8 +167,10 @@ namespace net {
     };
 
     struct Interface {
-        MacAddr _mac;
+        MacAddr const _mac;
         IpAddr _ip;
+
+        Interface (MacAddr mac) : _mac (mac) {}
 
         virtual auto canSend () -> Chunk =0;
         virtual void send (uint8_t const* p, uint32_t n) =0;
@@ -268,18 +270,18 @@ using Interface = net::Interface;
 using Frame = net::Frame;
 
 struct Eth : Device, Interface {
-    Eth (MacAddr mac, IpAddr ip) { _mac = mac; _ip = ip; }
+    using Interface::Interface;
 
     // FIXME RCC name clash mcb/device
     constexpr static auto RCC    = io32<0x4002'3800>;
     constexpr static auto SYSCFG = io32<device::SYSCFG>;
 
     constexpr static auto DMA = io32<ETHERNET_DMA>;
-    enum { BMR=0x00,TPDR=0x04,RDLAR=0x0C,TDLAR=0x10,ASR=0x14,OMR=0x18 };
+    enum { BMR=0x00,TPDR=0x04,RDLAR=0x0C,TDLAR=0x10,DSR=0x14,OMR=0x18,IER=0x1C };
 
     constexpr static auto MAC = io32<ETHERNET_MAC>;
     enum { CR=0x00,FFR=0x04,HTHR=0x08,HTLR=0x0C,MIIAR=0x10,MIIDR=0x14,FCR=0x18,
-           A0HR=0x40,A0LR=0x44 };
+           MSR=0x38,IMR=0x3C,A0HR=0x40,A0LR=0x44 };
 
     auto readPhy (int reg) -> uint16_t {
         MAC(MIIAR) = (0<<11)|(reg<<6)|(0b100<<2)|(1<<0);
@@ -367,9 +369,19 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         DMA(OMR)[13] = 1; // ST
         DMA(OMR)[1] = 1;  // SR
         msWait(1);
+
+        MAC(IMR) = (1<<9) | (1<<3); // TSTIM PMTIM
+        DMA(IER)= (1<<16) | (1<<6) | (1<<0); // NISE RIE TIE
+
+        irqInstall((uint8_t) IrqVec::ETH);
     }
 
-    void irqHandler () override {} // TODO
+    void irqHandler () override {
+debugf("E! msr %08x dsr %08x\n", (uint32_t) MAC(MSR), (uint32_t) DMA(DSR));
+        DMA(DSR) = (1<<16) | (1<<6) | (1<<0); // clear NIS RS TS
+
+        trigger();
+    }
 
     void poll () {
         while (rxNext->stat >= 0) {
@@ -392,14 +404,15 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         ensure(p == txNext->data);
         ensure(sizeof (Frame) <= n && n <= BUFSZ);
         txNext->size = n;
-        txNext->stat = (0b1011<<28) | (3<<22) | (1<<20); // OWN LS FS CIC TCH
+        txNext->stat = (0b1111<<28) | (3<<22) | (1<<20); // OWN IC LS FS CIC TCH
         txNext = txNext->next;
         DMA(TPDR) = 0; // resume DMA
     }
 };
 
 void ethTest () {
-    Eth eth {{0x11,0x22,0x33,0x44,0x55,0x66}, {192,168,188,17}};
+    Eth eth {{0x11,0x22,0x33,0x44,0x55,0x66}};
+    eth._ip = {192,168,188,17};
     eth.init();
     while (true) {
         eth.poll();
