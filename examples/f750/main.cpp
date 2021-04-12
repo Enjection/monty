@@ -144,18 +144,6 @@ namespace eth {
     enum { CR=0x00,FFR=0x04,HTHR=0x08,HTLR=0x0C,MIIAR=0x10,MIIDR=0x14,FCR=0x18,
            A0HR=0x40,A0LR=0x44 };
 
-    struct DmaDesc {
-        int32_t volatile stat;
-        uint32_t size;
-        uint8_t* data;
-        DmaDesc* next;
-        uint32_t extStat, _gap, times [2];
-    };
-
-    constexpr auto NRX = 4, NTX = 4, BUFSZ = 1524;
-    DmaDesc rxDesc [NRX], txDesc [NTX], *rxNext = rxDesc, *txNext = txDesc;
-    uint8_t rxBufs [NRX][BUFSZ], txBufs [NTX][BUFSZ];
-
     auto readPhy (int reg) -> uint16_t {
         MAC(MIIAR) = (0<<11)|(reg<<6)|(0b100<<2)|(1<<0);
         while (MAC(MIIAR)[0] == 1) {} // wait until MB clear
@@ -166,6 +154,94 @@ namespace eth {
         MAC(MIIAR) = (0<<11)|(reg<<6)|(0b100<<2)|(1<<1)|(1<<0);
         while (MAC(MIIAR)[0] == 1) {} // wait until MB clear
     }
+
+    struct DmaDesc {
+        int32_t volatile stat;
+        uint32_t size;
+        uint8_t* data;
+        DmaDesc* next;
+        uint32_t extStat, _gap, times [2];
+    };
+
+    constexpr auto NRX = 4, NTX = 4, BUFSZ = 1524;
+    DmaDesc rxDesc [NRX], txDesc [NTX];
+    uint8_t rxBufs [NRX][BUFSZ], txBufs [NTX][BUFSZ];
+
+    void init (uint8_t const* mac) {
+        // F7508-DK pins, all using alt mode 11:
+        //      A1: refclk, A2: mdio, A7: crsdiv, C1: mdc, C4: rxd0,
+        //      C5: rxd1, G2: rxer, G11: txen, G13: txd0, G14: txd1,
+        mcu::Pin pins [10];
+        Pin::define("A1:PV11,A2,A7,C1,C4,C5,G2,G11,G13,G14", pins, sizeof pins);
+
+        RCC(0x30).mask(25, 3) = 0b111; // ETHMAC EN,RXEN,TXEN in AHB1ENR
+
+        RCC(0x44)[14] = 1; // SYSCFGEN in APB2ENR
+        SYSCFG(0x04)[23] = 1; // RMII_SEL in PMC
+
+        DMA(BMR)[0] = 1; // SR in DMABMR
+        while (DMA(BMR)[0] != 0) {}
+
+        writePhy(0, 0x8000); // PHY reset
+        msWait(250); // long
+auto t = millis();
+        while ((readPhy(1) & (1<<2)) == 0) // wait for link
+            msWait(1); // keep updating the ticks
+debugf("link %d ms\n", millis() - t);
+        writePhy(0, 0x1000); // PHY auto-negotiation
+        while ((readPhy(1) & (1<<5)) == 0) {} // wait for a-n complete
+        auto r = readPhy(31);
+        auto duplex = (r>>4) & 1, fast = (r>>3) & 1;
+debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
+
+        MAC(CR) = (1<<15) | (fast<<14) | (duplex<<11) | (1<<10); // IPCO
+        msWait(1);
+
+        // not set: MAC(FFR) MAC(HTHR) MAC(HTLR) MAC(FCR)
+
+        DMA(BMR) = // AAB USP RDP FB PM PBL EDFE DA
+            (1<<25)|(1<<24)|(1<<23)|(32<<17)|(1<<16)|(1<<14)|(32<<8)|(1<<7)|(1<<1);
+        msWait(1);
+
+        MAC(A0HR) = *(uint16_t const*) (mac + 4);
+        MAC(A0LR) = *(uint32_t const*) mac;
+
+        for (int i = 0; i < NTX; ++i) {
+            txDesc[i].stat = 0; // not owned by DMA
+            txDesc[i].data = txBufs[i];
+            txDesc[i].next = txDesc + (i+1) % NTX;
+        }
+
+        for (int i = 0; i < NRX; ++i) {
+            rxDesc[i].stat = (1<<31); // OWN
+            rxDesc[i].size = (1<<14) | BUFSZ; // RCH SIZE
+            rxDesc[i].data = rxBufs[i];
+            rxDesc[i].next = rxDesc + (i+1) % NRX;
+        }
+
+        DMA(TDLAR) = (uint32_t) txDesc;
+        DMA(RDLAR) = (uint32_t) rxDesc;
+
+        MAC(CR)[3] = 1; msWait(1); // TE
+        MAC(CR)[2] = 1; msWait(1); // RE
+
+        DMA(OMR)[20] = 1; // FTF
+        DMA(OMR)[13] = 1; // ST
+        DMA(OMR)[1] = 1;  // SR
+        msWait(1);
+    }
+
+    void txWake () {
+        DMA(TPDR) = 0; // resume DMA
+    }
+
+// no hardware-specific code past this point ===================================
+
+    DmaDesc* rxNext = rxDesc;
+    DmaDesc* txNext = txDesc;
+
+    template <typename T>
+    void swap (T& a, T& b) { T t = a; a = b; b = t; }
 
     struct MacAddr {
         uint8_t b [6];
@@ -199,79 +275,6 @@ namespace eth {
     MacAddr const myMac {0x11,0x22,0x33,0x44,0x55,0x66};
     IpAddr const myIp {192,168,188,17};
 
-    void init () {
-debugf("eth init\n");
-        // F7508-DK pins, all using alt mode 11:
-        //      A1: refclk, A2: mdio, A7: crsdiv, C1: mdc, C4: rxd0,
-        //      C5: rxd1, G2: rxer, G11: txen, G13: txd0, G14: txd1,
-        mcu::Pin pins [10];
-        Pin::define("A1:PV11,A2,A7,C1,C4,C5,G2,G11,G13,G14", pins, sizeof pins);
-
-        RCC(0x30).mask(25, 3) = 0b111; // ETHMAC EN,RXEN,TXEN in AHB1ENR
-
-        RCC(0x44)[14] = 1; // SYSCFGEN in APB2ENR
-        SYSCFG(0x04)[23] = 1; // RMII_SEL in PMC
-
-        DMA(BMR)[0] = 1; // SR in DMABMR
-        while (DMA(BMR)[0] != 0) {}
-
-        //MAC(0x10).mask(2, 3) = 0b100; // CR in MAC
-        writePhy(0, 0x8000); // PHY reset
-        msWait(250); // long
-auto t = millis();
-        while ((readPhy(1) & (1<<2)) == 0) // wait for link
-            msWait(1); // keep updating the ticks
-debugf("link %d ms\n", millis() - t);
-        writePhy(0, 0x1000); // PHY auto-negotiation
-        while ((readPhy(1) & (1<<5)) == 0) {} // wait for a-n complete
-        auto r = readPhy(31);
-        auto duplex = (r>>4) & 1, fast = (r>>3) & 1;
-debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
-
-        //MAC(CR) = (MAC(CR) & 0xFF20810F) |
-        //    (fast<<14) | (duplex<<11) | (1<<10); // IPCO
-        MAC(CR) = (1<<15) | (fast<<14) | (duplex<<11) | (1<<10); // IPCO
-        msWait(1);
-
-        // not set: MAC(FFR) MAC(HTHR) MAC(HTLR) MAC(FCR)
-
-        DMA(BMR) = // AAB USP RDP FB PM PBL EDFE DA
-            (1<<25)|(1<<24)|(1<<23)|(32<<17)|(1<<16)|(1<<14)|(32<<8)|(1<<7)|(1<<1);
-        msWait(1);
-
-        MAC(A0HR) = *(uint16_t const*) (myMac.b + 4);
-        MAC(A0LR) = *(uint32_t const*) myMac.b;
-
-        for (int i = 0; i < NTX; ++i) {
-            txDesc[i].stat = 0x00D0'0000; // TCH and checksum insertion
-            txDesc[i].data = txBufs[i];
-            txDesc[i].next = txDesc + (i+1) % NTX;
-        }
-
-        for (int i = 0; i < NRX; ++i) {
-            rxDesc[i].stat = (1<<31); // OWN
-            rxDesc[i].size = (1<<14) | BUFSZ; // RCH SIZE
-            rxDesc[i].data = rxBufs[i];
-            rxDesc[i].next = rxDesc + (i+1) % NRX;
-        }
-
-        DMA(TDLAR) = (uint32_t) txDesc;
-        DMA(RDLAR) = (uint32_t) rxDesc;
-
-        MAC(CR)[3] = 1; msWait(1); // TE
-        MAC(CR)[2] = 1; msWait(1); // RE
-
-        DMA(OMR)[20] = 1; // FTF
-        DMA(OMR)[13] = 1; // ST
-        DMA(OMR)[1] = 1;  // SR
-        msWait(1);
-
-debugf("eth init end\n");
-    }
-
-    template <typename T>
-    void swap (T& a, T& b) { T t = a; a = b; b = t; }
-
     struct Frame {
         MacAddr _dst, _src;
         Net16 _typ;
@@ -284,7 +287,7 @@ debugf("eth init end\n");
 
     void poll () {
         while (rxNext->stat >= 0) {
-            auto* f = (Frame*) rxNext->data;
+            auto f = (Frame*) rxNext->data;
             f->received();
             rxNext->stat = (1<<31); // OWN
             rxNext = rxNext->next;
@@ -305,7 +308,7 @@ debugf("eth init end\n");
         txNext->size = n;
         txNext->stat = (0b1011<<28) | (3<<22) | (1<<20); // OWN LS FS CIC TCH
         txNext = txNext->next;
-        DMA(TPDR) = 0; // resume DMA
+        txWake();
     }
 
     struct Arp : Frame {
@@ -388,7 +391,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
 }
 
 void ethTest () {
-    eth::init();
+    eth::init(eth::myMac.b);
     while (true) {
         eth::poll();
         msWait(1);
