@@ -276,7 +276,7 @@ debugf("eth init end\n");
         MacAddr _dst, _src;
         Net16 _typ;
 
-        void swapper () { swap(_dst, _src); }
+        void isReply () { _dst = _src; _src = myMac; }
     };
     static_assert(sizeof (Frame) == 14);
 
@@ -304,22 +304,23 @@ debugf("eth init end\n");
         MacAddr _targMac;
         IpAddr _targIp;
 
-        void swapper () {
-            Frame::swapper();
-            swap(_sendMac, _targMac);
-            swap(_sendIp, _targIp);
+        void isReply () {
+            Frame::isReply();
+            _targMac = _sendMac;
+            _targIp = _sendIp;
+            _sendMac = myMac;
+            _sendIp = myIp;
         }
 
         void received () {
             if (_op == 1 && _targIp == myIp) { // ARP request
+debugf("ARP"); _sendIp.dumper(); debugf("\n");
                 auto [ptr, len] = canSend();
                 auto& out = *(Arp*) ptr;
                 ensure(len >= sizeof out);
                 out = *this; // start with all fields the same
-                out.swapper();
+                out.isReply();
                 out._op = 2; // ARP reply
-                out._sendMac = myMac;
-debugf("ARP"); _sendIp.dumper(); debugf("\n");
                 send(ptr, sizeof out);
             }
         }
