@@ -167,7 +167,9 @@ namespace eth {
         while (MAC(MIIAR)[0] == 1) {} // wait until MB clear
     }
 
-    using MacAddr = uint8_t [6];
+    struct MacAddr {
+        uint8_t b [6];
+    };
 
     struct Net16 {
         constexpr Net16 (uint16_t v) : b1 {(uint8_t) (v>>8), (uint8_t) v} {}
@@ -194,8 +196,8 @@ namespace eth {
         }
     };
 
-    MacAddr myMac {0x11,0x22,0x33,0x44,0x55,0x66};
-    IpAddr myIp {192,168,188,17};
+    MacAddr const myMac {0x11,0x22,0x33,0x44,0x55,0x66};
+    IpAddr const myIp {192,168,188,17};
 
     void init () {
 debugf("eth init\n");
@@ -237,8 +239,8 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
             (1<<25)|(1<<24)|(1<<23)|(32<<17)|(1<<16)|(1<<14)|(32<<8)|(1<<7)|(1<<1);
         msWait(1);
 
-        MAC(A0HR) = *(uint16_t const*) (myMac + 4);
-        MAC(A0LR) = *(uint32_t const*) myMac;
+        MAC(A0HR) = *(uint16_t const*) (myMac.b + 4);
+        MAC(A0LR) = *(uint32_t const*) myMac.b;
 
         for (int i = 0; i < NTX; ++i) {
             txDesc[i].stat = 0x00D0'0000; // TCH and checksum insertion
@@ -269,14 +271,6 @@ debugf("eth init end\n");
 
     template <typename T>
     void swap (T& a, T& b) { T t = a; a = b; b = t; }
-
-    template <>
-    void swap (MacAddr& a, MacAddr& b) {
-        MacAddr t;
-        memcpy(t, a, sizeof (MacAddr));
-        memcpy(a, b, sizeof (MacAddr));
-        memcpy(b, t, sizeof (MacAddr));
-    }
 
     struct Frame {
         MacAddr _dst, _src;
@@ -324,7 +318,7 @@ debugf("eth init end\n");
                 out = *this; // start with all fields the same
                 out.swapper();
                 out._op = 2; // ARP reply
-                memcpy(out._sendMac, myMac, sizeof (MacAddr));
+                out._sendMac = myMac;
 debugf("ARP"); _sendIp.dumper(); debugf("\n");
                 send(ptr, sizeof out);
             }
