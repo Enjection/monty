@@ -153,7 +153,7 @@ namespace eth {
     };
 
     constexpr auto NRX = 4, NTX = 4, BUFSZ = 1524;
-    DmaDesc rxDesc [NRX], txDesc [NTX], *txNext = txDesc;
+    DmaDesc rxDesc [NRX], txDesc [NTX], *rxNext = rxDesc, *txNext = txDesc;
     uint8_t rxBufs [NRX][BUFSZ], txBufs [NTX][BUFSZ];
 
     auto readPhy (int reg) -> uint16_t {
@@ -277,12 +277,25 @@ debugf("eth init end\n");
         Net16 _typ;
 
         void isReply () { _dst = _src; _src = myMac; }
+
+        void received ();
     };
     static_assert(sizeof (Frame) == 14);
 
+    void poll () {
+        while (rxNext->stat >= 0) {
+            auto* f = (Frame*) rxNext->data;
+            f->received();
+            rxNext->stat = (1<<31); // OWN
+            rxNext = rxNext->next;
+        }
+    }
+
     auto canSend () -> Chunk {
-        while (txNext->stat < 0)
-            msWait(1); // TODO stupid, this prevents reception
+        while (txNext->stat < 0) {
+            poll(); // keep processing incoming while waiting
+            msWait(1);
+        }
         return { txNext->data, BUFSZ };
     }
 
@@ -364,26 +377,21 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
             case 17: ((Udp*) this)->received(); break;
         }
     }
+
+    void Frame::received () {
+        switch (_typ) {
+            case 0x0806: ((Arp*) this)->received(); break;
+            case 0x0800: ((Ip4*) this)->received(); break;
+            //default:     debugf("frame %04x\n", (int) _typ); break;
+        }
+    }
 }
 
 void ethTest () {
-    using namespace eth;
-    init();
-
-    DmaDesc* curr = rxDesc;
+    eth::init();
     while (true) {
-        if (curr->stat >= 0) {
-            auto& f = *(Frame*) curr->data;
-            switch (f._typ) {
-                case 0x0806: ((Arp&) f).received(); break;
-                case 0x0800: ((Ip4&) f).received(); break;
-                //default:     debugf("frame %04x\n", (int) f._typ); break;
-            }
-            
-            curr->stat = (1<<31); // OWN
-            curr = curr->next;
-        } else
-            msWait(1);
+        eth::poll();
+        msWait(1);
     }
 }
 
