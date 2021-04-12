@@ -132,7 +132,139 @@ void lcdTest () {
             fg(x, y) = ((16*x)/lcd::WIDTH << 4) | (y >> 4);
 }
 
+namespace eth { // foward declarations
+    auto canSend () -> Chunk;
+    void send (uint8_t const* p, uint32_t n);
+}
+
+namespace net {
+    template <typename T>
+    void swap (T& a, T& b) { T t = a; a = b; b = t; }
+
+    struct MacAddr {
+        uint8_t b [6];
+    };
+
+    struct Net16 {
+        constexpr Net16 (uint16_t v) : b1 {(uint8_t) (v>>8), (uint8_t) v} {}
+        operator uint16_t () const { return (b1[0]<<8) | b1[1]; }
+    private:
+        uint8_t b1 [2];
+    };
+
+    struct Net32 {
+        constexpr Net32 (uint32_t v) : b2 {(uint16_t) (v>>16), (uint16_t) v} {}
+        operator uint32_t () const { return (b2[0]<<16) | b2[1]; }
+    private:
+        Net16 b2 [2];
+    };
+
+    struct IpAddr : Net32 {
+        constexpr IpAddr (uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4)
+            : Net32 ((v1<<24)|(v2<<16)|(v3<<8)|v4) {}
+
+        void dumper () const {
+            auto p = (uint8_t const*) this;
+            for (int i = 0; i < 4; ++i)
+                debugf("%c%d", i == 0 ? ' ' : '.', p[i]);
+        }
+    };
+
+    MacAddr const myMac {0x11,0x22,0x33,0x44,0x55,0x66};
+    IpAddr const myIp {192,168,188,17};
+
+    struct Frame {
+        MacAddr _dst, _src;
+        Net16 _typ;
+
+        void isReply () { _dst = _src; _src = myMac; }
+
+        void received ();
+    };
+    static_assert(sizeof (Frame) == 14);
+
+    struct Arp : Frame {
+        Net16 _hw, _proto;
+        uint8_t _macLen, _ipLen;
+        Net16 _op;
+        MacAddr _sendMac;
+        IpAddr _sendIp;
+        MacAddr _targMac;
+        IpAddr _targIp;
+
+        void isReply () {
+            Frame::isReply();
+            _targMac = _sendMac;
+            _targIp = _sendIp;
+            _sendMac = myMac;
+            _sendIp = myIp;
+        }
+
+        void received () {
+            if (_op == 1 && _targIp == myIp) { // ARP request
+debugf("ARP"); _sendIp.dumper(); debugf("\n");
+                auto [ptr, len] = eth::canSend();
+                auto& out = *(Arp*) ptr;
+                ensure(len >= sizeof out);
+                out = *this; // start with all fields the same
+                out.isReply();
+                out._op = 2; // ARP reply
+                eth::send(ptr, sizeof out);
+            }
+        }
+    };
+    static_assert(sizeof (Arp) == 42);
+
+    struct Ip4 : Frame {
+        uint8_t _versLen, _service;
+        Net16 _total, _id, _frag;
+        uint8_t _ttl, _proto;
+        Net16 _hCheck;
+        IpAddr _src, _dst;
+
+        void received ();
+    };
+    static_assert(sizeof (Ip4) == 34);
+
+    struct Udp : Ip4 {
+        Net16 _sPort, _dPort, _len, _sum;
+        uint8_t data [];
+
+        void received () {
+            dumpHex(data, _len-8);
+        }
+    };
+    static_assert(sizeof (Udp) == 42);
+
+    struct Tcp : Ip4 {
+        Net16 _sPort, _dPort;
+        Net32 _seq, _ack;
+        Net16 _code, _window, _sum, _urg;
+        uint8_t data [];
+
+        void received () {}
+    };
+    static_assert(sizeof (Tcp) == 54);
+
+    void Ip4::received () {
+        switch (_proto) {
+            case 6:  ((Tcp*) this)->received(); break;
+            case 17: ((Udp*) this)->received(); break;
+        }
+    }
+
+    void Frame::received () {
+        switch (_typ) {
+            case 0x0806: ((Arp*) this)->received(); break;
+            case 0x0800: ((Ip4*) this)->received(); break;
+            //default:     debugf("frame %04x\n", (int) _typ); break;
+        }
+    }
+}
+
 namespace eth {
+    using namespace net;
+
     // FIXME RCC name clash mcb/device
     constexpr auto RCC    = io32<0x4002'3800>;
     constexpr auto SYSCFG = io32<device::SYSCFG>;
@@ -165,6 +297,7 @@ namespace eth {
 
     constexpr auto NRX = 4, NTX = 4, BUFSZ = 1524;
     DmaDesc rxDesc [NRX], txDesc [NTX];
+    DmaDesc *rxNext = rxDesc, *txNext = txDesc;
     uint8_t rxBufs [NRX][BUFSZ], txBufs [NTX][BUFSZ];
 
     void init (uint8_t const* mac) {
@@ -232,58 +365,7 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
     }
 
     void txWake () {
-        DMA(TPDR) = 0; // resume DMA
     }
-
-// no hardware-specific code past this point ===================================
-
-    DmaDesc* rxNext = rxDesc;
-    DmaDesc* txNext = txDesc;
-
-    template <typename T>
-    void swap (T& a, T& b) { T t = a; a = b; b = t; }
-
-    struct MacAddr {
-        uint8_t b [6];
-    };
-
-    struct Net16 {
-        constexpr Net16 (uint16_t v) : b1 {(uint8_t) (v>>8), (uint8_t) v} {}
-        operator uint16_t () const { return (b1[0]<<8) | b1[1]; }
-    private:
-        uint8_t b1 [2];
-    };
-
-    struct Net32 {
-        constexpr Net32 (uint32_t v) : b2 {(uint16_t) (v>>16), (uint16_t) v} {}
-        operator uint32_t () const { return (b2[0]<<16) | b2[1]; }
-    private:
-        Net16 b2 [2];
-    };
-
-    struct IpAddr : Net32 {
-        constexpr IpAddr (uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4)
-            : Net32 ((v1<<24)|(v2<<16)|(v3<<8)|v4) {}
-
-        void dumper () const {
-            auto p = (uint8_t const*) this;
-            for (int i = 0; i < 4; ++i)
-                debugf("%c%d", i == 0 ? ' ' : '.', p[i]);
-        }
-    };
-
-    MacAddr const myMac {0x11,0x22,0x33,0x44,0x55,0x66};
-    IpAddr const myIp {192,168,188,17};
-
-    struct Frame {
-        MacAddr _dst, _src;
-        Net16 _typ;
-
-        void isReply () { _dst = _src; _src = myMac; }
-
-        void received ();
-    };
-    static_assert(sizeof (Frame) == 14);
 
     void poll () {
         while (rxNext->stat >= 0) {
@@ -308,90 +390,12 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         txNext->size = n;
         txNext->stat = (0b1011<<28) | (3<<22) | (1<<20); // OWN LS FS CIC TCH
         txNext = txNext->next;
-        txWake();
-    }
-
-    struct Arp : Frame {
-        Net16 _hw, _proto;
-        uint8_t _macLen, _ipLen;
-        Net16 _op;
-        MacAddr _sendMac;
-        IpAddr _sendIp;
-        MacAddr _targMac;
-        IpAddr _targIp;
-
-        void isReply () {
-            Frame::isReply();
-            _targMac = _sendMac;
-            _targIp = _sendIp;
-            _sendMac = myMac;
-            _sendIp = myIp;
-        }
-
-        void received () {
-            if (_op == 1 && _targIp == myIp) { // ARP request
-debugf("ARP"); _sendIp.dumper(); debugf("\n");
-                auto [ptr, len] = canSend();
-                auto& out = *(Arp*) ptr;
-                ensure(len >= sizeof out);
-                out = *this; // start with all fields the same
-                out.isReply();
-                out._op = 2; // ARP reply
-                send(ptr, sizeof out);
-            }
-        }
-    };
-    static_assert(sizeof (Arp) == 42);
-
-    struct Ip4 : Frame {
-        uint8_t _versLen, _service;
-        Net16 _total, _id, _frag;
-        uint8_t _ttl, _proto;
-        Net16 _hCheck;
-        IpAddr _src, _dst;
-
-        void received ();
-    };
-    static_assert(sizeof (Ip4) == 34);
-
-    struct Udp : Ip4 {
-        Net16 _sPort, _dPort, _len, _sum;
-        uint8_t data [];
-
-        void received () {
-            dumpHex(data, _len-8);
-        }
-    };
-    static_assert(sizeof (Udp) == 42);
-
-    struct Tcp : Ip4 {
-        Net16 _sPort, _dPort;
-        Net32 _seq, _ack;
-        Net16 _code, _window, _sum, _urg;
-        uint8_t data [];
-
-        void received () {}
-    };
-    static_assert(sizeof (Tcp) == 54);
-
-    void Ip4::received () {
-        switch (_proto) {
-            case 6:  ((Tcp*) this)->received(); break;
-            case 17: ((Udp*) this)->received(); break;
-        }
-    }
-
-    void Frame::received () {
-        switch (_typ) {
-            case 0x0806: ((Arp*) this)->received(); break;
-            case 0x0800: ((Ip4*) this)->received(); break;
-            //default:     debugf("frame %04x\n", (int) _typ); break;
-        }
+        DMA(TPDR) = 0; // resume DMA
     }
 }
 
 void ethTest () {
-    eth::init(eth::myMac.b);
+    eth::init(net::myMac.b);
     while (true) {
         eth::poll();
         msWait(1);
