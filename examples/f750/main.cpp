@@ -133,10 +133,6 @@ void lcdTest () {
 }
 
 namespace net {
-    // forward declarations
-    auto canSend () -> Chunk;
-    void send (uint8_t const* p, uint32_t n);
-
     template <typename T>
     void swap (T& a, T& b) { T t = a; a = b; b = t; }
 
@@ -159,6 +155,7 @@ namespace net {
     };
 
     struct IpAddr : Net32 {
+        constexpr IpAddr () : Net32 (0) {}
         constexpr IpAddr (uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4)
             : Net32 ((v1<<24)|(v2<<16)|(v3<<8)|v4) {}
 
@@ -169,16 +166,19 @@ namespace net {
         }
     };
 
-    MacAddr const myMac {0x11,0x22,0x33,0x44,0x55,0x66};
-    IpAddr const myIp {192,168,188,17};
+    struct Interface {
+        MacAddr _mac;
+        IpAddr _ip;
+
+        virtual auto canSend () -> Chunk =0;
+        virtual void send (uint8_t const* p, uint32_t n) =0;
+    };
 
     struct Frame {
         MacAddr _dst, _src;
         Net16 _typ;
 
-        void isReply () { _dst = _src; _src = myMac; }
-
-        void received ();
+        void received (Interface&); // dispatcher
     };
     static_assert(sizeof (Frame) == 14);
 
@@ -191,37 +191,38 @@ namespace net {
         MacAddr _targMac;
         IpAddr _targIp;
 
-        void isReply () {
-            Frame::isReply();
+        void isReply (Interface const& ni) {
+            _dst = _src;
+            _src = ni._mac; 
             _targMac = _sendMac;
             _targIp = _sendIp;
-            _sendMac = myMac;
-            _sendIp = myIp;
+            _sendMac = _src;
+            _sendIp = ni._ip;
         }
 
-        void received () {
-            if (_op == 1 && _targIp == myIp) { // ARP request
+        void received (Interface& ni) {
+            if (_op == 1 && _targIp == ni._ip) { // ARP request
 debugf("ARP"); _sendIp.dumper(); debugf("\n");
-                auto [ptr, len] = canSend();
+                auto [ptr, len] = ni.canSend();
                 auto& out = *(Arp*) ptr;
                 ensure(len >= sizeof out);
                 out = *this; // start with all fields the same
-                out.isReply();
+                out.isReply(ni);
                 out._op = 2; // ARP reply
-                send(ptr, sizeof out);
+                ni.send(ptr, sizeof out);
             }
         }
     };
     static_assert(sizeof (Arp) == 42);
 
     struct Ip4 : Frame {
-        uint8_t _versLen, _service;
+        uint8_t _vers :4, _hlen :4, _tos;
         Net16 _total, _id, _frag;
         uint8_t _ttl, _proto;
-        Net16 _hCheck;
-        IpAddr _src, _dst;
+        Net16 _hcheck;
+        IpAddr _srcIp, _dstIp;
 
-        void received ();
+        void received (Interface&); // dispatcher
     };
     static_assert(sizeof (Ip4) == 34);
 
@@ -229,7 +230,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         Net16 _sPort, _dPort, _len, _sum;
         uint8_t data [];
 
-        void received () {
+        void received (Interface&) {
             dumpHex(data, _len-8);
         }
     };
@@ -241,27 +242,34 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         Net16 _code, _window, _sum, _urg;
         uint8_t data [];
 
-        void received () {}
+        void received (Interface&) {}
     };
     static_assert(sizeof (Tcp) == 54);
 
-    void Ip4::received () {
+    void Ip4::received (Interface& ni) {
         switch (_proto) {
-            case 6:  ((Tcp*) this)->received(); break;
-            case 17: ((Udp*) this)->received(); break;
+            case 6:  ((Tcp*) this)->received(ni); break;
+            case 17: ((Udp*) this)->received(ni); break;
         }
     }
 
-    void Frame::received () {
+    void Frame::received (Interface& ni) {
         switch (_typ) {
-            case 0x0806: ((Arp*) this)->received(); break;
-            case 0x0800: ((Ip4*) this)->received(); break;
+            case 0x0800: ((Ip4*) this)->received(ni); break;
+            case 0x0806: ((Arp*) this)->received(ni); break;
             //default:     debugf("frame %04x\n", (int) _typ); break;
         }
     }
 }
 
-struct Eth {
+using MacAddr = net::MacAddr;
+using IpAddr = net::IpAddr;
+using Interface = net::Interface;
+using Frame = net::Frame;
+
+struct Eth : Interface {
+    Eth (MacAddr mac, IpAddr ip) { _mac = mac; _ip = ip; }
+
     // FIXME RCC name clash mcb/device
     constexpr static auto RCC    = io32<0x4002'3800>;
     constexpr static auto SYSCFG = io32<device::SYSCFG>;
@@ -297,7 +305,7 @@ struct Eth {
     DmaDesc *rxNext = rxDesc, *txNext = txDesc;
     uint8_t rxBufs [NRX][BUFSZ], txBufs [NTX][BUFSZ];
 
-    void init (uint8_t const* mac) {
+    void init () {
         // F7508-DK pins, all using alt mode 11:
         //      A1: refclk, A2: mdio, A7: crsdiv, C1: mdc, C4: rxd0,
         //      C5: rxd1, G2: rxer, G11: txen, G13: txd0, G14: txd1,
@@ -333,8 +341,8 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
             (1<<25)|(1<<24)|(1<<23)|(32<<17)|(1<<16)|(1<<14)|(32<<8)|(1<<7)|(1<<1);
         msWait(1);
 
-        MAC(A0HR) = *(uint16_t const*) (mac + 4);
-        MAC(A0LR) = *(uint32_t const*) mac;
+        MAC(A0HR) = *(uint16_t const*) (_mac.b + 4);
+        MAC(A0LR) = *(uint32_t const*) _mac.b;
 
         for (int i = 0; i < NTX; ++i) {
             txDesc[i].stat = 0; // not owned by DMA
@@ -363,14 +371,14 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
 
     void poll () {
         while (rxNext->stat >= 0) {
-            auto f = (net::Frame*) rxNext->data;
-            f->received();
+            auto f = (Frame*) rxNext->data;
+            f->received(*this);
             rxNext->stat = (1<<31); // OWN
             rxNext = rxNext->next;
         }
     }
 
-    auto canSend () -> Chunk {
+    auto canSend () -> Chunk override {
         while (txNext->stat < 0) {
             poll(); // keep processing incoming while waiting
             msWait(1);
@@ -378,9 +386,9 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         return { txNext->data, BUFSZ };
     }
 
-    void send (uint8_t const* p, uint32_t n) {
+    void send (uint8_t const* p, uint32_t n) override {
         ensure(p == txNext->data);
-        ensure(sizeof (net::Frame) <= n && n <= BUFSZ);
+        ensure(sizeof (Frame) <= n && n <= BUFSZ);
         txNext->size = n;
         txNext->stat = (0b1011<<28) | (3<<22) | (1<<20); // OWN LS FS CIC TCH
         txNext = txNext->next;
@@ -388,13 +396,10 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
     }
 };
 
-Eth eth;
-
-auto net::canSend () -> Chunk { return eth.canSend(); }
-void net::send (uint8_t const* p, uint32_t n) { eth.send(p, n); }
+Eth eth {{0x11,0x22,0x33,0x44,0x55,0x66}, {192,168,188,17}};
 
 void ethTest () {
-    eth.init(net::myMac.b);
+    eth.init();
     while (true) {
         eth.poll();
         msWait(1);
