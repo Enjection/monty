@@ -267,7 +267,7 @@ using IpAddr = net::IpAddr;
 using Interface = net::Interface;
 using Frame = net::Frame;
 
-struct Eth : Interface {
+struct Eth : Device, Interface {
     Eth (MacAddr mac, IpAddr ip) { _mac = mac; _ip = ip; }
 
     // FIXME RCC name clash mcb/device
@@ -369,6 +369,8 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         msWait(1);
     }
 
+    void irqHandler () override {} // TODO
+
     void poll () {
         while (rxNext->stat >= 0) {
             auto f = (Frame*) rxNext->data;
@@ -396,9 +398,8 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
     }
 };
 
-Eth eth {{0x11,0x22,0x33,0x44,0x55,0x66}, {192,168,188,17}};
-
 void ethTest () {
+    Eth eth {{0x11,0x22,0x33,0x44,0x55,0x66}, {192,168,188,17}};
     eth.init();
     while (true) {
         eth.poll();
