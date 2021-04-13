@@ -329,7 +329,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
 
         void discover (Interface& ni) {
             _src = ni._mac;
-            memcpy(_clientHw, ni._mac.b, sizeof ni._mac);
+            memcpy(_clientHw, &ni._mac, sizeof ni._mac);
 
             OptionIter it {_options+4};
             it.append(MsgType, "\x01", 1);         // discover
@@ -342,7 +342,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
             isReply(ni);
             _op = 2; // DHCP reply
             _clientIp = _yourIp;
-            memcpy(_clientHw, ni._mac.b, sizeof ni._mac);
+            memcpy(_clientHw, &ni._mac, sizeof ni._mac);
 
             OptionIter it {_options+4};
             it.append(MsgType, "\x03", 1); // request
@@ -458,13 +458,19 @@ struct Eth : Device, Interface {
         uint8_t* data;
         DmaDesc* next;
         uint32_t extStat, _gap, times [2];
+
+        auto available () const { return stat >= 0; }
+
+        auto release () {
+            asm ("dsb"); stat |= (1<<31); asm("dsb");
+            return next;
+        }
     };
 
     constexpr static auto NRX = 5, NTX = 5, BUFSZ = 1524;
     DmaDesc rxDesc [NRX], txDesc [NTX];
-    DmaDesc volatile* rxNext = rxDesc;
-    DmaDesc volatile* txNext = txDesc;
-    uint8_t rxBufs [NRX][BUFSZ], txBufs [NTX][BUFSZ];
+    DmaDesc *rxNext = rxDesc, *txNext = txDesc;
+    uint8_t rxBufs [NRX][BUFSZ+4], txBufs [NTX][BUFSZ+4];
 
     void init () {
         // F7508-DK pins, all using alt mode 11:
@@ -502,19 +508,19 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
             (1<<25)|(1<<24)|(1<<23)|(32<<17)|(1<<16)|(1<<14)|(32<<8)|(1<<7)|(1<<1);
         msWait(1);
 
-        MAC(A0HR) = *(uint16_t const*) (_mac.b + 4);
-        MAC(A0LR) = *(uint32_t const*) _mac.b;
+        MAC(A0HR) = ((uint16_t const*) &_mac)[2];
+        MAC(A0LR) = ((uint32_t const*) &_mac)[0];
 
         for (int i = 0; i < NTX; ++i) {
             txDesc[i].stat = 0; // not owned by DMA
-            txDesc[i].data = txBufs[i];
+            txDesc[i].data = txBufs[i] + 2;
             txDesc[i].next = txDesc + (i+1) % NTX;
         }
 
         for (int i = 0; i < NRX; ++i) {
             rxDesc[i].stat = (1<<31); // OWN
             rxDesc[i].size = (1<<14) | BUFSZ; // RCH SIZE
-            rxDesc[i].data = rxBufs[i];
+            rxDesc[i].data = rxBufs[i] + 2;
             rxDesc[i].next = rxDesc + (i+1) % NRX;
         }
 
@@ -540,16 +546,15 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
     }
 
     void poll () {
-        while (rxNext->stat >= 0) {
+        while (rxNext->available()) {
             auto f = (Frame*) rxNext->data;
             f->received(*this);
-            rxNext->stat = (1<<31); // OWN
-            rxNext = rxNext->next;
+            rxNext = rxNext->release();
         }
     }
 
     auto canSend () -> Chunk override {
-        while (txNext->stat < 0) {
+        while (!txNext->available()) {
             poll(); // keep processing incoming while waiting
             msWait(1);
         }
@@ -563,10 +568,10 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
             (void) len;
             memcpy(ptr, p, n);
         }
+        ensure(txNext->available());
         txNext->size = n;
-        txNext->stat = (0b1111<<28) | (3<<22) | (1<<20); // OWN IC LS FS CIC TCH
-        txNext = txNext->next;
-asm ("dsb");
+        txNext->stat = (0b0111<<28) | (3<<22) | (1<<20); // IC LS FS CIC TCH
+        txNext = txNext->release();
         DMA(TPDR) = 0; // resume DMA
     }
 };
