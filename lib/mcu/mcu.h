@@ -53,6 +53,9 @@ namespace mcu {
     [[noreturn]] void systemReset ();
     [[noreturn]] void failAt (void const*, void const*) __attribute__ ((weak));
 
+    auto reserveNonCached (int bits) -> uint32_t;
+    auto allocateNonCached (uint32_t sz) -> void*;
+
     struct IOWord {
         uint32_t volatile& addr;
 

@@ -138,6 +138,11 @@ namespace net {
 
     struct MacAddr {
         uint8_t b [6];
+
+        void dumper () const {
+            for (int i = 0; i < 6; ++i)
+                debugf("%c%02x", i == 0 ? ' ' : ':', b[i]);
+        }
     };
 
     struct Net16 {
@@ -281,7 +286,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         void received (Interface&); // dispatcher
 
         void sendIt (Interface& ni, uint16_t len) {
-            _total = len - 22;
+            _total = len - 20;
             ni.send((uint8_t const*) this, len);
         }
     };
@@ -300,7 +305,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         void received (Interface&); // dispatcher
 
         void sendIt (Interface& ni, uint16_t len) {
-            _len = len - 42;
+            _len = len - 40;
             Ip4::sendIt(ni, len);
         }
     };
@@ -335,7 +340,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
             it.append(MsgType, "\x01", 1);         // discover
             it.append(ReqList, "\x01\x03\x06", 3); // subnet router dns
 
-            sendIt(ni, (uint32_t) it.ptr + 8 - (uint32_t) this);
+            sendIt(ni, (uint32_t) it.ptr + 9 - (uint32_t) this);
         }
 
         auto request (Interface& ni) {
@@ -349,7 +354,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
             it.append(ServerIp, &_serverIp, 4);
             it.append(ReqIp, &_clientIp, 4);
 
-            sendIt(ni, (uint32_t) it.ptr + 8 - (uint32_t) this);
+            sendIt(ni, (uint32_t) it.ptr + 9 - (uint32_t) this);
         }
 
         void received (Interface& ni) {
@@ -428,6 +433,8 @@ using Interface = net::Interface;
 using Frame = net::Frame;
 
 struct Eth : Device, Interface {
+    auto operator new (size_t sz) -> void* { return allocateNonCached(sz); }
+
     using Interface::Interface;
 
     // FIXME RCC name clash mcb/device
@@ -435,11 +442,12 @@ struct Eth : Device, Interface {
     constexpr static auto SYSCFG = io32<device::SYSCFG>;
 
     constexpr static auto DMA = io32<ETHERNET_DMA>;
-    enum { BMR=0x00,TPDR=0x04,RDLAR=0x0C,TDLAR=0x10,DSR=0x14,OMR=0x18,IER=0x1C };
+    enum { BMR=0x00,TPDR=0x04,RPDR=0x08,RDLAR=0x0C,TDLAR=0x10,
+           DSR=0x14,OMR=0x18,IER=0x1C };
 
     constexpr static auto MAC = io32<ETHERNET_MAC>;
-    enum { CR=0x00,FFR=0x04,HTHR=0x08,HTLR=0x0C,MIIAR=0x10,MIIDR=0x14,FCR=0x18,
-           MSR=0x38,IMR=0x3C,A0HR=0x40,A0LR=0x44 };
+    enum { CR=0x00,FFR=0x04,HTHR=0x08,HTLR=0x0C,MIIAR=0x10,MIIDR=0x14,
+           FCR=0x18,MSR=0x38,IMR=0x3C,A0HR=0x40,A0LR=0x44 };
 
     auto readPhy (int reg) -> uint16_t {
         MAC(MIIAR) = (0<<11)|(reg<<6)|(0b100<<2)|(1<<0);
@@ -462,7 +470,7 @@ struct Eth : Device, Interface {
         auto available () const { return stat >= 0; }
 
         auto release () {
-            asm ("dsb"); stat |= (1<<31); asm("dsb");
+            asm volatile ("dsb"); stat |= (1<<31); asm volatile ("dsb");
             return next;
         }
     };
@@ -492,12 +500,12 @@ struct Eth : Device, Interface {
 auto t = millis();
         while ((readPhy(1) & (1<<2)) == 0) // wait for link
             msWait(1); // keep updating the ticks
-debugf("link %d ms\n", millis() - t);
+debugf("link %d ms ", millis() - t);
         writePhy(0, 0x1000); // PHY auto-negotiation
         while ((readPhy(1) & (1<<5)) == 0) {} // wait for a-n complete
         auto r = readPhy(31);
         auto duplex = (r>>4) & 1, fast = (r>>3) & 1;
-debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
+debugf("full-duplex %d 100-Mbit/s %d\n", duplex, fast);
 
         MAC(CR) = (1<<15) | (fast<<14) | (duplex<<11) | (1<<10); // IPCO
         msWait(1);
@@ -550,6 +558,7 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
             auto f = (Frame*) rxNext->data;
             f->received(*this);
             rxNext = rxNext->release();
+            DMA(RPDR) = 0; // resume DMA
         }
     }
 
@@ -576,43 +585,37 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
     }
 };
 
-void makeNonCacheable (uint32_t from, uint32_t to) {
-    debugf("cache off %08x..%08x, %d b\n", from, to, to-from);
-    constexpr auto MPU = io32<0xE000'ED90>;
-    enum { TYPE=0x00,CTRL=0x04,RNR=0x08,RBAR=0x0C,RASR=0x10 };
-
-    MPU(CTRL) = (1<<2) | (1<<0); // PRIVDEFENA ENABLE
-
-    //asm ("dsb");
-    //asm ("isb");
-    //BlockIRQ crit;
-
-    MPU(RBAR) = from | (1<<4); // ADDR VALID REGION:0
-    MPU(RASR) = // XN AP:FULL TEX S SIZE:16K ENABLE
-        (1<<28)|(3<<24)|(1<<19)|(1<<18)|(0x0D<<1)|(1<<0);
-
-    asm ("isb");
-    asm ("dsb");
-    asm ("dmb");
-
-    debugf("mpu %08x %08x\n", (uint32_t) MPU(RBAR), (uint32_t) MPU(RASR));
-}
-
 void ethTest () {
-    Eth eth {{0x34,0x31,0xC4,0x8E,0x32,0x66}};
-    uint8_t filler [512];
+    // TODO this doesn't seem to create an acceptable MAC address for DHCP
+#if 0
+    MacAddr myMac;
 
-    debugf("eth @ %p..%p, stack %p\n", &eth, &eth+1, filler);
-    makeNonCacheable(0x2004'C000, 0x2005'0000);
+    constexpr auto HWID = io8<0x1FF0F420>; // F4: 0x1FF07A10
+    debugf("HWID");
+    for (int i = 0; i < 12; ++i) {
+        uint8_t b = HWID(i);
+        if (i < 6)
+            myMac.b[i] = b;
+        debugf(" %02x", b);
+    }
+    myMac.b[0] |= 0x02; // locally administered
+    myMac.dumper();
+    debugf("\n");
 
-    eth.init();
+    auto eth = new Eth (myMac);
+#else
+    auto eth = new Eth ({0x34,0x31,0xC4,0x8E,0x32,0x66});
+#endif
+    debugf("eth @ %p..%p\n", eth, eth+1);
+
+    eth->init();
     msWait(20); // TODO doesn't work without, why?
 
     net::Dhcp dhcp;
-    dhcp.discover(eth);
+    dhcp.discover(*eth);
 
     while (true) {
-        eth.poll();
+        eth->poll();
         msWait(1);
     }
 }
@@ -620,6 +623,10 @@ void ethTest () {
 int main () {
     fastClock(); // OpenOCD expects a 200 MHz clock for SWO
     printf("@ %d MHz\n", systemClock() / 1'000'000); // falls back to debugf
+
+    uint8_t bufs [reserveNonCached(14)]; // room for ≈2^14 bytes, i.e. 16 kB
+    debugf("reserve %p..%p, %d b\n", bufs, bufs + sizeof bufs, sizeof bufs);
+    ensure(bufs <= allocateNonCached(0));
 
     mcu::Pin led;
     led.define("K3:P"); // set PK3 pin low to turn off the LCD backlight
@@ -633,8 +640,8 @@ int main () {
     });
 
     stdOut = &printer;
-debugf("hello\n");
-printf("hello %s\n", "f750");
+debugf("hello %s?\n", "f750");
+printf("hello %s!\n", "f750");
 
     //spifTest(0);
     //spifTest(1); // wipe all

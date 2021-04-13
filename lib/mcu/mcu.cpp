@@ -83,6 +83,45 @@ namespace mcu {
         return result;
     }
 
+    uint8_t *reserveNext, *reserveLimit;
+
+    auto reserveNonCached (int bits) -> uint32_t {
+        constexpr auto slack = 16;
+        const int size = 1<<bits;
+        const int mask = size - 1;
+
+        reserveLimit = (uint8_t*) &mask + slack;
+        reserveNext = (uint8_t*) ((uint32_t) reserveLimit & ~mask);
+
+        constexpr auto MPU = io32<0xE000'ED90>;
+        enum { TYPE=0x00,CTRL=0x04,RNR=0x08,RBAR=0x0C,RASR=0x10 };
+
+        MPU(CTRL) = (1<<2) | (1<<0); // PRIVDEFENA ENABLE
+
+        {
+            asm volatile ("dsb \n isb");
+            //BlockIRQ crit;
+
+            MPU(RBAR) = (uint32_t) reserveNext | (1<<4); // ADDR VALID REGION:0
+            MPU(RASR) = // XN AP:FULL TEX S SIZE ENABLE
+                (1<<28)|(3<<24)|(1<<19)|(1<<18)|((bits-1)<<1)|(1<<0);
+
+            asm volatile ("isb \n dsb \n dmb");
+        }
+
+        debugf("uncache %08x..%08x, %d b\n", reserveNext, reserveNext + size, size);
+        return ((uint32_t) &mask & mask) + slack;
+    }
+
+    auto allocateNonCached (uint32_t sz) -> void* {
+        ensure(reserveNext != nullptr);
+        auto p = reserveNext;
+        sz += 3 & -sz; // round up to multiple of 4
+        ensure(p + sz <= reserveLimit);
+        reserveNext = p + sz;
+        return p;
+    }
+
     auto Pin::mode (int m) const -> int {
 #if STM32F1
         RCC(0x18) |= (1<<_port) | (1<<0); // enable GPIOx and AFIO clocks
