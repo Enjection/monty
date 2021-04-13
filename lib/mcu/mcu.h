@@ -42,6 +42,9 @@ namespace mcu {
     void debugf (const char* fmt, ...); // hard-wired to swoOut
     auto snprintf (char*, uint32_t, const char*, ...) -> int;
 
+    using SmallBuf = char [20];
+    extern SmallBuf smallBuf;
+
     auto micros () -> uint32_t;
     auto millis () -> uint32_t;
     void msWait (uint16_t ms);

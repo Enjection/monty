@@ -139,23 +139,23 @@ namespace net {
     struct MacAddr {
         uint8_t b [6];
 
-        void dumper () const {
+        auto asStr (SmallBuf& buf =smallBuf) const {
+            auto ptr = buf;
             for (int i = 0; i < 6; ++i)
-                debugf("%c%02x", i == 0 ? ' ' : ':', b[i]);
+                ptr += snprintf(ptr, 4, "%c%02x", i == 0 ? ' ' : ':', b[i]);
+            return buf + 1;
         }
     };
 
     struct Net16 {
-        Net16 () {}
-        constexpr Net16 (uint16_t v) : b1 {(uint8_t) (v>>8), (uint8_t) v} {}
+        constexpr Net16 (uint16_t v =0) : b1 {(uint8_t) (v>>8), (uint8_t) v} {}
         operator uint16_t () const { return (b1[0]<<8) | b1[1]; }
     private:
         uint8_t b1 [2];
     };
 
     struct Net32 {
-        Net32 () {}
-        constexpr Net32 (uint32_t v) : b2 {(uint16_t) (v>>16), (uint16_t) v} {}
+        constexpr Net32 (uint32_t v =0) : b2 {(uint16_t) (v>>16), (uint16_t) v} {}
         operator uint32_t () const { return (b2[0]<<16) | b2[1]; }
     private:
         Net16 b2 [2];
@@ -166,25 +166,89 @@ namespace net {
         constexpr IpAddr (uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4)
             : Net32 ((v1<<24)|(v2<<16)|(v3<<8)|v4) {}
 
-        void dumper () const {
+        auto asStr (SmallBuf& buf =smallBuf) const {
             auto p = (uint8_t const*) this;
+            auto ptr = buf;
             for (int i = 0; i < 4; ++i)
-                debugf("%c%d", i == 0 ? ' ' : '.', p[i]);
+                ptr += snprintf(ptr, 5, "%c%d", i == 0 ? ' ' : '.', p[i]);
+            return buf + 1;
         }
+    };
+
+    struct Interface {
+        MacAddr const _mac;
+        IpAddr _ip, _gw, _dns, _sub;
+
+        Interface (MacAddr const& mac) : _mac (mac) {}
+
+        virtual auto canSend () -> Chunk =0;
+        virtual void send (void const* p, uint32_t n) =0;
     };
 
     MacAddr const wildMac {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
     IpAddr const wildIp {0xFFFFFFFF};
 
-    struct Interface {
-        MacAddr const _mac;
-        IpAddr _ip, _gw, _dns, _net;
+    template <int N>
+    struct ArpCache {
+        void init (IpAddr myIp, MacAddr const& myMac) {
+            memset(this, 0, sizeof *this);
+            prefix = myIp & ~0xFF;
+            add(myIp, myMac);
+        }
 
-        Interface (MacAddr const& mac) : _mac (mac) {}
+        auto canStore (IpAddr ip) const { return (ip & ~0xFF) == prefix; }
 
-        virtual auto canSend () -> Chunk =0;
-        virtual void send (uint8_t const* p, uint32_t n) =0;
+        void add (IpAddr ip, MacAddr const& mac) {
+            if (canStore(ip)) {
+                // may run out of space, start afresh
+                if (items[N-1].node != 0)
+                    memset(items+1, 0, (N-1) * sizeof items[0]);
+                uint8_t b = ip;
+                for (auto& e : items)
+                    if (e.node == 0 || b == e.node ||
+                            memcmp(&mac, &e.mac, sizeof mac) == 0) {
+                        e.node = b;
+                        e.mac = mac;
+                        return;
+                    }
+            }
+        }
+
+        auto toIp (MacAddr const& mac) const -> IpAddr {
+            for (auto& e : items)
+                if (e.node != 0 && mac == e.mac)
+                    return prefix + e.node;
+            return 0;
+        }
+
+        auto toMac (IpAddr ip) const -> MacAddr const& {
+            if (canStore(ip))
+                for (auto& e : items)
+                    if ((uint8_t) ip == e.node)
+                        return e.mac;
+            return wildMac;
+        }
+
+        void dump () const {
+            debugf("ARP cache [%d]\n", N);
+            for (auto& e : items)
+                if (e.node != 0) {
+                    SmallBuf sb;
+                    IpAddr ip = prefix + e.node;
+                    debugf("  %s = %s\n", ip.asStr(), e.mac.asStr(sb));
+                }
+        }
+
+    private:
+        struct {
+            MacAddr mac;
+            uint8_t node; // low byte of IP address
+        } items [N];
+        
+        uint32_t prefix =0;
     };
+
+    ArpCache<10> arpCache;
 
     struct OptionIter {
         OptionIter (uint8_t* p) : ptr (p) {}
@@ -252,14 +316,11 @@ namespace net {
 
         void received (Interface& ni) {
             if (_op == 1 && _targIp == ni._ip) { // ARP request
-debugf("ARP"); _sendIp.dumper(); debugf("\n");
-                auto [ptr, len] = ni.canSend();
-                auto& out = *(Arp*) ptr;
-                ensure(len >= sizeof out);
-                out = *this; // start with all fields the same
-                out.isReply(ni);
-                out._op = 2; // ARP reply
-                ni.send(ptr, sizeof out);
+SmallBuf sb;
+debugf("ARP %s %s\n", _sendIp.asStr(), _src.asStr(sb));
+                isReply(ni);
+                _op = 2; // ARP reply
+                ni.send(this, sizeof *this);
             }
         }
     };
@@ -287,7 +348,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
 
         void sendIt (Interface& ni, uint16_t len) {
             _total = len - 20;
-            ni.send((uint8_t const*) this, len);
+            ni.send(this, len);
         }
     };
     static_assert(sizeof (Ip4) == 34);
@@ -328,7 +389,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
             _dPort = 67;
             _sPort = 68;
             memset(_clientHw, 0, 16+64+128+312);
-            static uint8_t cookie [] {99, 130, 83, 99};
+            static uint8_t const cookie [] {99, 130, 83, 99};
             memcpy(_options, cookie, sizeof cookie);
         }
 
@@ -364,20 +425,21 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
                 OptionIter it {_options+4};
                 while (it)
                     switch (auto typ = it.next(); typ) {
-                        case Subnet: it.extract(&ni._net, 4); break;
+                        case Subnet: it.extract(&ni._sub, 4); break;
                         case Dns:    it.extract(&ni._dns, 4); break;
                         case Router: it.extract(&ni._gw,  4); break;
                         //default:     debugf("option %d\n", typ); break;
                     }
-                if (reply == 2) // Offer
+                if (reply == 2) { // Offer
+                    arpCache.init(ni._ip, ni._mac);
                     request(ni);
-                else { // ACK
-                    debugf("DHCP");
-                    ni._ip.dumper();
-                    ni._dns.dumper();
-                    ni._gw.dumper();
-                    ni._net.dumper();
-                    debugf("\n");
+                } else { // ACK
+                    SmallBuf sb [3];
+                    debugf("DHCP %s gw %s sub %s dns %s\n",
+                            ni._ip.asStr(), ni._gw.asStr(sb[0]),
+                            ni._sub.asStr(sb[1]), ni._dns.asStr(sb[2]));
+                    arpCache.add(_srcIp, _src); // DHCP server, i.e. gateway
+                    arpCache.dump();
                 }
             }
         }
@@ -393,12 +455,11 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         Tcp () : Ip4 (6) {}
 
         void received (Interface&) {
-            debugf("TCP");
-            _srcIp.dumper();
-            debugf(":%d ->", (int) _sPort);
-            _dstIp.dumper();
-            debugf(":%d win %d seq %08x ack %08x\n",
-                    (int) _dPort, (int) _window, (int) _seq, (int) _ack);
+            SmallBuf sb;
+            debugf("TCP %s:%d -> %s:%d win %d seq %08x ack %08x\n",
+                    _srcIp.asStr(), (int) _sPort,
+                    _dstIp.asStr(sb), (int) _dPort,
+                    (int) _window, (int) _seq, (int) _ack);
         }
     };
     static_assert(sizeof (Tcp) == 54);
@@ -475,7 +536,7 @@ struct Eth : Device, Interface {
         }
     };
 
-    constexpr static auto NRX = 5, NTX = 5, BUFSZ = 1524;
+    constexpr static auto NRX = 4, NTX = 4, BUFSZ = 1524;
     DmaDesc rxDesc [NRX], txDesc [NTX];
     DmaDesc *rxNext = rxDesc, *txNext = txDesc;
     uint8_t rxBufs [NRX][BUFSZ+4], txBufs [NTX][BUFSZ+4];
@@ -500,12 +561,12 @@ struct Eth : Device, Interface {
 auto t = millis();
         while ((readPhy(1) & (1<<2)) == 0) // wait for link
             msWait(1); // keep updating the ticks
-debugf("link %d ms ", millis() - t);
+t = millis() - t;
         writePhy(0, 0x1000); // PHY auto-negotiation
         while ((readPhy(1) & (1<<5)) == 0) {} // wait for a-n complete
         auto r = readPhy(31);
         auto duplex = (r>>4) & 1, fast = (r>>3) & 1;
-debugf("full-duplex %d 100-Mbit/s %d\n", duplex, fast);
+debugf("link %d ms full-duplex %d 100-Mbit/s %d\n", t, duplex, fast);
 
         MAC(CR) = (1<<15) | (fast<<14) | (duplex<<11) | (1<<10); // IPCO
         msWait(1);
@@ -570,7 +631,7 @@ debugf("full-duplex %d 100-Mbit/s %d\n", duplex, fast);
         return { txNext->data, BUFSZ };
     }
 
-    void send (uint8_t const* p, uint32_t n) override {
+    void send (void const* p, uint32_t n) override {
         ensure(sizeof (Frame) <= n && n <= BUFSZ);
         if (p != txNext->data) {
             auto [ptr, len] = canSend();
@@ -607,6 +668,7 @@ void ethTest () {
     auto eth = new Eth ({0x34,0x31,0xC4,0x8E,0x32,0x66});
 #endif
     debugf("eth @ %p..%p\n", eth, eth+1);
+    debugf("mac %s\n", eth->_mac.asStr());
 
     eth->init();
     msWait(20); // TODO doesn't work without, why?
