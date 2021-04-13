@@ -173,12 +173,41 @@ namespace net {
 
     struct Interface {
         MacAddr const _mac;
-        IpAddr _ip, _gw;
+        IpAddr _ip, _gw, _dns, _net;
 
         Interface (MacAddr const& mac) : _mac (mac) {}
 
         virtual auto canSend () -> Chunk =0;
         virtual void send (uint8_t const* p, uint32_t n) =0;
+    };
+
+    struct OptionIter {
+        OptionIter (uint8_t* p) : ptr (p) {}
+
+        operator bool () const { return *ptr != 0xFF; }
+
+        auto next () {
+            auto typ = *ptr++;
+            len = *ptr++;
+            ptr += len;
+            return typ;
+        }
+
+        void extract (void* p, uint32_t n =0) {
+            ensure (n == 0 || n == len);
+            memcpy(p, ptr-len, len);
+        }
+
+        void append (uint8_t typ, void const* p, uint8_t n) {
+            *ptr++ = typ;
+            *ptr++ = n;
+            memcpy(ptr, p, n);
+            ptr += n;
+            *ptr = 0xFF;
+        }
+
+        uint8_t* ptr;
+        uint8_t len =0;
     };
 
     struct Frame {
@@ -235,7 +264,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         uint8_t _versLen =0x45, _tos =0;
         Net16 _total, _id, _frag =0;
         uint8_t _ttl =255, _proto;
-        Net16 _hcheck;
+        Net16 _hcheck =0;
         IpAddr _srcIp, _dstIp;
 
         Ip4 (uint8_t proto) : Frame (0x0800), _proto (proto) {
@@ -250,6 +279,11 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         }
 
         void received (Interface&); // dispatcher
+
+        void sendIt (Interface& ni, uint16_t len) {
+            _total = len - 22;
+            ni.send((uint8_t const*) this, len);
+        }
     };
     static_assert(sizeof (Ip4) == 34);
 
@@ -264,6 +298,11 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         }
 
         void received (Interface&); // dispatcher
+
+        void sendIt (Interface& ni, uint16_t len) {
+            _len = len - 42;
+            Ip4::sendIt(ni, len);
+        }
     };
     static_assert(sizeof (Udp) == 42);
 
@@ -274,6 +313,9 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         IpAddr _clientIp, _yourIp, _serverIp, _gwIp;
         uint8_t _clientHw [16], _hostName [64], _fileName [128];
         uint8_t _options [312];
+
+        enum { Subnet=1,Router=3,Dns=6,Domain=15,Bcast=28,Ntps=42,
+                ReqIp=50,Lease=51,MsgType=53,ServerIp=54,ReqList=55 };
 
         Dhcp () {
             _dst = wildMac;
@@ -288,12 +330,12 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         void discover (Interface& ni) {
             _src = ni._mac;
             memcpy(_clientHw, ni._mac.b, sizeof ni._mac);
-            static uint8_t const opts [] {
-                53,1, 1,  55,3, 1, 3, 6,  255
-            };
-            memcpy(_options+4, opts, sizeof opts);
-            _len = 310-42;
-            ni.send((uint8_t const*) this, _len+42);
+
+            OptionIter it {_options+4};
+            it.append(MsgType, "\x01", 1);         // discover
+            it.append(ReqList, "\x01\x03\x06", 3); // subnet router dns
+
+            sendIt(ni, (uint32_t) it.ptr + 8 - (uint32_t) this);
         }
 
         auto request (Interface& ni) {
@@ -301,22 +343,37 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
             _op = 2; // DHCP reply
             _clientIp = _yourIp;
             memcpy(_clientHw, ni._mac.b, sizeof ni._mac);
-            static uint8_t const opts [] {
-                53,1, 3,  54,4, 0,0,0,0,  50,4, 0,0,0,0,  255
-            };
-            memcpy(_options+4, opts, sizeof opts);
-            memcpy(_options+9, &_serverIp, 4);
-            memcpy(_options+15, &_yourIp, 4);
-            _len = 320-42;
-            return 320;
+
+            OptionIter it {_options+4};
+            it.append(MsgType, "\x03", 1); // request
+            it.append(ServerIp, &_serverIp, 4);
+            it.append(ReqIp, &_clientIp, 4);
+
+            sendIt(ni, (uint32_t) it.ptr + 8 - (uint32_t) this);
         }
 
         void received (Interface& ni) {
-            if (_options[6] == 2) { // offer
-debugf("DHCP"); _yourIp.dumper(); _serverIp.dumper(); debugf("\n");
+            auto reply = _options[6];
+            if (reply == 2 || reply == 5) { // Offer or ACK
                 ni._ip = _yourIp;
-                ni.send((uint8_t const*) this, request(ni));
-debugf("   sent dhcp accept\n");
+                OptionIter it {_options+4};
+                while (it)
+                    switch (auto typ = it.next(); typ) {
+                        case Subnet: it.extract(&ni._net, 4); break;
+                        case Dns:    it.extract(&ni._dns, 4); break;
+                        case Router: it.extract(&ni._gw,  4); break;
+                        //default:     debugf("option %d\n", typ); break;
+                    }
+                if (reply == 2) // Offer
+                    request(ni);
+                else { // ACK
+                    debugf("DHCP");
+                    ni._ip.dumper();
+                    ni._dns.dumper();
+                    ni._gw.dumper();
+                    ni._net.dumper();
+                    debugf("\n");
+                }
             }
         }
     };
@@ -395,9 +452,10 @@ struct Eth : Device, Interface {
         uint32_t extStat, _gap, times [2];
     };
 
-    constexpr static auto NRX = 4, NTX = 4, BUFSZ = 1524;
+    constexpr static auto NRX = 5, NTX = 5, BUFSZ = 1524;
     DmaDesc rxDesc [NRX], txDesc [NTX];
-    DmaDesc *rxNext = rxDesc, *txNext = txDesc;
+    DmaDesc volatile* rxNext = rxDesc;
+    DmaDesc volatile* txNext = txDesc;
     uint8_t rxBufs [NRX][BUFSZ], txBufs [NTX][BUFSZ];
 
     void init () {
@@ -458,10 +516,7 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         MAC(CR)[3] = 1; msWait(1); // TE
         MAC(CR)[2] = 1; msWait(1); // RE
 
-        DMA(OMR)[20] = 1; // FTF
-        DMA(OMR)[13] = 1; // ST
-        DMA(OMR)[1] = 1;  // SR
-        msWait(1);
+        DMA(OMR) = (1<<20) | (1<<13) | (1<<1); // FTF ST SR
 
         MAC(IMR) = (1<<9) | (1<<3); // TSTIM PMTIM
         DMA(IER)= (1<<16) | (1<<6) | (1<<0); // NISE RIE TIE
@@ -498,35 +553,54 @@ debugf("rphy %x full-duplex %d 100-Mbit/s %d\n", r, duplex, fast);
         if (p != txNext->data) {
             auto [ptr, len] = canSend();
             (void) len;
-debugf("copy %p -> %p #%d\n", p, ptr, n);
             memcpy(ptr, p, n);
         }
-auto x = txNext;
         txNext->size = n;
         txNext->stat = (0b1111<<28) | (3<<22) | (1<<20); // OWN IC LS FS CIC TCH
         txNext = txNext->next;
-        DMA(TPDR) = 0; // resume DMA
-while (x->stat < 0) asm ("dsb");
 asm ("dsb");
-debugf("tx msr %08x dsr %08x stat %08x\n",
-        (uint32_t) MAC(MSR), (uint32_t) DMA(DSR), x->stat);
+        DMA(TPDR) = 0; // resume DMA
     }
 };
 
+void makeNonCacheable (uint32_t from, uint32_t to) {
+    debugf("cache off %08x..%08x, %d b\n", from, to, to-from);
+    constexpr auto MPU = io32<0xE000'ED90>;
+    enum { TYPE=0x00,CTRL=0x04,RNR=0x08,RBAR=0x0C,RASR=0x10 };
+
+    MPU(CTRL) = (1<<2) | (1<<0); // PRIVDEFENA ENABLE
+
+    //asm ("dsb");
+    //asm ("isb");
+    //BlockIRQ crit;
+
+    MPU(RBAR) = from | (1<<4); // ADDR VALID REGION:0
+    MPU(RASR) = // XN AP:FULL TEX S SIZE:16K ENABLE
+        (1<<28)|(3<<24)|(1<<19)|(1<<18)|(0x0D<<1)|(1<<0);
+
+    asm ("isb");
+    asm ("dsb");
+    asm ("dmb");
+
+    debugf("mpu %08x %08x\n", (uint32_t) MPU(RBAR), (uint32_t) MPU(RASR));
+}
+
 void ethTest () {
     Eth eth {{0x34,0x31,0xC4,0x8E,0x32,0x66}};
-    eth._ip = {192,168,188,17};
-    eth.init();
+    uint8_t filler [512];
 
+    debugf("eth @ %p..%p, stack %p\n", &eth, &eth+1, filler);
+    makeNonCacheable(0x2004'C000, 0x2005'0000);
+
+    eth.init();
+    msWait(20); // TODO doesn't work without, why?
+
+    net::Dhcp dhcp;
+    dhcp.discover(eth);
 
     while (true) {
         eth.poll();
         msWait(1);
-        if (millis() == 2000) {
-            static net::Dhcp dhcp;
-            debugf("d %p\n", &dhcp);
-            dhcp.discover(eth);
-        }
     }
 }
 
