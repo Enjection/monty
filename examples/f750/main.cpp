@@ -1,8 +1,10 @@
+#include <monty.h>
 #include <mcu.h>
 
 #include <cstdarg>
 #include <printer.h>
 
+using namespace monty;
 using namespace mcu;
 
 void dumpHex (void const* p, int n =16) {
@@ -401,7 +403,8 @@ debugf("ARP %s %s\n", _sendIp.asStr(), _src.asStr(sb));
             it.append(MsgType, "\x01", 1);         // discover
             it.append(ReqList, "\x01\x03\x06", 3); // subnet router dns
 
-            sendIt(ni, (uint32_t) it.ptr + 9 - (uint32_t) this);
+            //sendIt(ni, (uint32_t) it.ptr + 9 - (uint32_t) this);
+            sendIt(ni, sizeof *this);
         }
 
         auto request (Interface& ni) {
@@ -682,15 +685,29 @@ void ethTest () {
     }
 }
 
-int main () {
-    fastClock(); // OpenOCD expects a 200 MHz clock for SWO
-    printf("@ %d MHz\n", systemClock() / 1'000'000); // falls back to debugf
+// referenced in Stacklet::suspend() and Event::wait()
+auto monty::nowAsTicks () -> uint32_t {
+    return millis();
+}
 
-    uint8_t bufs [reserveNonCached(14)]; // room for ≈2^14 bytes, i.e. 16 kB
-    debugf("reserve %p..%p, %d b\n", bufs, bufs + sizeof bufs, sizeof bufs);
-    ensure(bufs <= allocateNonCached(0));
+mcu::Pin led;
 
-    mcu::Pin led;
+void app () {
+    debugf("hello %s?\n", "f750");
+    printf("hello %s!\n", "f750");
+
+    //spifTest(0);
+    //spifTest(1); // wipe all
+    //qspiTest();
+    //lcdTest();
+    ethTest();
+}
+
+[[noreturn]] void main2 () {
+    uint8_t pool [12*1024];
+    gcSetup(pool, sizeof pool);
+    debugf("gc pool %p..%p, %d b\n", pool, pool + sizeof pool, sizeof pool);
+
     led.define("K3:P"); // set PK3 pin low to turn off the LCD backlight
     led.define("I1:P"); // ... then set the pin to the actual LED
 
@@ -700,16 +717,9 @@ int main () {
     Printer printer (&serial, [](void* obj, uint8_t const* ptr, int len) {
         ((Serial*) obj)->send(ptr, len);
     });
-
     stdOut = &printer;
-debugf("hello %s?\n", "f750");
-printf("hello %s!\n", "f750");
 
-    //spifTest(0);
-    //spifTest(1); // wipe all
-    //qspiTest();
-    //lcdTest();
-    ethTest();
+    app();
 
     while (true) {
         msWait(1);
@@ -718,4 +728,16 @@ printf("hello %s!\n", "f750");
         if (t % 1000 == 0)
             printf("%d\n", t);
     }
+}
+
+int main () {
+    fastClock(); // OpenOCD expects a 200 MHz clock for SWO
+    printf("@ %d MHz\n", systemClock() / 1'000'000); // falls back to debugf
+
+    uint8_t bufs [reserveNonCached(14)]; // room for ≈2^14 bytes, i.e. 16 kB
+    debugf("reserve %p..%p, %d b\n", bufs, bufs + sizeof bufs, sizeof bufs);
+    ensure(bufs <= allocateNonCached(0));
+
+    // call a separate function to avoid allocating buffers in wrong order (!)
+    main2();
 }
