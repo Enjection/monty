@@ -387,14 +387,21 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
 
         Tcp () : Ip4 (6) {}
 
-        void received (Interface&) {}
+        void received (Interface&) {
+            debugf("TCP");
+            _srcIp.dumper();
+            debugf(":%d ->", (int) _sPort);
+            _dstIp.dumper();
+            debugf(":%d win %d seq %08x ack %08x\n",
+                    (int) _dPort, (int) _window, (int) _seq, (int) _ack);
+        }
     };
     static_assert(sizeof (Tcp) == 54);
 
     void Udp::received (Interface& ni) {
         switch (_dPort) {
             case 68: ((Dhcp*) this)->received(ni); break;
-            //default: dumpHex((uint8_t const*) this + sizeof (Udp), _len-8);
+            default: dumpHex((uint8_t const*) this + sizeof (Udp), _len-8);
         }
     }
 
@@ -402,6 +409,7 @@ debugf("ARP"); _sendIp.dumper(); debugf("\n");
         switch (_proto) {
             case 6:  ((Tcp*) this)->received(ni); break;
             case 17: ((Udp*) this)->received(ni); break;
+            default: debugf("proto %02x\n", (int) _proto); break;
         }
     }
 
