@@ -301,7 +301,7 @@ namespace mcu {
         static Device* devMap [];
     };
 
-    struct Chunk { uint8_t* buf; uint16_t len; };
+    struct Chunk { uint8_t* buf; uint32_t len; };
 
     using namespace device;
     using namespace altpins;

@@ -4,6 +4,10 @@ void swap (T& a, T& b) { T t = a; a = b; b = t; }
 struct MacAddr {
     uint8_t b [6];
 
+    auto operator== (MacAddr const& v) const {
+        return memcmp(this, &v, sizeof *this) == 0;
+    }
+
     auto asStr (SmallBuf& buf =smallBuf) const {
         auto ptr = buf;
         for (int i = 0; i < 6; ++i)
@@ -40,6 +44,15 @@ struct IpAddr : Net32 {
     }
 };
 
+struct Peer {
+    IpAddr _rIp;
+    uint16_t _rPort, _lPort;
+
+    auto operator== (Peer const& p) const {
+        return _rPort == p._rPort && _lPort == p._lPort && _rIp == p._rIp;
+    }
+};
+
 struct Interface {
     MacAddr const _mac;
     IpAddr _ip, _gw, _dns, _sub;
@@ -47,7 +60,7 @@ struct Interface {
     Interface (MacAddr const& mac) : _mac (mac) {}
 
     virtual auto canSend () -> Chunk =0;
-    virtual void send (void const* p, uint32_t n) =0;
+    virtual auto send (void const* p, uint32_t n) -> int =0;
 };
 
 MacAddr const wildMac {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
@@ -70,8 +83,7 @@ struct ArpCache {
                 memset(items+1, 0, (N-1) * sizeof items[0]);
             uint8_t b = ip;
             for (auto& e : items)
-                if (e.node == 0 || b == e.node ||
-                        memcmp(&mac, &e.mac, sizeof mac) == 0) {
+                if (e.node == 0 || b == e.node || mac == e.mac) {
                     e.node = b;
                     e.mac = mac;
                     return;
@@ -116,7 +128,7 @@ private:
 ArpCache<10> arpCache;
 
 struct OptionIter {
-    OptionIter (uint8_t* p) : ptr (p) {}
+    OptionIter (uint8_t* p, uint8_t o =0) : ptr (p), off (o) {}
 
     operator bool () const { return *ptr != 0xFF; }
 
@@ -134,14 +146,15 @@ struct OptionIter {
 
     void append (uint8_t typ, void const* p, uint8_t n) {
         *ptr++ = typ;
-        *ptr++ = n;
+        *ptr++ = n + off;
         memcpy(ptr, p, n);
         ptr += n;
-        *ptr = 0xFF;
+        *ptr = off ? 0x00 : 0xFF;
     }
 
     uint8_t* ptr;
     uint8_t len =0;
+    uint8_t off;
 };
 
 struct Frame {
@@ -194,7 +207,7 @@ static_assert(sizeof (Arp) == 42);
 struct Ip4 : Frame {
     uint8_t _versLen =0x45, _tos =0;
     Net16 _total, _id, _frag =0;
-    uint8_t _ttl =255, _proto;
+    uint8_t _ttl =64, _proto;
     Net16 _hcheck =0;
     IpAddr _srcIp, _dstIp;
 
@@ -212,7 +225,7 @@ struct Ip4 : Frame {
     void received (Interface&); // dispatcher
 
     void sendIt (Interface& ni, uint16_t len) {
-        _total = len - 20;
+        _total = len - 14;
         ni.send(this, len);
     }
 };
@@ -244,7 +257,7 @@ struct Udp : Ip4 {
     void received (Interface&); // dispatcher
 
     void sendIt (Interface& ni, uint16_t len) {
-        _len = len - 40;
+        _len = len - 34;
         Ip4::sendIt(ni, len);
     }
 };
@@ -279,9 +292,9 @@ struct Dhcp : Udp {
         it.append(MsgType, "\x01", 1);         // discover
         it.append(ReqList, "\x01\x03\x06", 3); // subnet router dns
 
-        //sendIt(ni, (uint32_t) it.ptr + 9 - (uint32_t) this);
+        sendIt(ni, (uint32_t) it.ptr + 1 - (uint32_t) this);
         //sendIt(ni, sizeof *this);
-        sendIt(ni, 400);
+        //sendIt(ni, 400);
     }
 
     auto request (Interface& ni) {
@@ -295,7 +308,7 @@ struct Dhcp : Udp {
         it.append(ServerIp, &_serverIp, 4);
         it.append(ReqIp, &_clientIp, 4);
 
-        sendIt(ni, (uint32_t) it.ptr + 9 - (uint32_t) this);
+        sendIt(ni, (uint32_t) it.ptr + 1 - (uint32_t) this);
     }
 
     void received (Interface& ni) {
@@ -326,23 +339,136 @@ struct Dhcp : Udp {
 };
 static_assert(sizeof (Dhcp) == 590);
 
+struct TcpState : Peer {
+    uint32_t _rSeq, _lSeq;
+    uint16_t _mss;
+    uint8_t _state;
+
+    enum : uint8_t {
+        CLOSE, SYRX, SYTX, ESTAB, FWAIT1, FWAIT2, CSING, TWAIT, LACK, STOP
+    };
+};
+
+template <int N>
+struct Listeners {
+    void add (uint16_t port) {
+        for (auto& e : ports)
+            if (e == 0) {
+                e = port;
+                return;
+            }
+        ensure(0); // ran out of slots
+    }
+    void remove (uint16_t port) {
+        for (auto& e : ports)
+            if (e == port)
+                e = 0;
+    }
+    auto exists (uint16_t port) const {
+        for (auto e : ports)
+            if (e == port)
+                return true;
+        return false;
+    }
+private:
+    uint16_t ports [N];
+};
+
+Listeners<10> listeners;
+
+template <int N>
+struct Sessions {
+    auto add (Peer const& peer) -> TcpState& {
+        ensure(find(peer) < 0);
+        for (auto& e : items)
+            if (e._state == e.CLOSE) {
+                (Peer&) e = peer;
+                e._state = e.SYRX;
+                return e;
+            }
+        ensure(0); // ran out of slots
+    }
+
+    auto find (Peer const& peer) const -> int {
+        for (auto& e : items)
+            if (e == peer)
+                return &e - items;
+        return -1;
+    }
+
+    auto& operator[] (int i) { return items[i]; }
+
+    void dump () const {
+        debugf("sessions [%d]\n", N);
+        for (auto& e : items)
+            if (e._state != e.CLOSE)
+                debugf("%3d: %s:%d @%08x <=> :%d @%08x mss %d state %d\n",
+                        &e - items, e._rIp.asStr(), e._rPort, e._rSeq,
+                        e._lPort, e._lSeq, e._mss, e._state);
+    }
+private:
+    TcpState items [N];
+};
+
+Sessions<10> sessions;
+
 struct Tcp : Ip4 {
     Net16 _sPort, _dPort;
     Net32 _seq, _ack;
-    Net16 _code, _window, _sum, _urg;
-    uint8_t data [];
+    uint8_t _off, _code;
+    Net16 _window, _sum, _urg;
+    uint8_t _data [4];
+
+    enum : uint8_t { FIN=1<<0,SYN=1<<1,RST=1<<2,PSH=1<<3,ACK=1<<4,URG=1<<5 };
 
     Tcp () : Ip4 (6) {}
 
-    void received (Interface&) {
+    auto flags () const { return _code & 0x3F; }
+
+    void synAck (Interface& ni, TcpState& ts) {
+        ts._rSeq = _seq;
+        ts._mss = 1460; // TODO look through options
+        isReply(ni);
+        swap(_sPort, _dPort);
+        _ack = ts._rSeq = _seq + 1;
+        _seq = ts._lSeq = 1024;
+        _window = 1000;
+        _code = SYN+ACK;
+        _off = 6<<4;
+
+        OptionIter it {_data, 2};
+        Net16 mss = 1460;
+        it.append(2, &mss, 2); // mss
+
+        sendIt(ni, sizeof *this);
+    }
+
+    void received (Interface& ni) {
         SmallBuf sb;
-        debugf("TCP %s:%d -> %s:%d win %d seq %08x ack %08x\n",
+        debugf("TCP %s:%d -> %s:%d o %02x c %02x seq %08x ack %08x\n",
                 _srcIp.asStr(), (int) _sPort,
                 _dstIp.asStr(sb), (int) _dPort,
-                (int) _window, (int) _seq, (int) _ack);
+                _off, _code, (int) _seq, (int) _ack);
+        for (int i = 0; i < 6; ++i)
+            smallBuf[i] = flags() & (1<<i) ? "FSRPAU"[i] : '.';
+        smallBuf[6] = 0;
+        debugf("    flags %s\n", smallBuf);
+
+        Peer peer {_srcIp, _sPort, _dPort};
+        auto i = sessions.find(peer);
+        if (i < 0 && flags() == SYN && listeners.exists(_dPort)) {
+            debugf("new SYN\n");
+            synAck(ni, sessions.add(peer));
+        } else {
+            auto s = sessions[i];
+            if (flags() == ACK)
+                s._rSeq = _seq;
+            else
+                sessions.dump();
+        }
     }
 };
-static_assert(sizeof (Tcp) == 54);
+static_assert(sizeof (Tcp) == 58);
 
 void Udp::received (Interface& ni) {
     switch (_dPort) {

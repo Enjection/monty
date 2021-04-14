@@ -104,7 +104,7 @@ debugf("link %d ms full-duplex %d 100-Mbit/s %d\n", t, duplex, fast);
         MAC(CR)[3] = 1; msWait(1); // TE
         MAC(CR)[2] = 1; msWait(1); // RE
 
-        DMA(OMR) = (1<<20) | (1<<13) | (1<<1); // FTF ST SR
+        DMA(OMR) = (1<<21) | (1<<20) | (1<<13) | (1<<1); // TSF FTF ST SR
 
         MAC(IMR) = (1<<9) | (1<<3); // TSTIM PMTIM
         DMA(IER)= (1<<16) | (1<<6) | (1<<0); // NISE RIE TIE
@@ -136,11 +136,12 @@ debugf("link %d ms full-duplex %d 100-Mbit/s %d\n", t, duplex, fast);
         return { txNext->data, BUFSZ };
     }
 
-    void send (void const* p, uint32_t n) override {
+    auto send (void const* p, uint32_t n) -> int override {
         ensure(sizeof (Frame) <= n && n <= BUFSZ);
         if (p != txNext->data) {
             auto [ptr, len] = canSend();
-            (void) len;
+            if (len == 0)
+                return *ptr; // error
             memcpy(ptr, p, n);
         }
         ensure(txNext->available());
@@ -148,5 +149,6 @@ debugf("link %d ms full-duplex %d 100-Mbit/s %d\n", t, duplex, fast);
         txNext->stat = (0b0111<<28) | (3<<22) | (1<<20); // IC LS FS CIC TCH
         txNext = txNext->release();
         DMA(TPDR) = 0; // resume DMA
+        return 0;
     }
 };

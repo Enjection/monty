@@ -169,6 +169,9 @@ void ethTest () {
     net::Dhcp dhcp;
     dhcp.discover(*eth);
 
+    net::listeners.add(23); // telnet
+    net::listeners.add(80); // http
+
     while (true) {
         eth->poll();
         msWait(1);

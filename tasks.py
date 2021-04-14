@@ -410,7 +410,7 @@ if not root: # the following tasks are NOT available for use out-of-tree
     @task
     def x_tags(c):
         """update the (c)tags file"""
-        c.run("ctags -R lib src test")
+        c.run("ctags -R examples lib src test")
 
     @task
     def x_version(c):
