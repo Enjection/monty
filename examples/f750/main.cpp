@@ -114,7 +114,7 @@ void qspiTest () {
 }
 
 namespace lcd {
-#include "lcd.h"
+#include "lcd-stm32f7.h"
 }
 
 static lcd::FrameBuffer<1> bg;
@@ -189,8 +189,8 @@ static void app () {
     //spifTest(0);
     //spifTest(1); // wipe all
     //qspiTest();
-    //lcdTest();
-    ethTest();
+    lcdTest();
+    //ethTest();
 }
 
 [[noreturn]] static void main2 () {
