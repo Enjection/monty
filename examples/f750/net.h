@@ -339,16 +339,6 @@ struct Dhcp : Udp {
 };
 static_assert(sizeof (Dhcp) == 590);
 
-struct TcpState : Peer {
-    uint32_t _rSeq, _lSeq;
-    uint16_t _mss;
-    uint8_t _state;
-
-    enum : uint8_t {
-        CLOSE, SYRX, SYTX, ESTAB, FWAIT1, FWAIT2, CSING, TWAIT, LACK, STOP
-    };
-};
-
 template <int N>
 struct Listeners {
     void add (uint16_t port) {
@@ -376,42 +366,6 @@ private:
 
 Listeners<10> listeners;
 
-template <int N>
-struct Sessions {
-    auto add (Peer const& peer) -> TcpState& {
-        ensure(find(peer) < 0);
-        for (auto& e : items)
-            if (e._state == e.CLOSE) {
-                (Peer&) e = peer;
-                e._state = e.SYRX;
-                return e;
-            }
-        ensure(0); // ran out of slots
-    }
-
-    auto find (Peer const& peer) const -> int {
-        for (auto& e : items)
-            if (e == peer)
-                return &e - items;
-        return -1;
-    }
-
-    auto& operator[] (int i) { return items[i]; }
-
-    void dump () const {
-        debugf("sessions [%d]\n", N);
-        for (auto& e : items)
-            if (e._state != e.CLOSE)
-                debugf("%3d: %s:%d @%08x <=> :%d @%08x mss %d state %d\n",
-                        &e - items, e._rIp.asStr(), e._rPort, e._rSeq,
-                        e._lPort, e._lSeq, e._mss, e._state);
-    }
-private:
-    TcpState items [N];
-};
-
-Sessions<10> sessions;
-
 struct Tcp : Ip4 {
     Net16 _sPort, _dPort;
     Net32 _seq, _ack;
@@ -420,55 +374,89 @@ struct Tcp : Ip4 {
     uint8_t _data [4];
 
     enum : uint8_t { FIN=1<<0,SYN=1<<1,RST=1<<2,PSH=1<<3,ACK=1<<4,URG=1<<5 };
+    enum : uint8_t { INIT, SYRX, SYTX, ESTAB, FINW1, FINW2, CSING, TWAIT, CWAIT, LAST };
+
+    struct State : Peer {
+        uint32_t _rSeq, _lSeq;
+        uint16_t _mss;
+        uint8_t _state;
+
+        void dump () const {
+            debugf("  sess %s:%d @%08x <=> :%d @%08x mss %d state %c\n",
+                    _rIp.asStr(), _rPort, _rSeq, _lPort, _lSeq, _mss,
+                    "CRTE12SWL"[_state]);
+        }
+    };
 
     Tcp () : Ip4 (6) {}
 
     auto flags () const { return _code & 0x3F; }
 
-    void synAck (Interface& ni, TcpState& ts) {
-        ts._rSeq = _seq;
-        ts._mss = 1460; // TODO look through options
+    void received (Interface& ni) {
+        SmallBuf sb [2];
+        for (int i = 0; i < 6; ++i)
+            smallBuf[i] = flags() & (1<<i) ? "FSRPAU"[i] : '.';
+        smallBuf[6] = 0;
+        debugf("TCP %s %s:%d -> %s:%d seq %08x ack %08x\n",
+                smallBuf, _srcIp.asStr(sb[0]), (int) _sPort,
+                _dstIp.asStr(sb[1]), (int) _dPort, (int) _seq, (int) _ack);
+
+        auto sess = findSession();
+        if (sess != nullptr) {
+#if 1
+            if (sess->_state == INIT) {
+                debugf("new session\n");
+                synAck(ni, *sess);
+                sess->_state = SYRX;
+            } else {
+                if (flags() == ACK) {
+                    sess->_rSeq = _seq;
+                    sess->_state = ESTAB;
+                }
+            }
+            sess->dump();
+#endif
+        }
+    }
+
+    void synAck (Interface& ni, State& sess) {
+        sess._rSeq = _seq;
+        sess._mss = 1460; // TODO look through options
         isReply(ni);
         swap(_sPort, _dPort);
-        _ack = ts._rSeq = _seq + 1;
-        _seq = ts._lSeq = 1024;
+        _ack = sess._rSeq = _seq + 1;
+        _seq = sess._lSeq = 1024;
         _window = 1000;
         _code = SYN+ACK;
         _off = 6<<4;
 
         OptionIter it {_data, 2};
-        Net16 mss = 1460;
+        Net16 mss = sess._mss;
         it.append(2, &mss, 2); // mss
 
         sendIt(ni, sizeof *this);
     }
 
-    void received (Interface& ni) {
-        SmallBuf sb;
-        debugf("TCP %s:%d -> %s:%d o %02x c %02x seq %08x ack %08x\n",
-                _srcIp.asStr(), (int) _sPort,
-                _dstIp.asStr(sb), (int) _dPort,
-                _off, _code, (int) _seq, (int) _ack);
-        for (int i = 0; i < 6; ++i)
-            smallBuf[i] = flags() & (1<<i) ? "FSRPAU"[i] : '.';
-        smallBuf[6] = 0;
-        debugf("    flags %s\n", smallBuf);
-
+    auto findSession () -> State* {
         Peer peer {_srcIp, _sPort, _dPort};
-        auto i = sessions.find(peer);
-        if (i < 0 && flags() == SYN && listeners.exists(_dPort)) {
-            debugf("new SYN\n");
-            synAck(ni, sessions.add(peer));
-        } else {
-            auto s = sessions[i];
-            if (flags() == ACK)
-                s._rSeq = _seq;
-            else
-                sessions.dump();
+        for (auto& e : sessions)
+            if (e == peer)
+                return &e;
+        if (flags() == SYN && listeners.exists(_dPort)) {
+            for (auto& e : sessions)
+                if (e._state == INIT) {
+                    (Peer&) e = peer;
+                    return &e;
+                }
         }
+        return nullptr;
     }
+
+    static Tcp::State sessions [10];
 };
 static_assert(sizeof (Tcp) == 58);
+
+Tcp::State Tcp::sessions [];
 
 void Udp::received (Interface& ni) {
     switch (_dPort) {
