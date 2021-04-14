@@ -189,8 +189,8 @@ static void app () {
     //spifTest(0);
     //spifTest(1); // wipe all
     //qspiTest();
-    lcdTest();
-    //ethTest();
+    //lcdTest();
+    ethTest();
 }
 
 [[noreturn]] static void main2 () {

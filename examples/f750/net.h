@@ -218,6 +218,19 @@ struct Ip4 : Frame {
 };
 static_assert(sizeof (Ip4) == 34);
 
+struct Icmp : Ip4 {
+    uint8_t _type, _code;
+    Net16 _sum;
+
+    Icmp () : Ip4 (1) {}
+
+    void received (Interface&) {
+        debugf("ICMP type %d code %d\n", _type, _code);
+        dumpHex(this, sizeof *this);
+    }
+};
+static_assert(sizeof (Icmp) == 38);
+
 struct Udp : Ip4 {
     Net16 _sPort, _dPort, _len, _sum;
 
@@ -340,6 +353,7 @@ void Udp::received (Interface& ni) {
 
 void Ip4::received (Interface& ni) {
     switch (_proto) {
+        case 1:  ((Icmp*) this)->received(ni); break;
         case 6:  ((Tcp*) this)->received(ni); break;
         case 17: ((Udp*) this)->received(ni); break;
         default: debugf("proto %02x\n", (int) _proto); break;
