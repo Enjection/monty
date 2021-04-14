@@ -13,10 +13,10 @@ struct MacAddr {
 };
 
 struct Net16 {
-    constexpr Net16 (uint16_t v =0) : b1 {(uint8_t) (v>>8), (uint8_t) v} {}
-    operator uint16_t () const { return (b1[0]<<8) | b1[1]; }
+    constexpr Net16 (uint16_t v =0) : h ((v<<8) | (v>>8)) {}
+    operator uint16_t () const { return (h<<8) | (h>>8); }
 private:
-    uint8_t b1 [2];
+    uint16_t h;
 };
 
 struct Net32 {
@@ -51,7 +51,7 @@ struct Interface {
 };
 
 MacAddr const wildMac {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
-IpAddr const wildIp {0xFFFFFFFF};
+IpAddr const wildIp {255,255,255,255};
 
 template <int N>
 struct ArpCache {
