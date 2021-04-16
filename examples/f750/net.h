@@ -429,13 +429,13 @@ struct Tcp : Ip4 {
 
                     memcpy(pkt._data, pend.begin(), pend.size());
                     rSeq = pkt._seq;
-                    uint8_t r = ACK;
-                    if (pend.size() == 0) {
-                        r += FIN;
-                        state = FIN1;
+                    if (pkt._code & FIN) {
+                        if (pend.size() > 0)
+                            return;
                         ++rSeq;
+                        state = FIN1;
                     }
-                    replySeg(pkt, r, pend.size());
+                    replySeg(pkt, ACK, pend.size());
                     return;
                 }
                 case FIN1:
@@ -443,7 +443,6 @@ struct Tcp : Ip4 {
                     state = FIN2;
                     return;
                 case FIN2:
-                    replySeg(pkt, FIN);
                     state = 0;
                     return;
             }
@@ -469,7 +468,7 @@ struct Tcp : Ip4 {
         Ip4::isReply(ni);
         swap(_sPort, _dPort);
         _seq = seq;
-        _ack = ack;
+        _ack = code & ACK ? ack : 0;
         _off = 5<<4;
         _code = code;
         _window = 1000;
