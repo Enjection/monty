@@ -371,97 +371,157 @@ struct Tcp : Ip4 {
     Net32 _seq, _ack;
     uint8_t _off, _code;
     Net16 _window, _sum, _urg;
-    uint8_t _data [4];
+    uint8_t _data [];
 
-    enum : uint8_t { FIN=1<<0,SYN=1<<1,RST=1<<2,PSH=1<<3,ACK=1<<4,URG=1<<5 };
-    enum : uint8_t { INIT, SYRX, SYTX, ESTAB, FINW1, FINW2, CSING, TWAIT, CWAIT, LAST };
+    enum : uint8_t {
+        FIN = 1<<0, SYN = 1<<1, RST = 1<<2, PSH = 1<<3, ACK = 1<<4, URG = 1<<5 };
+    enum : uint16_t {
+        LSTN = 1<<0, SYNR = 1<<1, SYNS = 1<<2, ESTB = 1<<3, FIN1 = 1<<4,
+        FIN2 = 1<<5, CSNG = 1<<6, TIMW = 1<<7, CLOW = 1<<8, LAST = 1<<9 };
 
-    struct State : Peer {
-        uint32_t _rSeq, _lSeq;
-        uint16_t _mss;
-        uint8_t _state;
+    static auto decode (int v, char const* s) {
+        memset(smallBuf, 0, sizeof smallBuf);
+        for (int i = 0; s[i] != 0; ++i)
+            smallBuf[i] = v & (1<<i) ? s[i] : '.';
+        return smallBuf;
+    }
+
+    auto rlen () const { return _total - 4*(_off>>4) - 20; }
+
+    struct Session : Peer {
+        Interface* nip;
+        uint32_t rSeq, lSeq;
+        uint16_t state;
+        ByteVec pend;
+
+        void process (Tcp& pkt) {
+            if (pkt._code & RST) { nip = nullptr; state = 0; pend.clear(); return; }
+
+            switch (state) {
+                case LSTN: {
+                    pend.clear(); pend.insert(0, 6);
+                    memcpy(pend.begin(), "hello\n", 6);
+
+                    rSeq = pkt._seq + 1;
+                    lSeq = 0x1000; // arbitrary
+                    replySeg(pkt, SYN+ACK);
+
+                    state = SYNR;
+                    return;
+                }
+            }
+
+            if ((pkt._code & ACK) == 0)
+                return;
+
+            uint16_t adv = pkt._ack - lSeq;
+            lSeq = pkt._ack;
+
+            switch (state) {
+                case SYNR:
+                    state = ESTB;
+                    return;
+                case ESTB: {
+                    dumpHex(pkt._data, pkt.rlen());
+
+                    if (adv <= pend.size())
+                        pend.remove(0, adv);
+
+                    memcpy(pkt._data, pend.begin(), pend.size());
+                    rSeq = pkt._seq;
+                    uint8_t r = ACK;
+                    if (pend.size() == 0) {
+                        r += FIN;
+                        state = FIN1;
+                        ++rSeq;
+                    }
+                    replySeg(pkt, r, pend.size());
+                    return;
+                }
+                case FIN1:
+                    replySeg(pkt, FIN+ACK);
+                    state = FIN2;
+                    return;
+                case FIN2:
+                    replySeg(pkt, FIN);
+                    state = 0;
+                    return;
+            }
+        }
+
+        void replySeg (Tcp& pkt, uint8_t code, uint16_t len =0) {
+            pkt.sendReply(*nip, code, lSeq, rSeq, len);
+        }
 
         void dump () const {
-            debugf("  sess %s:%d @%08x <=> :%d @%08x mss %d state %c\n",
-                    _rIp.asStr(), _rPort, _rSeq, _lPort, _lSeq, _mss,
-                    "CRTE12SWL"[_state]);
+            debugf("           %s  %s rseq %04x lseq %04x  pend %d\n",
+                    decode(state, "LRSE12GTCK"), "               ",
+                    (uint16_t) rSeq, (uint16_t) lSeq, pend.size());
         }
     };
 
     Tcp () : Ip4 (6) {}
 
-    auto flags () const { return _code & 0x3F; }
+    void sendReply (Interface& ni, uint8_t code,
+                    uint32_t seq, uint32_t ack, uint16_t len =0) {
+        debugf("  > %s seq %04x ack %04x len %d\n",
+                decode(code, "fsrpau"), (uint16_t) seq, (uint16_t) ack, len);
+        Ip4::isReply(ni);
+        swap(_sPort, _dPort);
+        _seq = seq;
+        _ack = ack;
+        _off = 5<<4;
+        _code = code;
+        _window = 1000;
+        sendIt(ni, sizeof *this + len);
+    }
 
     void received (Interface& ni) {
-        SmallBuf sb [2];
-        for (int i = 0; i < 6; ++i)
-            smallBuf[i] = flags() & (1<<i) ? "FSRPAU"[i] : '.';
-        smallBuf[6] = 0;
-        debugf("TCP %s %s:%d -> %s:%d seq %08x ack %08x\n",
-                smallBuf, _srcIp.asStr(sb[0]), (int) _sPort,
-                _dstIp.asStr(sb[1]), (int) _dPort, (int) _seq, (int) _ack);
+        SmallBuf sb;
+        debugf("\nTCP %s %s:%d -> :%d  seq %04x  ack %04x total %d\n",
+                decode(_code, "fsrpau"), _srcIp.asStr(sb), (int) _sPort,
+                (int) _dPort, (uint16_t) _seq, (uint16_t) _ack, (int) _total);
 
-        auto sess = findSession();
-        if (sess != nullptr) {
-#if 1
-            if (sess->_state == INIT) {
-                debugf("new session\n");
-                synAck(ni, *sess);
-                sess->_state = SYRX;
-            } else {
-                if (flags() == ACK) {
-                    sess->_rSeq = _seq;
-                    sess->_state = ESTAB;
-                }
-            }
-            sess->dump();
-#endif
+        Peer peer {_srcIp, _sPort, _dPort};
+        auto s = findSession(peer);
+        if (s != nullptr) {
+            s->nip = &ni;
+            s->dump();
+            s->process(*this);
+            s->dump();
+        } else if ((_code & RST) == 0) {
+            if (_code & ACK)
+                sendReply(ni, RST, _ack, 0);
+            else
+                sendReply(ni, RST+ACK, 0, _seq+rlen());
         }
     }
 
-    void synAck (Interface& ni, State& sess) {
-        sess._rSeq = _seq;
-        sess._mss = 1460; // TODO look through options
-        isReply(ni);
-        swap(_sPort, _dPort);
-        _ack = sess._rSeq = _seq + 1;
-        _seq = sess._lSeq = 1024;
-        _window = 1000;
-        _code = SYN+ACK;
-        _off = 6<<4;
-
-        OptionIter it {_data, 2};
-        Net16 mss = sess._mss;
-        it.append(2, &mss, 2); // mss
-
-        sendIt(ni, sizeof *this);
-    }
-
-    auto findSession () -> State* {
-        Peer peer {_srcIp, _sPort, _dPort};
+    auto findSession (Peer const& peer) -> Session* {
         for (auto& e : sessions)
-            if (e == peer)
+            if (e.nip != nullptr && e == peer)
                 return &e;
-        if (flags() == SYN && listeners.exists(_dPort)) {
+        if ((_code & 0x3F) == SYN && listeners.exists(_dPort)) {
             for (auto& e : sessions)
-                if (e._state == INIT) {
+                if (e.nip == nullptr) {
                     (Peer&) e = peer;
+                    e.state = LSTN;
                     return &e;
                 }
         }
         return nullptr;
     }
 
-    static Tcp::State sessions [10];
+    static Tcp::Session sessions [10];
 };
-static_assert(sizeof (Tcp) == 58);
+static_assert(sizeof (Tcp) == 54);
 
-Tcp::State Tcp::sessions [];
+Tcp::Session Tcp::sessions [];
 
 void Udp::received (Interface& ni) {
     switch (_dPort) {
         case 68: ((Dhcp*) this)->received(ni); break;
-        default: dumpHex((uint8_t const*) this + sizeof (Udp), _len-8);
+        //default: dumpHex((uint8_t const*) this + sizeof (Udp), _len-8);
     }
 }
 

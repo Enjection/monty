@@ -13,14 +13,18 @@ void dumpHex (void const* p, int n =16) {
         for (int i = 0; i < 16; ++i) {
             if (i % 4 == 0)
                 debugf(" ");
-            auto b = ((uint8_t const*) p)[off+i];
-            debugf("%02x", b);
+            if (off+i >= n)
+                debugf("..");
+            else {
+                auto b = ((uint8_t const*) p)[off+i];
+                debugf("%02x", b);
+            }
         }
         for (int i = 0; i < 16; ++i) {
             if (i % 4 == 0)
                 debugf(" ");
             auto b = ((uint8_t const*) p)[off+i];
-            debugf("%c", ' ' <= b && b <= '~' ? b : '.');
+            debugf("%c", off+i >= n ? ' ' : ' ' <= b && b <= '~' ? b : '.');
         }
         debugf("\n");
     }
