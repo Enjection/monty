@@ -392,15 +392,15 @@ struct Tcp : Ip4 {
         Interface* nip;
         uint32_t rSeq, lSeq;
         uint16_t state;
-        ByteVec pend;
+        ByteVec iBuf, oBuf;
 
         void process (Tcp& pkt) {
-            if (pkt._code & RST) { nip = nullptr; state = 0; pend.clear(); return; }
+            if (pkt._code & RST) { nip = nullptr; state = 0; oBuf.clear(); return; }
 
             switch (state) {
                 case LSTN: {
-                    pend.clear(); pend.insert(0, 6);
-                    memcpy(pend.begin(), "hello\n", 6);
+                    oBuf.clear(); oBuf.insert(0, 6);
+                    memcpy(oBuf.begin(), "hello\n", 6);
 
                     rSeq = pkt._seq + 1;
                     lSeq = 0x1000; // arbitrary
@@ -414,35 +414,36 @@ struct Tcp : Ip4 {
             if ((pkt._code & ACK) == 0)
                 return;
 
-            uint16_t adv = pkt._ack - lSeq;
+            uint16_t lStep = pkt._ack - lSeq, rStep = pkt._seq - rSeq;
             lSeq = pkt._ack;
+            rSeq = pkt._seq;
 
             switch (state) {
                 case SYNR:
-                    state = ESTB;
+                    if (lStep == 1)
+                        state = ESTB;
                     return;
                 case ESTB: {
                     dumpHex(pkt._data, pkt.rlen());
 
-                    if (adv <= pend.size())
-                        pend.remove(0, adv);
+                    oBuf.remove(0, lStep);
 
-                    memcpy(pkt._data, pend.begin(), pend.size());
-                    rSeq = pkt._seq;
+                    uint8_t r = ACK;
                     if (pkt._code & FIN) {
-                        if (pend.size() > 0)
+                        if (oBuf.size() > 0)
                             return;
                         ++rSeq;
+                        r += FIN;
                         state = FIN1;
                     }
-                    replySeg(pkt, ACK, pend.size());
+
+                    memcpy(pkt._data, oBuf.begin(), oBuf.size());
+                    replySeg(pkt, r, oBuf.size());
                     return;
                 }
                 case FIN1:
                     replySeg(pkt, FIN+ACK);
-                    state = FIN2;
-                    return;
-                case FIN2:
+                    nip = nullptr;
                     state = 0;
                     return;
             }
@@ -453,9 +454,9 @@ struct Tcp : Ip4 {
         }
 
         void dump () const {
-            debugf("           %s  %s rseq %04x lseq %04x  pend %d\n",
-                    decode(state, "LRSE12GTCK"), "               ",
-                    (uint16_t) rSeq, (uint16_t) lSeq, pend.size());
+            debugf("           %s %16s rseq %04x lseq %04x  oBuf %d\n",
+                    decode(state, "LRSE12GTCK"), "",
+                    (uint16_t) rSeq, (uint16_t) lSeq, oBuf.size());
         }
     };
 
@@ -463,8 +464,9 @@ struct Tcp : Ip4 {
 
     void sendReply (Interface& ni, uint8_t code,
                     uint32_t seq, uint32_t ack, uint16_t len =0) {
-        debugf("  > %s seq %04x ack %04x len %d\n",
-                decode(code, "fsrpau"), (uint16_t) seq, (uint16_t) ack, len);
+        debugf("  > %s %28s ack %04x  seq %04x   len %d\n",
+                decode(code, "fsrpau"), "",
+                (uint16_t) ack, (uint16_t) seq, len);
         Ip4::isReply(ni);
         swap(_sPort, _dPort);
         _seq = seq;
