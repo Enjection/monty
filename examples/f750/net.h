@@ -373,11 +373,10 @@ struct Tcp : Ip4 {
     Net16 _window, _sum, _urg;
     uint8_t _data [];
 
-    enum : uint8_t {
-        FIN = 1<<0, SYN = 1<<1, RST = 1<<2, PSH = 1<<3, ACK = 1<<4, URG = 1<<5 };
-    enum : uint16_t {
-        LSTN = 1<<0, SYNR = 1<<1, SYNS = 1<<2, ESTB = 1<<3, FIN1 = 1<<4,
-        FIN2 = 1<<5, CSNG = 1<<6, TIMW = 1<<7, CLOW = 1<<8, LAST = 1<<9 };
+    enum : uint8_t { FIN=1<<0,SYN=1<<1,RST=1<<2,PSH=1<<3,ACK=1<<4,URG=1<<5 };
+    enum : uint8_t { FREE,LSTN,SYNR,SYNS,ESTB,FIN1,FIN2,CSNG,TIMW,CLOW,LACK };
+
+    Tcp () : Ip4 (6) {}
 
     static auto decode (int v, char const* s) {
         memset(smallBuf, 0, sizeof smallBuf);
@@ -386,127 +385,123 @@ struct Tcp : Ip4 {
         return smallBuf;
     }
 
-    auto rlen () const { return _total - 4*(_off>>4) - 20; }
-
     struct Session : Peer {
-        Interface* nip;
         uint32_t rSeq, lSeq;
-        uint16_t state;
+        uint8_t state;
         ByteVec iBuf, oBuf;
 
-        void process (Tcp& pkt) {
-            if (pkt._code & RST) { nip = nullptr; state = 0; oBuf.clear(); return; }
-
-            switch (state) {
-                case LSTN: {
-                    oBuf.clear(); oBuf.insert(0, 6);
-                    memcpy(oBuf.begin(), "hello\n", 6);
-
-                    rSeq = pkt._seq + 1;
-                    lSeq = 0x1000; // arbitrary
-                    replySeg(pkt, SYN+ACK);
-
-                    state = SYNR;
-                    return;
-                }
-            }
-
-            if ((pkt._code & ACK) == 0)
-                return;
-
-            uint16_t lStep = pkt._ack - lSeq, rStep = pkt._seq - rSeq;
-            lSeq = pkt._ack;
-            rSeq = pkt._seq;
-
-            switch (state) {
-                case SYNR:
-                    if (lStep == 1)
-                        state = ESTB;
-                    return;
-                case ESTB: {
-                    dumpHex(pkt._data, pkt.rlen());
-
-                    oBuf.remove(0, lStep);
-
-                    uint8_t r = ACK;
-                    if (pkt._code & FIN) {
-                        if (oBuf.size() > 0)
-                            return;
-                        ++rSeq;
-                        r += FIN;
-                        state = FIN1;
-                    }
-
-                    memcpy(pkt._data, oBuf.begin(), oBuf.size());
-                    replySeg(pkt, r, oBuf.size());
-                    return;
-                }
-                case FIN1:
-                    replySeg(pkt, FIN+ACK);
-                    nip = nullptr;
-                    state = 0;
-                    return;
-            }
-        }
-
-        void replySeg (Tcp& pkt, uint8_t code, uint16_t len =0) {
-            pkt.sendReply(*nip, code, lSeq, rSeq, len);
-        }
+        void init (Peer const& p, uint8_t s) { *(Peer*) this = p; state = s; }
+        void deinit () { state = FREE; iBuf.clear(); oBuf.clear(); }
 
         void dump () const {
-            debugf("           %s %16s rseq %04x lseq %04x  oBuf %d\n",
-                    decode(state, "LRSE12GTCK"), "",
-                    (uint16_t) rSeq, (uint16_t) lSeq, oBuf.size());
+            debugf("  %c %34s rSeq %04x lSeq %04x  iBuf %d oBuf %d\n",
+                    "FLRSE12GTCK"[state], "",
+                    (uint16_t) rSeq, (uint16_t) lSeq,
+                    iBuf.size(), oBuf.size());
         }
     };
 
-    Tcp () : Ip4 (6) {}
+    struct Reply { uint8_t flags; uint16_t bytes, window; };
 
-    void sendReply (Interface& ni, uint8_t code,
-                    uint32_t seq, uint32_t ack, uint16_t len =0) {
-        debugf("  > %s %28s ack %04x  seq %04x   len %d\n",
-                decode(code, "fsrpau"), "",
-                (uint16_t) ack, (uint16_t) seq, len);
+    void sendReply (Interface& ni, Session& ts, Reply const& r) {
+        debugf("  > %s %28s ack %04x  seq %04x   len %d win %d\n",
+                decode(r.flags, "FSRPAU"), "",
+                (uint16_t) ts.rSeq, (uint16_t) ts.lSeq, r.bytes, r.window);
         Ip4::isReply(ni);
         swap(_sPort, _dPort);
-        _seq = seq;
-        _ack = code & ACK ? ack : 0;
+        _seq = ts.lSeq;
+        _ack = r.flags & ACK ? ts.rSeq : 0;
         _off = 5<<4;
-        _code = code;
-        _window = 1000;
-        sendIt(ni, sizeof *this + len);
+        _code = r.flags;
+        _window = r.window;
+        sendIt(ni, sizeof *this + r.bytes);
+    }
+
+    auto process (Session& ts) -> Reply {
+        uint16_t lSlide = _ack - ts.lSeq;
+        uint16_t rSlide = _seq - ts.rSeq;
+        if (_code & ACK)
+            ts.lSeq = _ack;
+        ts.rSeq = _seq;
+
+        auto nIn = _total - 4*(_off>>4) - 20;
+        if (nIn > 0) {
+            dumpHex(_data, nIn);
+            auto p = ts.iBuf.end();
+            ts.iBuf.insert(ts.iBuf.size(), nIn);
+            memcpy(p, _data, nIn);
+        }
+
+        Reply r {0, 0, 1000};
+
+        switch (ts.state) {
+            case LSTN:
+//ts.oBuf.insert(0, 6);
+//memcpy(ts.oBuf.begin(), "hello\n", 6);
+                ts.lSeq = 1024; // TODO 1024 -> random
+                ++nIn;
+                ts.state = SYNR;
+                r.flags = SYN+ACK;
+                break;
+            case SYNR:
+                ts.state = ESTB;
+                break;
+            case SYNS:
+                break; // TODO
+            case ESTB: {
+                r.flags = ACK;
+                ts.oBuf.remove(0, lSlide);
+                if (_code & FIN) {
+                    ++nIn;
+                    ts.state = CLOW;
+                    r.flags |= FIN; // TODO no output yet
+                }
+                break;
+            }
+            case FIN1:
+                break; // TODO
+            case FIN2:
+                break; // TODO
+            case CSNG:
+                break; // TODO
+            case TIMW:
+                break; // TODO
+            case CLOW:
+                break; // TODO
+            case LACK:
+                if (_code & ACK)
+                    ts.deinit();
+                break; // TODO
+        }
+
+        ts.rSeq += nIn;
+        return r;
     }
 
     void received (Interface& ni) {
         SmallBuf sb;
         debugf("\nTCP %s %s:%d -> :%d  seq %04x  ack %04x total %d\n",
-                decode(_code, "fsrpau"), _srcIp.asStr(sb), (int) _sPort,
+                decode(_code, "FSRPAU"), _srcIp.asStr(sb), (int) _sPort,
                 (int) _dPort, (uint16_t) _seq, (uint16_t) _ack, (int) _total);
 
-        Peer peer {_srcIp, _sPort, _dPort};
-        auto s = findSession(peer);
-        if (s != nullptr) {
-            s->nip = &ni;
-            s->dump();
-            s->process(*this);
-            s->dump();
-        } else if ((_code & RST) == 0) {
-            if (_code & ACK)
-                sendReply(ni, RST, _ack, 0);
-            else
-                sendReply(ni, RST+ACK, 0, _seq+rlen());
+        auto sess = findSession({_srcIp, _sPort, _dPort});
+        if (sess != nullptr) {
+            sess->dump();
+            auto r = process(*sess);
+            if (r.flags != 0)
+                sendReply(ni, *sess, r);
+            sess->dump();
         }
     }
 
     auto findSession (Peer const& peer) -> Session* {
         for (auto& e : sessions)
-            if (e.nip != nullptr && e == peer)
+            if (e.state != FREE && e == peer)
                 return &e;
-        if ((_code & 0x3F) == SYN && listeners.exists(_dPort)) {
+        if ((_code & SYN) && listeners.exists(_dPort)) {
             for (auto& e : sessions)
-                if (e.nip == nullptr) {
-                    (Peer&) e = peer;
-                    e.state = LSTN;
+                if (e.state == FREE) {
+                    e.init(peer, LSTN);
                     return &e;
                 }
         }
