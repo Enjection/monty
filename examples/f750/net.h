@@ -292,7 +292,7 @@ struct Dhcp : Udp {
         it.append(MsgType, "\x01", 1);         // discover
         it.append(ReqList, "\x01\x03\x06", 3); // subnet router dns
 
-        sendIt(ni, (uint32_t) it.ptr + 1 - (uint32_t) this);
+        sendIt(ni, (uintptr_t) it.ptr + 1 - (uintptr_t) this);
         //sendIt(ni, sizeof *this);
         //sendIt(ni, 400);
     }
@@ -308,7 +308,7 @@ struct Dhcp : Udp {
         it.append(ServerIp, &_serverIp, 4);
         it.append(ReqIp, &_clientIp, 4);
 
-        sendIt(ni, (uint32_t) it.ptr + 1 - (uint32_t) this);
+        sendIt(ni, (uintptr_t) it.ptr + 1 - (uintptr_t) this);
     }
 
     void received (Interface& ni) {
