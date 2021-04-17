@@ -168,7 +168,7 @@ void ethTest () {
     debugf("mac %s\n", eth->_mac.asStr());
 
     eth->init();
-    msWait(20); // TODO doesn't work without, why?
+    msWait(25); // TODO doesn't work without, why?
 
     net::Dhcp dhcp;
     dhcp.discover(*eth);

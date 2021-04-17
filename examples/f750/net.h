@@ -366,11 +366,12 @@ private:
 
 Listeners<10> listeners;
 
+//#define debugf(...)
 struct Tcp : Ip4 {
     Net16 _sPort, _dPort;
     Net32 _seq, _ack;
     uint8_t _off, _code;
-    Net16 _window, _sum, _urg;
+    Net16 _win, _sum, _urg;
     uint8_t _data [];
 
     enum : uint8_t { FIN=1<<0,SYN=1<<1,RST=1<<2,PSH=1<<3,ACK=1<<4,URG=1<<5 };
@@ -387,11 +388,14 @@ struct Tcp : Ip4 {
 
     struct Session : Peer {
         uint32_t rSeq, lSeq;
+        uint16_t sent;
         uint8_t state;
         ByteVec iBuf, oBuf;
 
         void init (Peer const& p, uint8_t s) {
             *(Peer*) this = p;
+            lSeq = 1024; // TODO 1024 -> random
+            sent = 0;
             state = s;
             iBuf.adj(1000); oBuf.adj(1000); // set capacities
             oBuf.insert(0, 6); memcpy(oBuf.begin(), "hello\n", 6); // test data
@@ -422,7 +426,7 @@ struct Tcp : Ip4 {
         _ack = flags & ACK ? ts.rSeq : 0;
         _off = 5<<4;
         _code = flags;
-        _window = win;
+        _win = win;
         sendIt(ni, sizeof *this + bytes);
     }
 
@@ -431,16 +435,14 @@ struct Tcp : Ip4 {
     auto process (Session& ts) -> Reply {
         if (ts.state == LSTN) {
             //ensure(_code & SYN);
-            ts.lSeq = 1024; // TODO 1024 -> random
             ts.rSeq = _seq+1;
             ts.state = SYNR;
             return {SYN+ACK, 0};
         }
 
-        auto nIn = _total - 4*(_off>>4) - 20;
-        uint16_t nOut = 0;
         uint8_t flags = 0;
 
+        auto nIn = _total - 4*(_off>>4) - 20;
         if (nIn > 0) {
             dumpHex(_data, nIn);
             auto p = ts.iBuf.end();
@@ -449,10 +451,10 @@ struct Tcp : Ip4 {
             flags |= ACK;
         }
 
-        switch (ts.state) {
-            case ESTB:
-            case CLOW:  ts.oBuf.remove(0, _ack - ts.lSeq);
-                        nOut = ts.oBuf.size(); // TODO window limit
+        uint16_t nOut = 0;
+        if (ts.state == ESTB || ts.state == CLOW) {
+            ts.oBuf.remove(0, _ack - ts.lSeq);
+            nOut = ts.oBuf.size();
         }
 
         switch (ts.state) {
@@ -460,22 +462,23 @@ struct Tcp : Ip4 {
                         break;
             case SYNS:  // TODO
                         break;
-            case ESTB:  if (_code & FIN) {
-                            ++nIn;
-                            flags |= ACK;
-                            ts.state = CLOW;
-                        }
-                        if (nOut == 0) {
+            case ESTB:  if (nOut == 0) {
                             flags |= FIN;
                             ts.state = FIN1;
+                        }
+                        if (_code & FIN) {
+                            ++nIn;
+                            flags = ACK; // may cancel above FIN
+                            ts.state = CLOW;
                         }
                         break;
             case FIN1:  if (_code & FIN) {
                             ++nIn;
                             flags |= ACK;
-                            ts.state = _code & ACK ? TIMW : CSNG;
-                        } else if (_code & ACK)
-                            ts.state = FIN2;
+                            ts.state = CSNG;
+                        }
+                        if (_code & ACK)
+                            ts.state = _code & FIN ? TIMW : FIN2;
                         break;
             case FIN2:  if (_code & FIN) {
                             ++nIn;
@@ -486,21 +489,26 @@ struct Tcp : Ip4 {
             case CSNG:  if (_code & ACK)
                             ts.state = TIMW;
                         break;
-            case TIMW:  break; // TODO timer
-            case CLOW:  break;
+            case CLOW:  if (nOut == 0) {
+                            flags |= FIN;
+                            ts.state = LACK;
+                        }
+                        break;
             case LACK:  if (_code & ACK)
                             ts.deinit();
                         break; // TODO timer
         }
 
+        if (_code & ACK)
+            ts.lSeq = _ack;
+        ts.rSeq = _seq + nIn;
+
+        if (nOut > _win)
+            nOut = _win;
         if (nOut > 0) {
             memcpy(_data, ts.oBuf.begin(), nOut);
             flags |= ACK;
         }
-
-        if (_code & ACK)
-            ts.lSeq = _ack;
-        ts.rSeq = _seq + nIn;
 
         return {flags, nOut};
     }
@@ -518,13 +526,8 @@ struct Tcp : Ip4 {
             auto [flags, bytes] = process(*sess);
             if (flags != 0)
                 sendReply(ni, *sess, flags, bytes);
-            switch (sess->state) {
-                case CLOW: if (flags == 0)
-                               sess->state = LACK;
-                           break;
-                case TIMW: sess->deinit();
-                           break; // TODO no timer yet
-            }
+            if (sess->state == TIMW)
+                sess->deinit(); // TODO no timer yet
             sess->dump();
         }
     }
@@ -572,3 +575,4 @@ void Frame::received (Interface& ni) {
         //default:     debugf("frame %04x\n", (int) _typ); break;
     }
 }
+#undef debugf
