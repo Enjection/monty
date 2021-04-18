@@ -388,13 +388,13 @@ struct Tcp : Ip4 {
 
     struct Session : Peer {
         uint32_t lUna, rUna;
-        uint16_t pend;
+        uint16_t rIni;
         uint8_t state;
         ByteVec iBuf, oBuf;
 
         void init (Peer const& p, uint8_t s) {
             *(Peer*) this = p;
-            pend = 0;
+            rIni = 0;
             state = s;
             iBuf.adj(1000); oBuf.adj(1000); // set capacities
             oBuf.insert(0, 6); memcpy(oBuf.begin(), "hello\n", 6); // test data
@@ -407,10 +407,10 @@ struct Tcp : Ip4 {
         }
 
         void dump () const {
-            debugf("  %c %34s rUna %04x lUna %04x  iBuf %d oBuf %d @ %d ms\n",
+            debugf("  %c %23s    r %04x    l %04x  iBuf %d oBuf %d @%02d\n",
                     "FLRSE12GTCK"[state], "",
-                    (uint16_t) rUna, (uint16_t) lUna,
-                    iBuf.size(), oBuf.size(), millis());
+                    (uint16_t) (rUna-rIni), (uint16_t) (lUna-0x0400),
+                    iBuf.size(), oBuf.size(), millis() % 100);
         }
     };
 
@@ -419,9 +419,9 @@ struct Tcp : Ip4 {
             return;
         ts.state = state;
         auto win = ts.iBuf.cap() - ts.iBuf.size();
-        debugf("  > %s %28s ack %04x  seq %04x   len %d win %d\n",
+        debugf("  > %s %17s ack %04x  seq %04x   len %d win %d\n",
                 decode(flags, "FSRPAU"), "",
-                (uint16_t) ts.rUna, (uint16_t) ts.lUna, bytes, win);
+                (uint16_t) (ts.rUna-ts.rIni), ts.lUna-0x0400, bytes, win);
         Ip4::isReply(ni);
         swap(_sPort, _dPort);
         _seq = ts.lUna;
@@ -435,15 +435,37 @@ struct Tcp : Ip4 {
     struct Reply { uint8_t state, flags; uint16_t bytes; };
 
     void process (Interface& ni, Session& ts) {
-        // TODO
+        if (ts.state == LSTN) {
+            ts.lUna = 1024; // TODO
+            ts.rUna = _seq + 1;
+            ts.rIni = _seq;
+            return sendReply(ni, ts, SYNR, SYN+ACK, 0);
+        }
+
+        if (ts.state == SYNR && (_code & ACK) && _ack == ts.lUna+1) {
+            ++ts.lUna;
+            ts.state = ESTB;
+            return;
+        }
+
+        if (ts.state == ESTB) {
+            ts.rUna = _seq;
+            uint16_t nIn = _total - 4*(_off>>4) - 20;
+            if (nIn > 0) {
+                dumpHex(_data, nIn);
+                ts.iBuf.insert(ts.iBuf.size(), nIn);
+                memcpy(ts.iBuf.end() - nIn, _data, nIn);
+                ts.rUna += nIn;
+            }
+        }
     }
 
     void received (Interface& ni) {
         SmallBuf sb;
-        debugf("TCP %s %s:%d -> :%d  seq %04x  ack %04x total %d @ %d ms\n",
-                decode(_code, "FSRPAU"), _srcIp.asStr(sb),
+        debugf("TCP %s .%d:%d -> :%d  seq %04x  ack %04x total %d @%02d\n",
+                decode(_code, "FSRPAU"), (uint8_t) _srcIp,
                 (int) _sPort, (int) _dPort, (uint16_t) _seq, (uint16_t) _ack,
-                (int) _total, millis());
+                (int) _total, millis() % 100);
 
         auto sess = findSession({_srcIp, _sPort, _dPort});
         if (sess != nullptr) {
