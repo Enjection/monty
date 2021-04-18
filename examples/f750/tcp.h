@@ -1,4 +1,5 @@
-#define debugf(...)
+//#define debugf(...)
+#define debugf printf
 struct Tcp : Ip4 {
     Net16 _sPort, _dPort;
     Net32 _seq, _ack;
@@ -98,7 +99,7 @@ debugf("recv rAck %02d seq %02d nIn %d\n",
         (ts.rAck - ts.rIni) & 0xFF, (_seq - ts.rIni) & 0xFF, nIn);
 nIn -= ts.rAck - _seq;
                 if (nIn > 0) {
-                    //dumpHex(_data, nIn);
+                    dumpHex(_data, nIn);
                     ts.iBuf.insert(ts.iBuf.size(), nIn);
                     memcpy(ts.iBuf.end() - nIn, _data, nIn);
                 }

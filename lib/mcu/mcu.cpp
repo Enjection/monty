@@ -38,6 +38,9 @@ int printf (const char* fmt, ...) {
     return result;
 }
 
+extern "C" int puts (char const* s) { return printf("%s\n", s); }
+extern "C" int putchar (int ch) { return printf("%c", ch); }
+
 namespace mcu {
     SmallBuf smallBuf;
     uint32_t Device::pending;

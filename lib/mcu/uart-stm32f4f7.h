@@ -40,7 +40,7 @@ struct Uart : Device {
 
     void txStart () {
         auto len = txNext >= txLast ? txNext - txLast : sizeof txBuf - txLast;
-        if (len > 0) {
+        if (len > 0 && dmaTX(SCR)[0] == 0) {
             dmaTX(SNDTR) = len;
             dmaTX(SM0AR) = (uint32_t) txBuf + txLast;
             txLast = txWrap(txLast + len);
@@ -51,7 +51,7 @@ struct Uart : Device {
 
     DevInfo dev;
 protected:
-    uint8_t rxBuf [100], txBuf [100];
+    uint8_t rxBuf [1000], txBuf [1000];
     uint16_t txNext =0, txLast =0;
 
     static auto txWrap (uint16_t n) -> uint16_t {

@@ -312,6 +312,8 @@ namespace mcu {
 #endif
 
     struct Serial : Uart {
+        auto operator new (size_t sz) -> void* { return allocateNonCached(sz); }
+
         Serial (int num, char const* pins =nullptr) : Uart (num) {
             if (pins != nullptr) {
                 mcu::Pin txrx [2];

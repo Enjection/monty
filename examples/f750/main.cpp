@@ -9,24 +9,24 @@ using namespace mcu;
 
 void dumpHex (void const* p, int n =16) {
     for (int off = 0; off < n; off += 16) {
-        debugf(" %03x:", off);
+        printf(" %03x:", off);
         for (int i = 0; i < 16; ++i) {
             if (i % 4 == 0)
-                debugf(" ");
+                printf(" ");
             if (off+i >= n)
-                debugf("..");
+                printf("..");
             else {
                 auto b = ((uint8_t const*) p)[off+i];
-                debugf("%02x", b);
+                printf("%02x", b);
             }
         }
         for (int i = 0; i < 16; ++i) {
             if (i % 4 == 0)
-                debugf(" ");
+                printf(" ");
             auto b = ((uint8_t const*) p)[off+i];
-            debugf("%c", off+i >= n ? ' ' : ' ' <= b && b <= '~' ? b : '.');
+            printf("%c", off+i >= n ? ' ' : ' ' <= b && b <= '~' ? b : '.');
         }
-        debugf("\n");
+        printf("\n");
     }
 }
 
@@ -182,6 +182,13 @@ void ethTest () {
     }
 }
 
+void uartTest () {
+    for (int i = 0; i < 100; ++i) {
+        printf("<");
+        printf("%d%c", i, i % 10 == 9 ? '\n' : ' ');
+    }
+}
+
 // referenced in Stacklet::suspend() and Event::wait()
 auto monty::nowAsTicks () -> uint32_t {
     return millis();
@@ -198,6 +205,7 @@ static void app () {
     //qspiTest();
     //lcdTest();
     ethTest();
+    //uartTest();
 }
 
 [[noreturn]] static void main2 () {
