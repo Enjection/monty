@@ -107,12 +107,12 @@ struct ArpCache {
     }
 
     void dump () const {
-        debugf("ARP cache [%d]\n", N);
+        printf("ARP cache [%d]\n", N);
         for (auto& e : items)
             if (e.node != 0) {
                 SmallBuf sb;
                 IpAddr ip = prefix + e.node;
-                debugf("  %s = %s\n", ip.asStr(), e.mac.asStr(sb));
+                printf("  %s = %s\n", ip.asStr(), e.mac.asStr(sb));
             }
     }
 
@@ -195,7 +195,7 @@ struct Arp : Frame {
     void received (Interface& ni) {
         if (_op == 1 && _targIp == ni._ip) { // ARP request
 SmallBuf sb;
-debugf("ARP %s %s\n", _sendIp.asStr(), _src.asStr(sb));
+printf("ARP %s %s\n", _sendIp.asStr(), _src.asStr(sb));
             isReply(ni);
             _op = 2; // ARP reply
             ni.send(this, sizeof *this);
@@ -238,7 +238,7 @@ struct Icmp : Ip4 {
     Icmp () : Ip4 (1) {}
 
     void received (Interface&) {
-        debugf("ICMP type %d code %d\n", _type, _code);
+        printf("ICMP type %d code %d\n", _type, _code);
         dumpHex(this, sizeof *this);
     }
 };
@@ -321,14 +321,14 @@ struct Dhcp : Udp {
                     case Subnet: it.extract(&ni._sub, 4); break;
                     case Dns:    it.extract(&ni._dns, 4); break;
                     case Router: it.extract(&ni._gw,  4); break;
-                    //default:     debugf("option %d\n", typ); break;
+                    //default:     printf("option %d\n", typ); break;
                 }
             if (reply == 2) { // Offer
                 arpCache.init(ni._ip, ni._mac);
                 request(ni);
             } else { // ACK
                 SmallBuf sb [3];
-                debugf("DHCP %s gw %s sub %s dns %s\n",
+                printf("DHCP %s gw %s sub %s dns %s\n",
                         ni._ip.asStr(), ni._gw.asStr(sb[0]),
                         ni._sub.asStr(sb[1]), ni._dns.asStr(sb[2]));
                 arpCache.add(_srcIp, _src); // DHCP server, i.e. gateway
@@ -382,7 +382,7 @@ void Ip4::received (Interface& ni) {
         case 1:  ((Icmp*) this)->received(ni); break;
         case 6:  ((Tcp*) this)->received(ni); break;
         case 17: ((Udp*) this)->received(ni); break;
-        default: debugf("proto %02x\n", (int) _proto); break;
+        default: printf("proto %02x\n", (int) _proto); break;
     }
 }
 
@@ -390,6 +390,6 @@ void Frame::received (Interface& ni) {
     switch (_typ) {
         case 0x0800: ((Ip4*) this)->received(ni); break;
         case 0x0806: ((Arp*) this)->received(ni); break;
-        //default:     debugf("frame %04x\n", (int) _typ); break;
+        //default:     printf("frame %04x\n", (int) _typ); break;
     }
 }

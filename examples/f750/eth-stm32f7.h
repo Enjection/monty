@@ -71,7 +71,7 @@ t = millis() - t;
         while ((readPhy(1) & (1<<5)) == 0) {} // wait for a-n complete
         auto r = readPhy(31);
         auto duplex = (r>>4) & 1, fast = (r>>3) & 1;
-debugf("link %d ms full-duplex %d 100-Mbit/s %d\n", t, duplex, fast);
+printf("link %d ms full-duplex %d 100-Mbit/s %d\n", t, duplex, fast);
 
         MAC(CR) = (1<<15) | (fast<<14) | (duplex<<11) | (1<<10); // IPCO
         msWait(1);
@@ -113,7 +113,7 @@ debugf("link %d ms full-duplex %d 100-Mbit/s %d\n", t, duplex, fast);
     }
 
     void irqHandler () override {
-//debugf("E! msr %08x dsr %08x\n", (uint32_t) MAC(MSR), (uint32_t) DMA(DSR));
+//printf("E! msr %08x dsr %08x\n", (uint32_t) MAC(MSR), (uint32_t) DMA(DSR));
         DMA(DSR) = (1<<16) | (1<<6) | (1<<0); // clear NIS RS TS
 
         trigger();
@@ -131,7 +131,7 @@ debugf("link %d ms full-duplex %d 100-Mbit/s %d\n", t, duplex, fast);
     auto canSend () -> Chunk override {
         while (!txNext->available()) {
             poll(); // keep processing incoming while waiting
-            msWait(1);
+            //msWait(1);
         }
         return { txNext->data, BUFSZ };
     }

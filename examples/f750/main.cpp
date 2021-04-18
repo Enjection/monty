@@ -149,23 +149,23 @@ void ethTest () {
     MacAddr myMac;
 
     constexpr auto HWID = io8<0x1FF0F420>; // F4: 0x1FF07A10
-    debugf("HWID");
+    printf("HWID");
     for (int i = 0; i < 12; ++i) {
         uint8_t b = HWID(i);
         if (i < 6)
             myMac.b[i] = b;
-        debugf(" %02x", b);
+        printf(" %02x", b);
     }
     myMac.b[0] |= 0x02; // locally administered
     myMac.dumper();
-    debugf("\n");
+    printf("\n");
 
     auto eth = new net::Eth (myMac);
 #else
     auto eth = new net::Eth ({0x34,0x31,0xC4,0x8E,0x32,0x66});
 #endif
-    debugf("eth @ %p..%p\n", eth, eth+1);
-    debugf("mac %s\n", eth->_mac.asStr());
+    printf("eth @ %p..%p\n", eth, eth+1);
+    printf("mac %s\n", eth->_mac.asStr());
 
     eth->init();
     msWait(25); // TODO doesn't work without, why?
@@ -178,7 +178,7 @@ void ethTest () {
 
     while (true) {
         eth->poll();
-        msWait(1);
+        //msWait(1);
     }
 }
 
