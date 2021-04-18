@@ -19,7 +19,7 @@ struct Tcp : Ip4 {
     }
 
     struct Session : Peer {
-        uint32_t lUna, rUna;
+        uint32_t lUna, rAck;
         uint16_t rIni;
         uint16_t sent;
         uint8_t state;
@@ -41,27 +41,25 @@ struct Tcp : Ip4 {
         }
 
         void dump (Tcp const& pkt) const {
-            uint16_t rAdv = pkt._seq - rUna; if (rAdv > 99) rAdv = 99;
+            uint16_t rAdv = pkt._seq - rAck; if (rAdv > 99) rAdv = 99;
             uint16_t lAdv = pkt._ack - lUna; if (lAdv > 99) lAdv = 99;
             debugf("  %c %23s    r %04x+%02d l %04x+%02d iBuf %d oBuf %d\n",
                     "FLRSE12GTCK"[state], "",
-                    (uint16_t) (rUna-rIni), rAdv,
+                    (uint16_t) (rAck-rIni), rAdv,
                     (uint16_t) (lUna-0x0400), lAdv,
                     iBuf.size(), oBuf.size());
         }
     };
 
     void sendReply (Interface& ni, Session& ts, uint8_t state, uint8_t flags, uint16_t bytes) {
-        if (flags == 0)
-            return;
         ts.state = state;
         auto win = ts.iBuf.cap() - ts.iBuf.size();
         debugf("  > %s len %d win %d\n",
                 decode(flags, "FSRPAU"), bytes, win);
         Ip4::isReply(ni);
         swap(_sPort, _dPort);
-        _seq = ts.lUna;
-        _ack = flags & ACK ? ts.rUna : 0;
+        _seq = ts.lUna - bytes + ts.sent;
+        _ack = flags & ACK ? ts.rAck : 0;
         _off = 5<<4;
         _code = flags;
         _win = win;
@@ -76,7 +74,7 @@ struct Tcp : Ip4 {
 //ts.oBuf.clear();
                     ts.lUna = 1024; // TODO
                     ts.rIni = _seq;
-                    ts.rUna = _seq+1;
+                    ts.rAck = _seq+1;
                     return sendReply(ni, ts, SYNR, SYN+ACK, 0);
                 }
                 return;
@@ -96,12 +94,15 @@ struct Tcp : Ip4 {
             case ESTB:
             case FIN1:
             case FIN2:
+debugf("recv rAck %02d seq %02d nIn %d\n",
+        (ts.rAck - ts.rIni) & 0xFF, (_seq - ts.rIni) & 0xFF, nIn);
+nIn -= ts.rAck - _seq;
                 if (nIn > 0) {
-                    dumpHex(_data, nIn);
+                    //dumpHex(_data, nIn);
                     ts.iBuf.insert(ts.iBuf.size(), nIn);
                     memcpy(ts.iBuf.end() - nIn, _data, nIn);
                 }
-                ts.rUna += nIn;
+                ts.rAck = _seq + nIn;
         }
 
         // can send
@@ -128,12 +129,12 @@ struct Tcp : Ip4 {
         switch (ts.state) {
             case FIN1:
                 if ((_code & FIN) && (_code & ACK)) {
-                    ++ts.rUna;
+                    ++ts.rAck;
                     ++ts.lUna;
                     return sendReply(ni, ts, TIMW, ACK, 0);
                 }
                 if (_code & FIN) {
-                    ++ts.rUna;
+                    ++ts.rAck;
                     return sendReply(ni, ts, CSNG, ACK, 0);
                 }
                 if (_code & ACK) {
@@ -143,7 +144,7 @@ struct Tcp : Ip4 {
                 return;
             case FIN2:
                 if (_code & FIN) {
-                    ++ts.rUna;
+                    ++ts.rAck;
                     return sendReply(ni, ts, TIMW, ACK, 0);
                 }
                 return;
@@ -163,8 +164,8 @@ struct Tcp : Ip4 {
         switch (ts.state) {
             case CLOW:
                 if (ts.oBuf.size() == 0)
-                    return sendReply(ni, ts, LACK, FIN, nOut);
-                if (ts.rUna != _seq || ts.lUna != _ack || nOut > 0)
+                    return sendReply(ni, ts, LACK, FIN+ACK, nOut);
+                if (ts.rAck != _seq || ts.lUna != _ack || nOut > 0)
                     return sendReply(ni, ts, CLOW, ACK, nOut);
                 return;
             case LACK:
@@ -178,13 +179,13 @@ struct Tcp : Ip4 {
         // only ESTB remains
         switch (ts.state) {
             case ESTB:
-                if (ts.oBuf.size() == 0)
-                    return sendReply(ni, ts, FIN1, FIN, nOut);
                 if (_code & FIN) {
-                    ++ts.rUna;
+                    ++ts.rAck;
                     return sendReply(ni, ts, CLOW, ACK, nOut);
                 }
-                if (ts.rUna != _seq || ts.lUna != _ack || nOut > 0)
+                if (ts.oBuf.size() == 0)
+                    return sendReply(ni, ts, FIN1, FIN, nOut);
+                if (ts.rAck != _seq || ts.lUna != _ack || nOut > 0)
                     return sendReply(ni, ts, ESTB, ACK, nOut);
                 return;
         }

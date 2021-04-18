@@ -41,7 +41,7 @@ struct Eth : Device, Interface {
         }
     };
 
-    constexpr static auto NRX = 4, NTX = 4, BUFSZ = 1524;
+    constexpr static auto NRX = 5, NTX = 5, BUFSZ = 1524;
     DmaDesc rxDesc [NRX], txDesc [NTX];
     DmaDesc *rxNext = rxDesc, *txNext = txDesc;
     uint8_t rxBufs [NRX][BUFSZ+4], txBufs [NTX][BUFSZ+4];
