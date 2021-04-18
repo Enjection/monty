@@ -366,7 +366,7 @@ private:
 
 Listeners<10> listeners;
 
-#define debugf(...)
+//#define debugf(...)
 struct Tcp : Ip4 {
     Net16 _sPort, _dPort;
     Net32 _seq, _ack;
@@ -414,7 +414,10 @@ struct Tcp : Ip4 {
         }
     };
 
-    void sendReply (Interface& ni, Session& ts, uint8_t flags, uint16_t bytes) {
+    void sendReply (Interface& ni, Session& ts, uint8_t state, uint8_t flags, uint16_t bytes) {
+        if (flags == 0)
+            return;
+        ts.state = state;
         auto win = ts.iBuf.cap() - ts.iBuf.size();
         debugf("  > %s %28s ack %04x  seq %04x   len %d win %d\n",
                 decode(flags, "FSRPAU"), "",
@@ -431,7 +434,7 @@ struct Tcp : Ip4 {
 
     struct Reply { uint8_t state, flags; uint16_t bytes; };
 
-    auto process (Session& ts) -> Reply {
+    void process (Interface& ni, Session& ts) {
         uint8_t state = ts.state;
         uint8_t flags = 0;
 
@@ -439,13 +442,12 @@ struct Tcp : Ip4 {
 ts.oBuf.clear();
             ts.lUna = 1024; // TODO 1024 -> random
             ts.rUna = _seq+1;
-            return {SYNR, SYN+ACK, 0};
+            return sendReply(ni, ts, SYNR, SYN+ACK, 0);
         }
 
-        if (state == SYNR && _ack >= ts.lUna + 1) {
+        if (state == SYNR && _ack == ts.lUna + 1) {
             ++ts.lUna;
-            state = ESTB;
-            return {state, 0, 0};
+            return sendReply(ni, ts, ESTB, 0, 0);
         }
 
         if (state == ESTB || state == FIN1 || state == FIN2) {
@@ -462,10 +464,13 @@ ts.oBuf.clear();
             ts.lUna += lAdv;
             ts.pend -= lAdv;
 
-            dumpHex(_data, nIn);
-            ts.iBuf.insert(ts.iBuf.size(), nIn);
-            memcpy(ts.iBuf.end() - nIn, _data, nIn);
-            ts.rUna += nIn;
+            if (nIn > 0) {
+                dumpHex(_data, nIn);
+                ts.iBuf.insert(ts.iBuf.size(), nIn);
+                memcpy(ts.iBuf.end() - nIn, _data, nIn);
+                ts.rUna += nIn;
+                flags |= ACK;
+            }
 
             nOut = ts.oBuf.size();
             if (nOut > _win)
@@ -481,43 +486,41 @@ ts.oBuf.clear();
             case ESTB: {
                 if (_code & FIN) {
                     ++ts.rUna;
-                    flags |= ACK;
-                    state = CLOW;
-                } else if (ts.oBuf.size() == 0) {
-                    flags |= FIN;
-                    state = FIN1;
+                    return sendReply(ni, ts, CLOW, ACK, 0);
                 }
+                if (ts.oBuf.size() == 0)
+                    return sendReply(ni, ts, FIN1, FIN|ACK, 0);
                 break;
             }
             case FIN1:
                 if (_code & FIN) {
                     ++ts.rUna;
-                    flags |= ACK;
-                    state = CSNG;
+                    return sendReply(ni, ts, CSNG, ACK, 0);
                 }
                 if (_code & ACK) {
                     ++ts.lUna;
-                    state = _code & FIN ? TIMW : FIN2;
+                    return sendReply(ni, ts, _code & FIN ? TIMW : FIN2, ACK, 0);
                 }
                 break;
             case FIN2:
                 if (_code & FIN) {
                     ++ts.rUna;
-                    flags |= ACK;
-                    state = TIMW;
+                    return sendReply(ni, ts, TIMW, ACK, 0);
                 }
                 break;
             case CSNG:
                 if (_code & ACK) {
                     ++ts.lUna;
-                    state = TIMW;
+                    return sendReply(ni, ts, TIMW, ACK, 0);
                 }
                 break;
             case TIMW:
                 break; // TODO timer
             case CLOW: {
-                if (_code & ACK)
+                if (_code & ACK) {
                     ++ts.lUna;
+                    flags |= ACK;
+                }
                 if (ts.oBuf.size() == 0) {
                     flags |= FIN;
                     state = LACK;
@@ -527,10 +530,10 @@ ts.oBuf.clear();
             case LACK:
                 if (_code & ACK)
                     ts.deinit();
-                break; // TODO timer
+                return; // TODO timer
         }
 
-        return {state, flags, nOut};
+        sendReply(ni, ts, state, flags, nOut);
     }
 
     void received (Interface& ni) {
@@ -543,12 +546,7 @@ ts.oBuf.clear();
         auto sess = findSession({_srcIp, _sPort, _dPort});
         if (sess != nullptr) {
             sess->dump();
-            auto [state, flags, bytes] = process(*sess);
-            sess->state = state;
-            if (flags != 0)
-                sendReply(ni, *sess, flags, bytes);
-            if (sess->state == TIMW)
-                sess->deinit(); // TODO no timer yet
+            process(ni, *sess);
             sess->dump();
         }
     }
