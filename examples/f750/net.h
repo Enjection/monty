@@ -366,7 +366,7 @@ private:
 
 Listeners<10> listeners;
 
-//#define debugf(...)
+#define debugf(...)
 struct Tcp : Ip4 {
     Net16 _sPort, _dPort;
     Net32 _seq, _ack;
@@ -436,6 +436,7 @@ struct Tcp : Ip4 {
         uint8_t flags = 0;
 
         if (state == LSTN && (_code & SYN)) {
+ts.oBuf.clear();
             ts.lUna = 1024; // TODO 1024 -> random
             ts.rUna = _seq+1;
             return {SYNR, SYN+ACK, 0};
@@ -444,6 +445,7 @@ struct Tcp : Ip4 {
         if (state == SYNR && _ack >= ts.lUna + 1) {
             ++ts.lUna;
             state = ESTB;
+            return {state, 0, 0};
         }
 
         if (state == ESTB || state == FIN1 || state == FIN2) {
@@ -463,6 +465,7 @@ struct Tcp : Ip4 {
             dumpHex(_data, nIn);
             ts.iBuf.insert(ts.iBuf.size(), nIn);
             memcpy(ts.iBuf.end() - nIn, _data, nIn);
+            ts.rUna += nIn;
 
             nOut = ts.oBuf.size();
             if (nOut > _win)
@@ -492,8 +495,10 @@ struct Tcp : Ip4 {
                     flags |= ACK;
                     state = CSNG;
                 }
-                if (_code & ACK)
+                if (_code & ACK) {
+                    ++ts.lUna;
                     state = _code & FIN ? TIMW : FIN2;
+                }
                 break;
             case FIN2:
                 if (_code & FIN) {
@@ -503,12 +508,16 @@ struct Tcp : Ip4 {
                 }
                 break;
             case CSNG:
-                if (_code & ACK)
+                if (_code & ACK) {
+                    ++ts.lUna;
                     state = TIMW;
+                }
                 break;
             case TIMW:
                 break; // TODO timer
             case CLOW: {
+                if (_code & ACK)
+                    ++ts.lUna;
                 if (ts.oBuf.size() == 0) {
                     flags |= FIN;
                     state = LACK;
