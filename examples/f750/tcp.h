@@ -1,4 +1,4 @@
-//#define debugf(...)
+#define debugf(...)
 struct Tcp : Ip4 {
     Net16 _sPort, _dPort;
     Net32 _seq, _ack;
@@ -162,10 +162,10 @@ struct Tcp : Ip4 {
         // recv done states
         switch (ts.state) {
             case CLOW:
-                if (ts.rUna != _seq || ts.lUna != _ack || nOut > 0)
-                    return sendReply(ni, ts, CLOW, ACK, nOut);
                 if (ts.oBuf.size() == 0)
                     return sendReply(ni, ts, LACK, FIN, nOut);
+                if (ts.rUna != _seq || ts.lUna != _ack || nOut > 0)
+                    return sendReply(ni, ts, CLOW, ACK, nOut);
                 return;
             case LACK:
                 if (_code & ACK) {
@@ -175,17 +175,17 @@ struct Tcp : Ip4 {
                 return;
         }
 
-        // only ESTB and CLOW remain
+        // only ESTB remains
         switch (ts.state) {
             case ESTB:
+                if (ts.oBuf.size() == 0)
+                    return sendReply(ni, ts, FIN1, FIN, nOut);
                 if (_code & FIN) {
                     ++ts.rUna;
                     return sendReply(ni, ts, CLOW, ACK, nOut);
                 }
                 if (ts.rUna != _seq || ts.lUna != _ack || nOut > 0)
                     return sendReply(ni, ts, ESTB, ACK, nOut);
-                if (ts.oBuf.size() == 0)
-                    return sendReply(ni, ts, FIN1, FIN, nOut);
                 return;
         }
     }
