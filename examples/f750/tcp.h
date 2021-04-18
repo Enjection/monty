@@ -1,5 +1,3 @@
-//#define debugf(...)
-#define debugf printf
 struct Tcp : Ip4 {
     Net16 _sPort, _dPort;
     Net32 _seq, _ack;
@@ -44,7 +42,7 @@ struct Tcp : Ip4 {
         void dump (Tcp const& pkt) const {
             uint16_t rAdv = pkt._seq - rAck; if (rAdv > 99) rAdv = 99;
             uint16_t lAdv = pkt._ack - lUna; if (lAdv > 99) lAdv = 99;
-            debugf("  %c %23s    r %04x+%02d l %04x+%02d iBuf %d oBuf %d\n",
+            printf("  %c %23s    r %04x+%02d l %04x+%02d iBuf %d oBuf %d\n",
                     "FLRSE12GTCK"[state], "",
                     (uint16_t) (rAck-rIni), rAdv,
                     (uint16_t) (lUna-0x0400), lAdv,
@@ -55,7 +53,7 @@ struct Tcp : Ip4 {
     void sendReply (Interface& ni, Session& ts, uint8_t state, uint8_t flags, uint16_t bytes) {
         ts.state = state;
         auto win = ts.iBuf.cap() - ts.iBuf.size();
-        debugf("  > %s len %d win %d\n",
+        printf("  > %s len %d win %d\n",
                 decode(flags, "FSRPAU"), bytes, win);
         Ip4::isReply(ni);
         swap(_sPort, _dPort);
@@ -95,7 +93,7 @@ struct Tcp : Ip4 {
             case ESTB:
             case FIN1:
             case FIN2:
-debugf("recv rAck %02d seq %02d nIn %d\n",
+printf("recv rAck %02d seq %02d nIn %d\n",
         (ts.rAck - ts.rIni) & 0xFF, (_seq - ts.rIni) & 0xFF, nIn);
 nIn -= ts.rAck - _seq;
                 if (nIn > 0) {
@@ -194,12 +192,12 @@ nIn -= ts.rAck - _seq;
 
     void received (Interface& ni) {
 #if 0
-        debugf("TCP %s .%d:%d -> :%d  seq %04x  ack %04x total %d @%03d\n",
+        printf("TCP %s .%d:%d -> :%d  seq %04x  ack %04x total %d @%03d\n",
                 decode(_code, "FSRPAU"), (uint8_t) _srcIp,
                 (int) _sPort, (int) _dPort, (uint16_t) _seq, (uint16_t) _ack,
                 (int) _total, millis() % 1000);
 #else
-        debugf("\nTCP %s .%d:%d %08x  tot %d @%03d\n",
+        printf("\nTCP %s .%d:%d %08x  tot %d @%03d\n",
                 decode(_code, "FSRPAU"), (uint8_t) _srcIp,
                 (int) _sPort, (uint32_t) _seq,
                 (int) _total, millis() % 1000);
@@ -230,4 +228,3 @@ nIn -= ts.rAck - _seq;
     static Tcp::Session sessions [10];
 };
 static_assert(sizeof (Tcp) == 54);
-#undef debugf
