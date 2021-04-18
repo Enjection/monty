@@ -21,12 +21,14 @@ struct Tcp : Ip4 {
     struct Session : Peer {
         uint32_t lUna, rUna;
         uint16_t rIni;
+        uint16_t sent;
         uint8_t state;
         ByteVec iBuf, oBuf;
 
         void init (Peer const& p, uint8_t s) {
             *(Peer*) this = p;
             rIni = 0;
+            sent = 0;
             state = s;
             iBuf.adj(1000); oBuf.adj(1000); // set capacities
             oBuf.insert(0, 6); memcpy(oBuf.begin(), "hello\n", 6); // test data
@@ -66,13 +68,12 @@ struct Tcp : Ip4 {
         sendIt(ni, sizeof *this + bytes);
     }
 
-    struct Reply { uint8_t state, flags; uint16_t bytes; };
-
     void process (Interface& ni, Session& ts) {
         // setup
         switch (ts.state) {
             case LSTN:
                 if (_code & SYN) {
+//ts.oBuf.clear();
                     ts.lUna = 1024; // TODO
                     ts.rIni = _seq;
                     ts.rUna = _seq+1;
@@ -82,17 +83,11 @@ struct Tcp : Ip4 {
             case SYNR:
                 if ((_code & ACK) && _ack - ts.lUna >= 1) {
                     ++ts.lUna;
-ts.lUna = _ack+1;
                     ts.state = ESTB;
                 }
                 return;
             case SYNS: // TODO
                 return;
-        }
-
-        if ((_code & ACK) == 0) {
-            debugf("no ACK?\n");
-            return;
         }
 
         // can receive
@@ -106,7 +101,7 @@ ts.lUna = _ack+1;
                     ts.iBuf.insert(ts.iBuf.size(), nIn);
                     memcpy(ts.iBuf.end() - nIn, _data, nIn);
                 }
-                ts.rUna = _seq + nIn;
+                ts.rUna += nIn;
         }
 
         // can send
@@ -114,13 +109,19 @@ ts.lUna = _ack+1;
         switch (ts.state) {
             case ESTB:
             case CLOW:
-                ts.oBuf.remove(0, _ack - ts.lUna);
-                ts.lUna = _ack;
-                nOut = ts.oBuf.size();
+                if (_ack > ts.lUna) {
+                    ts.oBuf.remove(0, _ack - ts.lUna);
+                    ts.sent -= _ack - ts.lUna;
+                    ts.lUna = _ack;
+                }
+                nOut = ts.oBuf.size() - ts.sent;
                 if (nOut > _win)
                     nOut = _win;
-                if (nOut > 0)
-                    memcpy(_data, ts.oBuf.begin(), nOut);
+                //if (nOut > 2) nOut = 2;
+                if (nOut > 0) {
+                    memcpy(_data, ts.oBuf.begin() + ts.sent, nOut);
+                    ts.sent += nOut;
+                }
         }
 
         // send done states
@@ -161,7 +162,11 @@ ts.lUna = _ack+1;
         // recv done states
         switch (ts.state) {
             case CLOW:
-                return sendReply(ni, ts, LACK, FIN, nOut);
+                if (ts.rUna != _seq || ts.lUna != _ack || nOut > 0)
+                    return sendReply(ni, ts, CLOW, ACK, nOut);
+                if (ts.oBuf.size() == 0)
+                    return sendReply(ni, ts, LACK, FIN, nOut);
+                return;
             case LACK:
                 if (_code & ACK) {
                     ++ts.lUna;
@@ -171,14 +176,18 @@ ts.lUna = _ack+1;
         }
 
         // only ESTB and CLOW remain
-        if (_code & FIN) {
-            ++ts.rUna;
-            return sendReply(ni, ts, CLOW, ACK, nOut);
+        switch (ts.state) {
+            case ESTB:
+                if (_code & FIN) {
+                    ++ts.rUna;
+                    return sendReply(ni, ts, CLOW, ACK, nOut);
+                }
+                if (ts.rUna != _seq || ts.lUna != _ack || nOut > 0)
+                    return sendReply(ni, ts, ESTB, ACK, nOut);
+                if (ts.oBuf.size() == 0)
+                    return sendReply(ni, ts, FIN1, FIN, nOut);
+                return;
         }
-        if (ts.oBuf.size() == 0)
-            return sendReply(ni, ts, FIN1, FIN, nOut);
-        if (ts.rUna != _seq || ts.lUna != _ack || nOut > 0)
-            return sendReply(ni, ts, ts.state, ACK, nOut);
     }
 
     void received (Interface& ni) {
