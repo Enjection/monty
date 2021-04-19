@@ -256,6 +256,33 @@ namespace mcu {
 
     void idle () __attribute__ ((weak)); // called with interrupts disabled
 
+    struct Chunk { uint8_t* buf; uint32_t len; };
+
+    struct Stream {
+        virtual auto recv () -> Chunk { return {&eof, 0}; }
+        virtual void didRecv (uint32_t) {}
+        virtual auto canSend () -> Chunk { return {&eof, 0}; }
+        virtual void send (uint32_t) {}
+
+        auto write (uint8_t const* p, uint32_t n) -> int {
+            auto r = n;
+            while (n > 0) {
+                auto [ptr, len] = canSend();
+                if (len == 0)
+                    return - *ptr; // error
+                if (len > n)
+                    len = n;
+                memcpy(ptr, p, len);
+                send(len);
+                p += len;
+                n -= len;
+            }
+            return r;
+        }
+    private:
+        static uint8_t eof;
+    };
+
     struct Device {
         uint8_t _id;
 
@@ -301,8 +328,6 @@ namespace mcu {
         static Device* devMap [];
     };
 
-    struct Chunk { uint8_t* buf; uint32_t len; };
-
     using namespace device;
     using namespace altpins;
 #if STM32F4 || STM32F7
@@ -311,7 +336,7 @@ namespace mcu {
     #include "uart-stm32l4.h"
 #endif
 
-    struct Serial : Uart {
+    struct Serial : Stream, Uart {
         auto operator new (size_t sz) -> void* { return allocateNonCached(sz); }
 
         Serial (int num, char const* pins =nullptr) : Uart (num) {
@@ -322,7 +347,7 @@ namespace mcu {
             }
         }
 
-        auto recv () -> Chunk {
+        auto recv () -> Chunk override {
             uint16_t end;
             waitWhile([&]() {
                 end = rxNext();
@@ -333,7 +358,7 @@ namespace mcu {
             return {rxBuf+rxPull, (uint16_t) (end-rxPull)};
         }
 
-        void didRecv (uint32_t len) {
+        void didRecv (uint32_t len) override {
             rxPull = (rxPull + len) % sizeof rxBuf;
         }
 
@@ -355,7 +380,7 @@ namespace mcu {
         // this happens at interrupt time and also adjusts txLast accordingly
         // if txLast > txNext, two separate transfers need to be started
 
-        auto canSend () -> Chunk {
+        auto canSend () -> Chunk override {
             uint16_t avail;
             waitWhile([&]() {
                 auto left = txLeft();
@@ -368,18 +393,10 @@ namespace mcu {
             return {txBuf+txNext, avail};
         }
 
-        void send (uint8_t const* p, uint32_t n) {
-            while (n > 0) {
-                auto [ptr, len] = canSend();
-                if (len > n)
-                    len = n;
-                memcpy(ptr, p, len);
-                txNext = txWrap(txNext + len);
-                if (txLeft() == 0)
-                    txStart();
-                p += len;
-                n -= len;
-            }
+        void send (uint32_t len) override {
+            txNext = txWrap(txNext + len);
+            if (txLeft() == 0)
+                txStart();
         }
 
     private:

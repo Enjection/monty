@@ -220,7 +220,7 @@ static void app () {
     serial.baud(921600, systemClock() / 2);
 
     Printer printer (&serial, [](void* obj, uint8_t const* ptr, int len) {
-        ((Serial*) obj)->send(ptr, len);
+        ((Serial*) obj)->write(ptr, len);
     });
     stdOut = &printer;
 

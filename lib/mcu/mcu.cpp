@@ -43,6 +43,7 @@ extern "C" int putchar (int ch) { return printf("%c", ch); }
 
 namespace mcu {
     SmallBuf smallBuf;
+    uint8_t Stream::eof;
     uint32_t Device::pending;
     uint8_t Device::irqMap [(int) device::IrqVec::limit];
     Device* Device::devMap [20]; // large enough to handle all device objects

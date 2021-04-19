@@ -53,14 +53,11 @@ struct Peer {
     }
 };
 
-struct Interface {
+struct Interface : Device, Stream {
     MacAddr const _mac;
     IpAddr _ip, _gw, _dns, _sub;
 
     Interface (MacAddr const& mac) : _mac (mac) {}
-
-    virtual auto canSend () -> Chunk =0;
-    virtual auto send (void const* p, uint32_t n) -> int =0;
 };
 
 MacAddr const wildMac {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
@@ -198,7 +195,7 @@ SmallBuf sb;
 printf("ARP %s %s\n", _sendIp.asStr(), _src.asStr(sb));
             isReply(ni);
             _op = 2; // ARP reply
-            ni.send(this, sizeof *this);
+            ni.write((uint8_t const*) this, sizeof *this);
         }
     }
 };
@@ -226,7 +223,7 @@ struct Ip4 : Frame {
 
     void sendIt (Interface& ni, uint16_t len) {
         _total = len - 14;
-        ni.send(this, len);
+        ni.write((uint8_t const*) this, len);
     }
 };
 static_assert(sizeof (Ip4) == 34);

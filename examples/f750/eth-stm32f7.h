@@ -1,7 +1,7 @@
-struct Eth : Device, Interface {
+struct Eth : Interface {
     auto operator new (size_t sz) -> void* { return allocateNonCached(sz); }
 
-    using Interface::Interface;
+    Eth (MacAddr const& mac) : Interface (mac) {}
 
     // FIXME RCC name clash mcb/device
     constexpr static auto RCC    = io32<0x4002'3800>;
@@ -128,27 +128,36 @@ printf("link %d ms full-duplex %d 100-Mbit/s %d\n", t, duplex, fast);
         }
     }
 
+    auto recv () -> Chunk override {
+        // TODO not used yet, process ARP/ICMP/DHCP, return only UDP & TCP
+        while (!rxNext->available()) {
+            msWait(1); // TODO suspend
+        }
+        return { rxNext->data, BUFSZ };
+    }
+
+    void didRecv (uint32_t n) override {
+        // TODO not used yet
+        ensure(sizeof (Frame) <= n && n <= BUFSZ);
+        ensure(rxNext->available());
+        rxNext = rxNext->release();
+        DMA(RPDR) = 0; // resume DMA
+    }
+
     auto canSend () -> Chunk override {
         while (!txNext->available()) {
             poll(); // keep processing incoming while waiting
-            //msWait(1);
+            msWait(1); // TODO suspend
         }
         return { txNext->data, BUFSZ };
     }
 
-    auto send (void const* p, uint32_t n) -> int override {
-        ensure(sizeof (Frame) <= n && n <= BUFSZ);
-        if (p != txNext->data) {
-            auto [ptr, len] = canSend();
-            if (len == 0)
-                return *ptr; // error
-            memcpy(ptr, p, n);
-        }
+    void send (uint32_t n) override {
         ensure(txNext->available());
+        ensure(sizeof (Frame) <= n && n <= BUFSZ);
         txNext->size = n;
         txNext->stat = (0b0111<<28) | (3<<22) | (1<<20); // IC LS FS CIC TCH
         txNext = txNext->release();
         DMA(TPDR) = 0; // resume DMA
-        return 0;
     }
 };
