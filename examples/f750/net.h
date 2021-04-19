@@ -53,7 +53,7 @@ struct Peer {
     }
 };
 
-struct Interface : Device, Stream {
+struct Interface : Stream, Device {
     MacAddr const _mac;
     IpAddr _ip, _gw, _dns, _sub;
 
