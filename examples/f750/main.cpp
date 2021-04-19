@@ -189,6 +189,140 @@ void uartTest () {
     }
 }
 
+struct SdCard : SpiGpio {
+    constexpr static auto TIMEOUT = 50000; // arbitrary
+
+    void init (char const* pins) {
+        SpiGpio::init(pins);
+
+        msWait(2);
+
+        for (int i = 0; i < 10; ++i)
+            xfer(0xFF);
+
+        auto r = cmd(0, 0, 0x95);
+        //printf("c0 %d\n", r);
+
+        r = cmd(8, 0x1AA, 0x87);
+        //printf("c8 %d %08x\n", r, get32());
+
+        do {
+            cmd(55, 0);
+            r = cmd(41, 1<<30);
+        } while (r == 1);
+        //printf("c41-1 %d\n", r);
+
+        do {
+            cmd(55, 0);
+            r = cmd(41, 0);
+        } while (r == 1);
+        //printf("c41-0 %d\n", r);
+
+        do {
+            r = cmd(58, 0);
+        } while (r == 1);
+        auto v = get32();
+        //printf("c58 %d %08x\n", r, v);
+        sdhc = (v & (1<<30)) != 0;
+
+        do {
+            r = cmd(16, 512);
+        } while (r == 1);
+        //printf("c16 %d\n", r);
+
+        disable();
+    }
+
+    auto readBlock (uint32_t page, uint8_t* buf) const -> int {
+        int last = cmd(17, sdhc ? page : page * 512);
+        for (int i = 0; last != 0xFE; ++i) {
+            if (++i >= TIMEOUT)
+                return 0;
+            last = xfer(0xFF);
+        }
+        for (int i = 0; i < 512; ++i)
+            *buf++ = xfer(0xFF);
+        xfer(0xFF);
+        disable();
+        return 512;
+    }
+
+    auto writeBlock (uint32_t page, uint8_t const* buf) const -> int {
+        cmd(24, sdhc ? page : page * 512);
+        xfer(0xFF);
+        xfer(0xFE);
+        for (int i = 0; i < 512; ++i)
+            xfer(*buf++);
+        xfer(0xFF);
+        disable();
+        return 512;
+    }
+
+    bool sdhc =false;
+private:
+    auto cmd (int req, uint32_t arg, uint8_t crc =0) const -> int {
+        disable();
+        enable();
+        wait();
+
+        xfer(0x40 | req);
+        xfer(arg >> 24);
+        xfer(arg >> 16);
+        xfer(arg >> 8);
+        xfer(arg);
+        xfer(crc);
+
+        for (int i = 0; i < 1000; ++i)
+            if (uint8_t r = xfer(0xFF); r != 0xFF)
+                return r;
+
+        return -1;
+    }
+
+    void wait () const {
+        for (int i = 0; i < TIMEOUT; ++i)
+            if (xfer(0xFF) == 0xFF)
+                return;
+    }
+
+    auto get32 () const -> uint32_t {
+        uint32_t v = 0;
+        for (int i = 0; i < 4; ++i)
+            v = (v<<8) | xfer(0xFF);
+        return v;
+    }
+};
+
+void sdTest () {
+    SdCard sd;
+
+    // F7508-DK:
+    //  PC8  D0  MISO
+    //  PC9  D1
+    //  PC10 D2
+    //  PC11 D3  NSEL
+    //  PC12 CLK SCLK
+    //  PC13 Detect
+    //  PD2  CMD MOSI
+    sd.init("D2,C8,C12,C11");
+
+    // Nucleo-L432, custom:
+    //  PA8  D9  CS
+    //  PA11 D10 MOSI
+    //  PB5  D11 CLK
+    //  PB4  D12 MISO
+    //sd.init("A11,B4,B5,A8");
+
+    uint8_t buf [512];
+    for (int i = 0; i < 512; ++i) {
+        sd.readBlock(i, buf);
+        if (buf[0] != 0) {
+            printf("%d\n", i);
+            dumpHex(buf, 32);
+        }
+    }
+}
+
 // referenced in Stacklet::suspend() and Event::wait()
 auto monty::nowAsTicks () -> uint32_t {
     return millis();
@@ -204,8 +338,9 @@ static void app () {
     //spifTest(1); // wipe all
     //qspiTest();
     //lcdTest();
-    ethTest();
+    //ethTest();
     //uartTest();
+    sdTest();
 }
 
 [[noreturn]] static void main2 () {
@@ -230,8 +365,8 @@ static void app () {
         msWait(1);
         auto t = millis();
         led = (t / 100) % 5 == 0;
-        if (t % 1000 == 0)
-            printf("%d\n", t);
+        if (t % 10000 == 0)
+            printf("%d s\n", t/1000);
     }
 }
 

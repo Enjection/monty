@@ -164,7 +164,7 @@ namespace mcu {
         void init (char const* defs) {
             Pin pins [4];
             Pin::define(defs, pins, 4);
-            Pin::define(":PV,:F,:PV,:PV", pins, 4);
+            Pin::define(":PV,:U,:PV,:PV", pins, 4);
             _mosi = pins[0]; _miso = pins[1]; _sclk = pins[2]; _nsel = pins[3];
 
             disable();
