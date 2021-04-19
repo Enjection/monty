@@ -323,6 +323,47 @@ void sdTest () {
     }
 }
 
+void ramInit () {
+    constexpr auto RCC = io32<0x4002'3800>; // defined twice ...
+    RCC(0x38)[0] = 1; // FMCEN
+
+    mcu::Pin pins [38];
+    Pin::define("C3:PUV12,"
+                "D0,D1,D8,D9,D10,D14,D15,"
+                "E0,E1,E7,E8,E9,E10,E11,E12,E13,E14,E15,"
+                "F0,F1,F2,F3,F4,F5,F11,F12,F13,F14,F15,"
+                "G0,G1,G4,G5,G8,G15,"
+                "H3,H5", pins, sizeof pins);
+
+    // SDRAM timing
+    constexpr auto FMC = io32<0xA000'0000>;
+    enum {CR1=0x140,CR2=0x144,TR1=0x148,TR2=0x14C,CMR=0x150,RTR=0x154,SR=0x158};
+    FMC(CR1) = (0<<13)|(1<<12)|(2<<10)|(0<<9)|(2<<7)|(1<<6)|(1<<4)|(1<<2)|(0<<0);
+    FMC(TR1) = (1<<24)|(1<<20)|(1<<16)|(6<<12)|(3<<8)|(6<<4)|(1<<0);
+
+    // SDRAM commands
+    auto fmcWait = []() { while (FMC(SR)[5]) {} };
+    fmcWait(); FMC(CMR) = (0<<9)|(0<<5)|(1<<4)|(1<<0);      // clock enable
+    msWait(2);
+    fmcWait(); FMC(CMR) = (0<<9)|(0<<5)|(1<<4)|(2<<0);      // precharge
+    fmcWait(); FMC(CMR) = (0<<9)|(7<<5)|(1<<4)|(3<<0);      // auto-refresh
+    fmcWait(); FMC(CMR) = (0x220<<9)|(0<<5)|(1<<4)|(4<<0);  // load mode
+    fmcWait(); FMC(RTR) = (0x0603<<1);
+}
+
+void ramTest () {
+    ramInit();
+
+    constexpr auto RAM = io32<0xC000'0000>;
+    constexpr auto N = 21; // 8 MB = 2^23 bytes = 2^21 words
+
+    for (int i = 0; i < N; ++i)
+        RAM(1<<(i+2)) = (N << 24) + i;
+
+    for (int i = 0; i < N; ++i)
+        printf("%2d %08x %08x\n", i, 1<<(i+2), (uint32_t) RAM(1<<(i+2)));
+}
+
 // referenced in Stacklet::suspend() and Event::wait()
 auto monty::nowAsTicks () -> uint32_t {
     return millis();
@@ -340,7 +381,8 @@ static void app () {
     //lcdTest();
     //ethTest();
     //uartTest();
-    sdTest();
+    //sdTest();
+    ramTest();
 }
 
 [[noreturn]] static void main2 () {

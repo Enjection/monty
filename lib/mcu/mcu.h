@@ -63,7 +63,7 @@ namespace mcu {
         uint32_t volatile& addr;
 
         operator uint32_t () const { return addr; }
-        void operator= (uint32_t v) const { addr = v; }
+        auto operator= (uint32_t v) const -> uint32_t { addr = v; return v; }
 
 #if STM32L0 || STM32F7
         // simulated bit-banding, works with any address, but not atomic
