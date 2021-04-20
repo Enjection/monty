@@ -51,7 +51,7 @@ struct Uart : Device {
 
     DevInfo dev;
 protected:
-    uint8_t rxBuf [1000], txBuf [1000];
+    uint8_t rxBuf [100], txBuf [100];
     uint16_t txNext =0, txLast =0;
 
     static auto txWrap (uint16_t n) -> uint16_t {

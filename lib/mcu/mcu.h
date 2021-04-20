@@ -328,38 +328,31 @@ namespace mcu {
         static Device* devMap [];
     };
 
-    using namespace device;
-    using namespace altpins;
-#if STM32F4 || STM32F7
-    #include "uart-stm32f4f7.h"
-#elif STM32L4
-    #include "uart-stm32l4.h"
-#endif
-
-    struct Serial : Stream, Uart {
+    template <typename T>
+    struct Serial : Stream, private T {
         auto operator new (size_t sz) -> void* { return allocateNonCached(sz); }
 
-        Serial (int num, char const* pins =nullptr) : Uart (num) {
+        Serial (int num, char const* pins =nullptr) : T (num) {
             if (pins != nullptr) {
                 mcu::Pin txrx [2];
                 Pin::define(pins, txrx, 2);
-                init();
+                T::init();
             }
         }
 
         auto recv () -> Chunk override {
             uint16_t end;
-            waitWhile([&]() {
-                end = rxNext();
+            T::waitWhile([&]() {
+                end = T::rxNext();
                 return rxPull == end; // true if there's no data
             });
             if (end < rxPull)
-                end = sizeof rxBuf;
-            return {rxBuf+rxPull, (uint16_t) (end-rxPull)};
+                end = sizeof T::rxBuf;
+            return {T::rxBuf+rxPull, (uint16_t) (end-rxPull)};
         }
 
         void didRecv (uint32_t len) override {
-            rxPull = (rxPull + len) % sizeof rxBuf;
+            rxPull = (rxPull + len) % sizeof T::rxBuf;
         }
 
         // there are 3 cases (note: #=sending, +=pending, .=free)
@@ -382,24 +375,34 @@ namespace mcu {
 
         auto canSend () -> Chunk override {
             uint16_t avail;
-            waitWhile([&]() {
-                auto left = txLeft();
-                ensure(left < sizeof txBuf);
-                auto take = txWrap(txNext + sizeof txBuf - left);
-                avail = take > txNext ? take - txNext : sizeof txBuf - txNext;
+            T::waitWhile([&]() {
+                auto left = T::txLeft();
+                //ensure(left < sizeof T::txBuf);
+                auto take = T::txWrap(T::txNext + sizeof T::txBuf - left);
+                avail = take > T::txNext ? take - T::txNext
+                                         : sizeof T::txBuf - T::txNext;
                 return left != 0 || avail == 0;
             });
             ensure(avail > 0);
-            return {txBuf+txNext, avail};
+            return {T::txBuf+T::txNext, avail};
         }
 
         void send (uint32_t len) override {
-            txNext = txWrap(txNext + len);
-            if (txLeft() == 0)
-                txStart();
+            T::txNext = T::txWrap(T::txNext + len);
+            if (T::txLeft() == 0)
+                T::txStart();
         }
 
+        using T::baud; // public
     private:
         uint16_t rxPull =0;
     };
+
+    using namespace device;
+    using namespace altpins;
+#if STM32F4 || STM32F7
+    #include "uart-stm32f4f7.h"
+#elif STM32L4
+    #include "uart-stm32l4.h"
+#endif
 }
