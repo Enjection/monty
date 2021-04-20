@@ -396,6 +396,23 @@ void watchdogTest () {
     }
 }
 
+void rtcTest () {
+    rtc::init();
+    auto d = rtc::get();
+    printf("%02d/%02d/%02d %02d:%02d:%02d\n",
+            d.yr, d.mo, d.dy, d.hh, d.mm, d.ss);
+#if 0
+    rtc::set({21,4,19,23,59,58});
+    d = rtc::get();
+    printf("%02d/%02d/%02d %02d:%02d:%02d\n",
+            d.yr, d.mo, d.dy, d.hh, d.mm, d.ss);
+#endif
+    msWait(3000);
+    d = rtc::get();
+    printf("%02d/%02d/%02d %02d:%02d:%02d\n",
+            d.yr, d.mo, d.dy, d.hh, d.mm, d.ss);
+}
+
 mcu::Pin led;
 
 static void app () {
@@ -411,7 +428,8 @@ static void app () {
     //sdTest();
     //ramTest();
     //cyclesTest();
-    watchdogTest();
+    //watchdogTest();
+    rtcTest();
 }
 
 [[noreturn]] static void main2 () {

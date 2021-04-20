@@ -263,6 +263,16 @@ namespace mcu {
         void kick ();
     }
 
+    namespace rtc {
+        struct DateTime { uint8_t yr, mo, dy, hh, mm, ss; };
+
+        void init ();
+        auto get () -> DateTime;
+        void set (DateTime dt);
+        auto getData (int reg) -> uint32_t;
+        void setData (int reg, uint32_t val);
+    }
+
     struct BlockIRQ {
         BlockIRQ () { asm ("cpsid i"); }
         ~BlockIRQ () { asm ("cpsie i"); }
