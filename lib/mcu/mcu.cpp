@@ -482,9 +482,9 @@ namespace mcu {
 extern "C" void whoops (uint32_t const* sp) {
     using namespace mcu;
     // this goes out the SWO port, which needs debugger support to be seen
-    debugf("\r\n<< WHOOPS >> SP %p LR %p PC %p PSR %p CFSR %p\n"
-           " R0 %p R1 %p R2 %p R3 %p R12 %p BFAR %p\n",
-            sp, sp[5], sp[6], sp[7], (uint32_t) SCB(0xD28),
+    debugf("\r\n<< WHOOPS >> SP %p LR %p PC %p PSR %p CFSR %p\n",
+            sp, sp[5], sp[6], sp[7], (uint32_t) SCB(0xD28));
+    debugf(" R0 %p R1 %p R2 %p R3 %p R12 %p BFAR %p\n",
             sp[0], sp[1], sp[2], sp[3], sp[4], (uint32_t) SCB(0xD38));
     // also try to get the first line out to serial, as DMA might still be ok
     printf("\r\n<WHOOPS> SP %p LR %p PC %p PSR %p CFSR %p\n",

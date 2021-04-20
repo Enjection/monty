@@ -422,6 +422,12 @@ void faultTest () {
     printf("def\n");
 }
 
+void i2cTest () {
+    I2cGpio i2c;
+    i2c.init("H8,H7");
+    i2c.detect();
+}
+
 mcu::Pin led;
 
 static void app () {
@@ -439,7 +445,8 @@ static void app () {
     //cyclesTest();
     //watchdogTest();
     //rtcTest();
-    faultTest();
+    //faultTest();
+    i2cTest();
 }
 
 [[noreturn]] static void main2 () {

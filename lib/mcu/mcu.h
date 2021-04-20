@@ -157,6 +157,91 @@ namespace mcu {
         auto mode (char const* desc) const -> int;
     };
 
+    struct I2cGpio {
+        Pin _sda, _scl;
+        uint16_t _rate;
+
+        void init (char const* defs, uint16_t rate =100) {
+            _rate = rate;
+            Pin pins [2];
+            Pin::define(defs, pins, 2);
+            pins[0] = 1; pins[1] = 1;
+            Pin::define(":O", pins, 2);
+            _sda = pins[0]; _scl = pins[1];
+        }
+
+        auto start(int addr) const {
+            sclLo();
+            sclHi();
+            _sda = 0;
+            return write(addr);
+        }
+
+        void stop() const {
+            _sda = 0;
+            sclHi();
+            _sda = 1;
+        }
+
+        auto write(int data) const -> bool {
+            sclLo();
+            for (int mask = 0x80; mask != 0; mask >>= 1) {
+                _sda = data & mask;
+                sclHi();
+                sclLo();
+            }
+            _sda = 1;
+            sclHi();
+            bool ack = !_sda;
+            sclLo();
+            return ack;
+        }
+
+        auto read(bool last) const {
+            uint8_t data = 0;
+            for (int mask = 0x80; mask != 0; mask >>= 1) {
+                sclHi();
+                if (_sda)
+                    data |= mask;
+                sclLo();
+            }
+            _sda = last;
+            sclHi();
+            sclLo();
+            if (last)
+                stop();
+            _sda = 1;
+            return data;
+        }
+
+        void detect () const {
+            for (int i = 0; i < 128; i += 16) {
+                printf("%02x:", i);
+                for (int j = 0; j < 16; ++j) {
+                    int addr = i + j;
+                    if (0x08 <= addr && addr <= 0x77) {
+                        bool ack = start(addr<<1);
+                        stop();
+                        printf(ack ? " %02x" : " --", addr);
+                    } else
+                        printf("   ");
+                }
+                printf("\n");
+            }
+        }
+
+    private:
+        void hold () const {
+            for (int i = 0; i < _rate; ++i) asm ("");
+        }
+        void sclLo () const {
+            hold(); _scl = 0;
+        }
+        void sclHi () const {
+            hold(); _scl = 1; for (int i = 0; _scl == 0 && i < 10000; ++i) {}
+        }
+    };
+
     struct SpiGpio {
         Pin _mosi, _miso, _sclk, _nsel;
         uint8_t _cpol =0;
