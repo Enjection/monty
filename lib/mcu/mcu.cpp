@@ -351,6 +351,16 @@ namespace mcu {
         asm ("wfe");
     }
 
+    void dwt::start () {
+        DWT(LAR) = 0xC5ACCE55;
+        SCB(DEMCR) = SCB(DEMCR) | (1<<24); // set TRCENA in DEMCR
+        clear();
+        DWT(CTRL) = DWT(CTRL) | 1;
+    }
+    void dwt::stop () {
+        DWT(CTRL) = DWT(CTRL) & ~1;
+    }
+
     extern "C" void irqDispatch () {
         uint8_t irq = SCB(0xD04); // ICSR
         auto idx = Device::irqMap[irq-16];

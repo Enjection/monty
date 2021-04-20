@@ -369,6 +369,21 @@ auto monty::nowAsTicks () -> uint32_t {
     return millis();
 }
 
+void dwtTest () {
+    auto mhz = systemClock() / 1'000'000;
+    dwt::start();
+    auto t = dwt::count();
+    printf("%d\n", t);
+    printf("%d µs\n", (dwt::count() - t) / mhz);
+    printf("%d µs\n", (dwt::count() - t) / mhz);
+    printf("%d µs\n", (dwt::count() - t) / mhz);
+    auto t1 = dwt::count();
+    auto t2 = dwt::count();
+    auto t3 = dwt::count();
+    auto t4 = dwt::count();
+    printf("%d %d %d\n", t2-t1, t3-t2, t4-t3);
+}
+
 mcu::Pin led;
 
 static void app () {
@@ -383,6 +398,7 @@ static void app () {
     //uartTest();
     //sdTest();
     //ramTest();
+    dwtTest();
 }
 
 [[noreturn]] static void main2 () {

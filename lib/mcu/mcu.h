@@ -249,6 +249,16 @@ namespace mcu {
         }
     };
 
+    namespace dwt {
+        enum { CTRL=0x000,CYCCNT=0x004,LAR=0xFB0 };
+        enum { DEMCR=0xDFC };
+
+        void start ();
+        void stop ();
+        inline void clear () { DWT(CYCCNT) = 0; }
+        inline auto count () -> uint32_t { return DWT(CYCCNT); }
+    };
+
     struct BlockIRQ {
         BlockIRQ () { asm ("cpsid i"); }
         ~BlockIRQ () { asm ("cpsie i"); }
