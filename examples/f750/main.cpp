@@ -413,6 +413,16 @@ void rtcTest () {
             d.yr, d.mo, d.dy, d.hh, d.mm, d.ss);
 }
 
+void faultTest () {
+    //watchdog::init(3);
+    setupFaultHandlers();
+
+    printf("abc\n");
+    msWait(5);
+    (uint32_t) io32<0x7000'0000>(1);
+    printf("def\n");
+}
+
 mcu::Pin led;
 
 static void app () {
@@ -429,7 +439,8 @@ static void app () {
     //ramTest();
     //cyclesTest();
     //watchdogTest();
-    rtcTest();
+    //rtcTest();
+    faultTest();
 }
 
 [[noreturn]] static void main2 () {

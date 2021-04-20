@@ -16,7 +16,7 @@ namespace altpins {
 #define ensure(exp)                                 \
   do                                                \
     if (!(exp)) {                                   \
-      void *pc;                                     \
+      void* pc;                                     \
       asm volatile ("mov %0, pc" : "=r" (pc));      \
       void const* lr = __builtin_return_address(0); \
       mcu::failAt(pc, lr);                          \
@@ -55,6 +55,7 @@ namespace mcu {
     void powerDown (bool standby =true);
     [[noreturn]] void systemReset ();
     [[noreturn]] void failAt (void const*, void const*) __attribute__ ((weak));
+    void setupFaultHandlers (); // enable bus/mem/usg faults
 
     auto reserveNonCached (int bits) -> uint32_t;
     auto allocateNonCached (uint32_t sz) -> void*;

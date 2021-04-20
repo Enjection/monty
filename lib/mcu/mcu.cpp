@@ -104,14 +104,14 @@ namespace mcu {
         MPU(CTRL) = (1<<2) | (1<<0); // PRIVDEFENA ENABLE
 
         {
-            asm volatile ("dsb \n isb");
+            asm volatile ("dsb; isb");
             //BlockIRQ crit;
 
             MPU(RBAR) = (uint32_t) reserveNext | (1<<4); // ADDR VALID REGION:0
             MPU(RASR) = // XN AP:FULL TEX S SIZE ENABLE
                 (1<<28)|(3<<24)|(1<<19)|(1<<18)|((bits-1)<<1)|(1<<0);
 
-            asm volatile ("isb \n dsb \n dmb");
+            asm volatile ("isb; dsb; dmb");
         }
 
         debugf("uncache %08x..%08x, %d b\n", reserveNext, reserveNext + size, size);
@@ -476,6 +476,42 @@ namespace mcu {
         Device::devMap[idx]->irqHandler();
     }
 }
+
+// fault handling (tricky, as gcc appears to mess with the LR register)
+
+extern "C" void panic (char r0, uint32_t const* r1) {
+    using namespace mcu;
+    // this goes out the SWO port, which needs debugger support to be seen
+    debugf("OOPS: %c fault SP %p LR %p PC %p PSR %p CFSR %p\n"
+           "  R0 %p R1 %p R2 %p R3 %p R12 %p BFAR %p\n",
+            r0, r1, r1[5], r1[6], r1[7], (uint32_t) SCB(0xD28),
+            r1[0], r1[1], r1[2], r1[3], r1[4], (uint32_t) SCB(0xD38));
+    // also try to get the first line out to serial, as DMA might still be ok
+    printf("OOPS: %c fault SP %p LR %p PC %p PSR %p CFSR %p\n",
+            r0, r1, r1[5], r1[6], r1[7], (uint32_t) SCB(0xD28));
+    // the end of the road, only a reset (or watchdog) will get us out of here
+    while (true) {}
+}
+
+extern "C" void faultHandler       () __attribute__ ((naked));
+extern "C" void HardFault_Handler  () __attribute__ ((naked));
+extern "C" void BusFault_Handler   () __attribute__ ((naked));
+extern "C" void MemManage_Handler  () __attribute__ ((naked));
+extern "C" void UsageFault_Handler () __attribute__ ((naked));
+
+void faultHandler  () {
+    asm ("tst lr, #4; ite eq; mrseq r1, msp; mrsne r1, psp; b panic");
+}
+
+void mcu::setupFaultHandlers () {
+    enum { SHCSR=0xD24 };
+    SCB(SHCSR) = SCB(SHCSR) | 0b111<<16; // (USG|BUS|MEM) FAULTENA
+}
+
+void HardFault_Handler  () { asm ("mov r0, 'H'; b faultHandler"); }
+void BusFault_Handler   () { asm ("mov r0, 'B'; b faultHandler"); }
+void MemManage_Handler  () { asm ("mov r0, 'M'; b faultHandler"); }
+void UsageFault_Handler () { asm ("mov r0, 'U'; b faultHandler"); }
 
 // to re-generate "irqs.h", see the "all-irqs.sh" script
 
