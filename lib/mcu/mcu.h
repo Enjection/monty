@@ -55,7 +55,6 @@ namespace mcu {
     void powerDown (bool standby =true);
     [[noreturn]] void systemReset ();
     [[noreturn]] void failAt (void const*, void const*) __attribute__ ((weak));
-    void setupFaultHandlers (); // enable bus/mem/usg faults
 
     auto reserveNonCached (int bits) -> uint32_t;
     auto allocateNonCached (uint32_t sz) -> void*;

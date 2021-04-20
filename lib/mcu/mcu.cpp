@@ -479,39 +479,25 @@ namespace mcu {
 
 // fault handling (tricky, as gcc appears to mess with the LR register)
 
-extern "C" void panic (char r0, uint32_t const* r1) {
+extern "C" void whoops (uint32_t const* sp) {
     using namespace mcu;
     // this goes out the SWO port, which needs debugger support to be seen
-    debugf("OOPS: %c fault SP %p LR %p PC %p PSR %p CFSR %p\n"
-           "  R0 %p R1 %p R2 %p R3 %p R12 %p BFAR %p\n",
-            r0, r1, r1[5], r1[6], r1[7], (uint32_t) SCB(0xD28),
-            r1[0], r1[1], r1[2], r1[3], r1[4], (uint32_t) SCB(0xD38));
+    debugf("\r\n<< WHOOPS >> SP %p LR %p PC %p PSR %p CFSR %p\n"
+           " R0 %p R1 %p R2 %p R3 %p R12 %p BFAR %p\n",
+            sp, sp[5], sp[6], sp[7], (uint32_t) SCB(0xD28),
+            sp[0], sp[1], sp[2], sp[3], sp[4], (uint32_t) SCB(0xD38));
     // also try to get the first line out to serial, as DMA might still be ok
-    printf("OOPS: %c fault SP %p LR %p PC %p PSR %p CFSR %p\n",
-            r0, r1, r1[5], r1[6], r1[7], (uint32_t) SCB(0xD28));
+    printf("\r\n<WHOOPS> SP %p LR %p PC %p PSR %p CFSR %p\n",
+            sp, sp[5], sp[6], sp[7], (uint32_t) SCB(0xD28));
     // the end of the road, only a reset (or watchdog) will get us out of here
     while (true) {}
 }
 
-extern "C" void faultHandler       () __attribute__ ((naked));
 extern "C" void HardFault_Handler  () __attribute__ ((naked));
-extern "C" void BusFault_Handler   () __attribute__ ((naked));
-extern "C" void MemManage_Handler  () __attribute__ ((naked));
-extern "C" void UsageFault_Handler () __attribute__ ((naked));
 
-void faultHandler  () {
-    asm ("tst lr, #4; ite eq; mrseq r1, msp; mrsne r1, psp; b panic");
+void HardFault_Handler () {
+    asm ("tst lr, #4; ite eq; mrseq r0, msp; mrsne r0, psp; b whoops");
 }
-
-void mcu::setupFaultHandlers () {
-    enum { SHCSR=0xD24 };
-    SCB(SHCSR) = SCB(SHCSR) | 0b111<<16; // (USG|BUS|MEM) FAULTENA
-}
-
-void HardFault_Handler  () { asm ("mov r0, 'H'; b faultHandler"); }
-void BusFault_Handler   () { asm ("mov r0, 'B'; b faultHandler"); }
-void MemManage_Handler  () { asm ("mov r0, 'M'; b faultHandler"); }
-void UsageFault_Handler () { asm ("mov r0, 'U'; b faultHandler"); }
 
 // to re-generate "irqs.h", see the "all-irqs.sh" script
 

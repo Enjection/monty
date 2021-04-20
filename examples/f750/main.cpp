@@ -415,7 +415,6 @@ void rtcTest () {
 
 void faultTest () {
     //watchdog::init(3);
-    setupFaultHandlers();
 
     printf("abc\n");
     msWait(5);
