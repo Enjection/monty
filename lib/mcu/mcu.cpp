@@ -351,14 +351,57 @@ namespace mcu {
         asm ("wfe");
     }
 
-    void dwt::start () {
-        DWT(LAR) = 0xC5ACCE55;
-        SCB(DEMCR) = SCB(DEMCR) | (1<<24); // set TRCENA in DEMCR
-        clear();
-        DWT(CTRL) = DWT(CTRL) | 1;
+    namespace cycles {
+        enum { CTRL=0x000,CYCCNT=0x004,LAR=0xFB0 };
+        enum { DEMCR=0xDFC };
+
+        void start () {
+            DWT(LAR) = 0xC5ACCE55;
+            SCB(DEMCR) = SCB(DEMCR) | (1<<24); // set TRCENA in DEMCR
+            clear();
+            DWT(CTRL) = DWT(CTRL) | 1;
+        }
+        void stop () {
+            DWT(CTRL) = DWT(CTRL) & ~1;
+        }
     }
-    void dwt::stop () {
-        DWT(CTRL) = DWT(CTRL) & ~1;
+
+    namespace watchdog {  // [1] pp.495
+        constexpr auto IWDG = io32<0x4000'3000>; // avoid ambiguous ref
+        enum { KR=0x00,PR=0x04,RLR=0x08,SR=0x0C };
+
+        uint8_t cause; // "semi public"
+
+        auto resetCause () -> int {
+#if STM32F4 || STM32F7
+            enum { CSR=0x74, RMVF=24 };
+#elif STM32L4
+            enum { CSR=0x94, RMVF=23 };
+#endif
+            if (cause == 0) {
+                cause = RCC(CSR) >> 24;
+                RCC(CSR)[RMVF] = 1; // clears all reset-cause flags
+            }
+            return cause & (1<<5) ? -1 :     // iwdg
+                   cause & (1<<3) ? 2 :      // por/bor
+                   cause & (1<<2) ? 1 : 0;   // nrst, or other
+        }
+
+        void init (int rate) {
+            while (IWDG(SR)[0]) {}  // wait until !PVU
+            IWDG(KR) = 0x5555;      // unlock PR
+            IWDG(PR) = rate;        // max timeout, 0 = 400ms, 7 = 26s
+            IWDG(KR) = 0xCCCC;      // start watchdog
+        }
+        void reload (int n) {
+            while (IWDG(SR)[1]) {}  // wait until !RVU
+            IWDG(KR) = 0x5555;      // unlock PR
+            IWDG(RLR) = n;
+            kick();
+        }
+        void kick () {
+            IWDG(KR) = 0xAAAA;      // reset the watchdog timout
+        }
     }
 
     extern "C" void irqDispatch () {

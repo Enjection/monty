@@ -249,15 +249,19 @@ namespace mcu {
         }
     };
 
-    namespace dwt {
-        enum { CTRL=0x000,CYCCNT=0x004,LAR=0xFB0 };
-        enum { DEMCR=0xDFC };
-
+    namespace cycles {
         void start ();
         void stop ();
-        inline void clear () { DWT(CYCCNT) = 0; }
-        inline auto count () -> uint32_t { return DWT(CYCCNT); }
-    };
+        inline void clear () { DWT(0x04) = 0; }
+        inline auto count () -> uint32_t { return DWT(0x04); }
+    }
+
+    namespace watchdog {  // [1] pp.495
+        auto resetCause () -> int;  // watchdog: -1, nrst: 1, power: 2, other: 0
+        void init (int rate =7);    // max timeout, 0 = 400ms, 7 = 26s
+        void reload (int n);
+        void kick ();
+    }
 
     struct BlockIRQ {
         BlockIRQ () { asm ("cpsid i"); }

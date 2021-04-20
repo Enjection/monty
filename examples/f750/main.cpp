@@ -369,19 +369,31 @@ auto monty::nowAsTicks () -> uint32_t {
     return millis();
 }
 
-void dwtTest () {
+void cyclesTest () {
     auto mhz = systemClock() / 1'000'000;
-    dwt::start();
-    auto t = dwt::count();
+    cycles::start();
+    auto t = cycles::count();
     printf("%d\n", t);
-    printf("%d µs\n", (dwt::count() - t) / mhz);
-    printf("%d µs\n", (dwt::count() - t) / mhz);
-    printf("%d µs\n", (dwt::count() - t) / mhz);
-    auto t1 = dwt::count();
-    auto t2 = dwt::count();
-    auto t3 = dwt::count();
-    auto t4 = dwt::count();
+    printf("%d µs\n", (cycles::count() - t) / mhz);
+    printf("%d µs\n", (cycles::count() - t) / mhz);
+    printf("%d µs\n", (cycles::count() - t) / mhz);
+    auto t1 = cycles::count();
+    auto t2 = cycles::count();
+    auto t3 = cycles::count();
+    auto t4 = cycles::count();
     printf("%d %d %d\n", t2-t1, t3-t2, t4-t3);
+}
+
+void watchdogTest () {
+    auto r = watchdog::resetCause();
+    printf("wait 5s ...\n");
+    msWait(5000);
+    printf("reset %d\n", r);
+    watchdog::init(3);
+    while (true) {
+        msWait(1000);
+        printf("%d ms\n", millis());
+    }
 }
 
 mcu::Pin led;
@@ -398,7 +410,8 @@ static void app () {
     //uartTest();
     //sdTest();
     //ramTest();
-    dwtTest();
+    //cyclesTest();
+    watchdogTest();
 }
 
 [[noreturn]] static void main2 () {
