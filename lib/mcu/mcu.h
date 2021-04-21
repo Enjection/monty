@@ -161,7 +161,7 @@ namespace mcu {
         Pin _sda, _scl;
         uint16_t _rate;
 
-        void init (char const* defs, uint16_t rate =100) {
+        void init (char const* defs, uint16_t rate =20) {
             _rate = rate;
             Pin pins [2];
             Pin::define(defs, pins, 2);
@@ -170,7 +170,7 @@ namespace mcu {
             _sda = pins[0]; _scl = pins[1];
         }
 
-        auto start(int addr) const {
+        auto start(uint8_t addr) const {
             sclLo();
             sclHi();
             _sda = 0;
@@ -181,9 +181,10 @@ namespace mcu {
             _sda = 0;
             sclHi();
             _sda = 1;
+            hold();
         }
 
-        auto write(int data) const -> bool {
+        auto write(uint8_t data) const -> bool {
             sclLo();
             for (int mask = 0x80; mask != 0; mask >>= 1) {
                 _sda = data & mask;
@@ -220,7 +221,7 @@ namespace mcu {
                 for (int j = 0; j < 16; ++j) {
                     int addr = i + j;
                     if (0x08 <= addr && addr <= 0x77) {
-                        bool ack = start(addr<<1);
+                        bool ack = start(2*addr);
                         stop();
                         printf(ack ? " %02x" : " --", addr);
                     } else
@@ -228,6 +229,69 @@ namespace mcu {
                 }
                 printf("\n");
             }
+        }
+
+        auto readRegs (uint8_t addr, uint8_t reg, uint8_t* buf, int len) const -> bool {
+            start(2*addr);
+            if (!write(reg)) {
+                stop();
+                return false;
+            }
+            start(2*addr+1);
+            for (int i = 0; i < len; ++i)
+                *buf++ = read(i == len-1);
+            return true;
+        }
+
+        auto readReg (uint8_t addr, uint8_t reg) const -> int {
+            uint8_t val;
+            if (!readRegs(addr, reg, &val, sizeof val))
+                return -1;
+            return val;
+        }
+
+        auto readRegs16 (uint8_t addr, uint16_t reg, uint8_t* buf, int len) const -> bool {
+            start(2*addr);
+            auto ack = write(reg>>8);
+            if (ack)
+                ack = write(reg);
+            if (!ack) {
+                stop();
+                return false;
+            }
+            start(2*addr+1);
+            for (int i = 0; i < len; ++i)
+                *buf++ = read(i == len-1);
+            return true;
+        }
+
+        auto readReg16 (uint8_t addr, uint16_t reg) const -> int {
+            uint8_t val [2];
+            if (!readRegs16(addr, reg, val, sizeof val))
+                return -1;
+            return (val[0]<<8) | val[1];
+        }
+
+        auto writeReg (uint8_t addr, uint8_t reg, uint8_t val) const {
+            start(2*addr);
+            auto ack = write(reg);
+            if (ack)
+                ack = write(val);
+            stop();
+            return ack;
+        }
+
+        auto writeReg16 (uint8_t addr, uint16_t reg, uint16_t val) const {
+            start(2*addr);
+            auto ack = write(reg>>8);
+            if (ack)
+                ack = write(reg);
+            if (ack)
+                ack = write(val>>8);
+            if (ack)
+                ack = write(val);
+            stop();
+            return ack;
         }
 
     private:
