@@ -38,8 +38,8 @@ int printf (const char* fmt, ...) {
     return result;
 }
 
-extern "C" int puts (char const* s) { return printf("%s\n", s); }
-extern "C" int putchar (int ch) { return printf("%c", ch); }
+int puts (char const* s) { return printf("%s\n", s); }
+int putchar (int c) { return printf("%c", c); }
 
 namespace mcu {
     SmallBuf smallBuf;
@@ -48,6 +48,7 @@ namespace mcu {
     uint8_t Device::irqMap [(int) device::IrqVec::limit];
     Device* Device::devMap [20]; // large enough to handle all device objects
     uint32_t volatile ticks;
+    Stream* stdIn;
 
     void systemReset () {
         mcu::SCB(0xD0C) = (0x5FA<<16) | (1<<2); // SCB AIRCR reset

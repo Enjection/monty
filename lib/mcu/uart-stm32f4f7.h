@@ -44,7 +44,7 @@ struct Uart : Device {
             dmaTX(SNDTR) = len;
             dmaTX(SM0AR) = (uint32_t) txBuf + txLast;
             txLast = txWrap(txLast + len);
-            while (devReg(SR)[7] == 0) {} // wait for TXE
+            //while (devReg(SR)[7] == 0) {} // wait for TXE
             dmaTX(SCR)[0] = 1; // EN
         }
     }

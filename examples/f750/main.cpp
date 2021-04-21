@@ -475,10 +475,10 @@ void touchTest () {
             printf("%02x %02x %02x ", buf[0], buf[1], buf[2]);
             for (uint32_t i = 3; i < sizeof buf; i += 6) {
                 auto x = 256*buf[i] + buf[i+1], y = 256*buf[i+2] + buf[i+3];
-                printf("  %4d %4d %3d %02x",
+                printf("%7d %4d %3d %02x",
                         x & 0xFFF, y & 0xFFF, buf[i+4], buf[i+5]);
             }
-            printf(" %d µs     \r", t/mhz);
+            printf("%7d µs \r", t/mhz);
         }
     }
 }
@@ -650,6 +650,24 @@ void codecTest () {
             codec[cmds[i]] = cmds[i+1];
 }
 
+void cliTest () {
+    printf("cli start\n");
+    while (true) {
+        auto [ptr, len] = stdIn->recv();
+        if (len == 0)
+            break;
+        for (int i = 0; i < len; ++i)
+#if 1
+            putchar(ptr[i]);
+#else
+            printf(" %02x", ptr[i]);
+        printf("\n");
+#endif
+        stdIn->didRecv(len);
+    }
+    printf("cli end\n");
+}
+
 mcu::Pin led;
 
 static void app () {
@@ -670,7 +688,8 @@ static void app () {
     //faultTest();
     //i2cTest();
     //touchTest();
-    codecTest();
+    //codecTest();
+    cliTest();
 }
 
 [[noreturn]] static void main2 () {
@@ -681,12 +700,14 @@ static void app () {
     led.define("K3:P"); // set PK3 pin low to turn off the LCD backlight
     led.define("I1:P"); // ... then set the pin to the actual LED
 
-    Serial<Uart> serial (1, "A9:PU7,B7:PU7"); // TODO use the altpins info
-    serial.baud(921600, systemClock() / 2);
+    auto serial = new Serial<Uart> (1, "A9:PU7,B7:PU7"); // TODO use the altpins info
+    serial->baud(921600, systemClock() / 2);
 
-    Printer printer (&serial, [](void* obj, uint8_t const* ptr, int len) {
+    Printer printer (serial, [](void* obj, uint8_t const* ptr, int len) {
         ((Serial<Uart>*) obj)->write(ptr, len);
     });
+
+    stdIn = serial;
     stdOut = &printer;
 
     app();

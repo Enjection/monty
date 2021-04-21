@@ -24,8 +24,9 @@ namespace altpins {
   while (false)
 #endif
 
-extern struct Printer* stdOut;
 extern "C" int printf (char const*, ...);
+extern "C" int puts (char const*);
+extern "C" int putchar (int);
 
 namespace mcu {
     enum ARM_Family { STM_F4, STM_F7, STM_L0, STM_L4 };
@@ -562,6 +563,7 @@ namespace mcu {
 
         void send (uint32_t len) override {
             T::txNext = T::txWrap(T::txNext + len);
+            BlockIRQ crit;
             if (T::txLeft() == 0)
                 T::txStart();
         }
@@ -578,4 +580,8 @@ namespace mcu {
 #elif STM32L4
     #include "uart-stm32l4.h"
 #endif
+
+    extern Stream* stdIn;
 }
+
+extern struct Printer* stdOut;
