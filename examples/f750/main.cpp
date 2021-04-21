@@ -436,8 +436,12 @@ struct I2cDev {
         I2cGpio const& b;
         uint8_t a, r;
 
-        operator uint8_t () const { return b.readReg(a, r); }
-        auto operator= (uint8_t v) const -> uint8_t { b.writeReg(a, r, v); }
+        operator uint8_t () const {
+            return b.readReg(a, r);
+        }
+        auto operator= (uint8_t v) const -> uint8_t {
+            b.writeReg(a, r, v); return v;
+        }
     };
 
     auto operator[] (uint8_t reg) {
@@ -469,7 +473,7 @@ void touchTest () {
         if (touch.read(0x00, buf, sizeof buf)) {
             t = cycles::count() - t;
             printf("%02x %02x %02x ", buf[0], buf[1], buf[2]);
-            for (int i = 3; i < sizeof buf; i += 6) {
+            for (uint32_t i = 3; i < sizeof buf; i += 6) {
                 auto x = 256*buf[i] + buf[i+1], y = 256*buf[i+2] + buf[i+3];
                 printf("  %4d %4d %3d %02x",
                         x & 0xFFF, y & 0xFFF, buf[i+4], buf[i+5]);
@@ -488,8 +492,12 @@ struct I2cDev16 {
         uint8_t a;
         uint16_t r;
 
-        operator uint16_t () const { return b.readReg16(a, r); }
-        auto operator= (uint16_t v) const -> uint16_t { b.writeReg16(a, r, v); }
+        operator uint16_t () const {
+            return b.readReg16(a, r);
+        }
+        auto operator= (uint16_t v) const -> uint16_t {
+            b.writeReg16(a, r, v); return v;
+        }
     };
 
     auto operator[] (uint16_t reg) {
@@ -545,92 +553,101 @@ void codecTest () {
     
     I2cDev16 codec {i2c, 0x1A};
 
+    constexpr uint8_t oVol = 63;
+    constexpr uint8_t iVol = 239;
+
     printf("id %04x\n", (uint16_t) codec[0x0]);
-    codec[0x0] = 0x0000; // reset
 
-    // WM8994 errata
-    codec[0x102] = 0x0003;
-    codec[0x817] = 0x0000;
-    codec[0x102] = 0x0000;
+    static uint16_t const cmds [] = {
+        0x0,   0x0000, // reset
+        0xFFFF, 50,    // needed?
 
-    codec[0x39] = 0x006C; // soft start
-    codec[0x01] = 0x0013; // bias generator
-    msWait(50);
+        // WM8994 errata
+        0x102, 0x0003,
+        0x817, 0x0000,
+        0x102, 0x0000,
 
-    // headphone, enable DAC2 L&R
-    codec[ 0x05] = 0x0303;
-    codec[0x601] = 0x0001;
-    codec[0x602] = 0x0001;
-    codec[0x604] = 0x0000;
-    codec[0x605] = 0x0000;
+        0x39,  0x006C, // soft start
+        0x01,  0x0013, // bias generator
+        0xFFFF, 50,
 
-    // microphone 2, enable AIF1ADC2 L&R, DMICDAT2 L&R, ADC L&R
-    codec[ 0x04] = 0x0C30;
-    codec[0x450] = 0x00DB;
-    codec[ 0x02] = 0x6000;
-    codec[0x608] = 0x0002;
-    codec[0x609] = 0x0002;
-    codec[0x700] = 0x000E;
+        // headphone, enable DAC2 L&R
+        0x05,  0x0303,
+        0x601, 0x0001,
+        0x602, 0x0001,
+        0x604, 0x0000,
+        0x605, 0x0000,
 
-    codec[0x210] = 0x0033; // 16 kHz
-    codec[0x300] = 0x4010; // 16b AIF1 I2S
-    codec[0x302] = 0x0000; // slave mode
-    codec[0x208] = 0x000A; // DSP AIF1
-    codec[0x200] = 0x0001; // AIF1 clock MCLK1
+        // microphone 2, enable AIF1ADC2 L&R, DMICDAT2 L&R, ADC L&R
+        0x04,  0x0C30,
+        0x450, 0x00DB,
+        0x02,  0x6000,
+        0x608, 0x0002,
+        0x609, 0x0002,
+        0x700, 0x000E,
 
-    codec[ 0x2D] = 0x0100; // DAC1 L HPOUT1LVOL
-    codec[ 0x2E] = 0x0100; // DAC1 R HPOUT1RVOL
-    codec[0x110] = 0x8100; // startup seq HP
-    msWait(300);
-    codec[0x420] = 0x0000; // soft un-mute AIF1 0 DAC1 L&R
+        0x210, 0x0033, // 16 kHz
+        0x300, 0x4010, // 16b AIF1 I2S
+        0x302, 0x0000, // slave mode
+        0x208, 0x000A, // DSP AIF1
+        0x200, 0x0001, // AIF1 clock MCLK1
 
-    codec[0x03] = 0x0300; // SPKxVOL PGA SPKMIXR L&R
-    codec[0x22] = 0x0000; // speaker L vol 0db
-    codec[0x23] = 0x0000; // speaker R vol 0db
-    codec[0x36] = 0x0300; // un-mute DAC2 SPKMIX L&R
-    codec[0x01] = 0x3003; // bias gen SPKOUT L&R
+        0x2D,  0x0100, // DAC1 L HPOUT1LVOL
+        0x2E,  0x0100, // DAC1 R HPOUT1RVOL
+        0x110, 0x8100, // startup seq HP
+        0xFFFF, 300,
+        0x420, 0x0000, // soft un-mute AIF1 0 DAC1 L&R
 
-    // headphone/speaker
-    codec[0x51] = 0x0005; // class W AIF1 0
+        0x03,  0x0300, // SPKxVOL PGA SPKMIXR L&R
+        0x22,  0x0000, // speaker L vol 0db
+        0x23,  0x0000, // speaker R vol 0db
+        0x36,  0x0300, // un-mute DAC2 SPKMIX L&R
+        0x01,  0x3003, // bias gen SPKOUT L&R
 
-    auto pmr1 = 0x0303|0x3003;
-    codec[0x01] = pmr1;   // bias gen, HPOUT1 L&R
-    codec[0x60] = 0x0022; // HPOUT1 L&R intermediate
-    codec[0x4C] = 0x9F25; // charge pump
-    msWait(15);
+        // headphone/speaker
+        0x51,  0x0005, // class W AIF1 0
 
-    codec[0x2D] = 0x0001; // DAC1 HPOUT1LVOL
-    codec[0x2E] = 0x0001; // DAC1 HPOUT1RVOL
-    codec[0x03] = 0x0030|0x0300; // MIXOUT L&R
-    codec[0x54] = 0x0033; // DC servo start-up L&R
-    msWait(257);
+        0x01,  0x3303, // bias gen, HPOUT1 L&R
+        0x60,  0x0022, // HPOUT1 L&R intermediate
+        0x4C,  0x9F25, // charge pump
+        0xFFFF, 15,
 
-    codec[0x60] = 0x00EE; // HPOUT1 L&R output
+        0x2D,  0x0001, // DAC1 HPOUT1LVOL
+        0x2E,  0x0001, // DAC1 HPOUT1RVOL
+        0x03,  0x0330, // MIXOUT L&R
+        0x54,  0x0033, // DC servo start-up L&R
+        0xFFFF, 257,
 
-    // un-mutes
-    codec[0x610] = 0x00C0; // DAC1 L
-    codec[0x611] = 0x00C0; // DAC1 R
-    codec[0x420] = 0x0010; // AIF1 0 DAC1
-    codec[0x612] = 0x00C0; // DAC2 L
-    codec[0x613] = 0x00C0; // DAC2 R
-    codec[0x422] = 0x0010; // AIF1 1 DAC2
+        0x60,  0x00EE, // HPOUT1 L&R output
 
-    auto oVol = 63;
-    codec[0x1C] = oVol|0x140; // HP vol L
-    codec[0x1D] = oVol|0x140; // HP vol R
-    codec[0x26] = oVol|0x140; // SPKR vol L
-    codec[0x27] = oVol|0x140; // SPKR vol R
+        // un-mutes
+        0x610, 0x00C0, // DAC1 L
+        0x611, 0x00C0, // DAC1 R
+        0x420, 0x0010, // AIF1 0 DAC1
+        0x612, 0x00C0, // DAC2 L
+        0x613, 0x00C0, // DAC2 R
+        0x422, 0x0010, // AIF1 1 DAC2
 
-    pmr1 |= 0x0013;
-    codec[ 0x01] = pmr1;   // mic bias 1
-    codec[0x620] = 0x0002; // ADC oversample
-    codec[0x411] = 0x3800; // AIF ADC2 HPF ena voice mode 1
+        0x1C,  oVol|0x140, // HP vol L
+        0x1D,  oVol|0x140, // HP vol R
+        0x26,  oVol|0x140, // SPKR vol L
+        0x27,  oVol|0x140, // SPKR vol R
 
-    auto iVol = 239;
-    codec[0x400] = iVol|0x100; // AIF1 ADC1 vol L
-    codec[0x401] = iVol|0x100; // AIF1 ADC1 vol R
-    codec[0x404] = iVol|0x100; // AIF1 ADC2 vol L
-    codec[0x405] = iVol|0x100; // AIF1 ADC2 vol R
+        0x01,  0x3313, // mic bias 1
+        0x620, 0x0002, // ADC oversample
+        0x411, 0x3800, // AIF ADC2 HPF ena voice mode 1
+
+        0x400, iVol|0x100, // AIF1 ADC1 vol L
+        0x401, iVol|0x100, // AIF1 ADC1 vol R
+        0x404, iVol|0x100, // AIF1 ADC2 vol L
+        0x405, iVol|0x100, // AIF1 ADC2 vol R
+    };
+
+    for (uint32_t i = 0; i < sizeof cmds / sizeof *cmds; i += 2)
+        if (cmds[i] == 0xFFFF)
+            msWait(cmds[i+1]);
+        else
+            codec[cmds[i]] = cmds[i+1];
 }
 
 mcu::Pin led;
