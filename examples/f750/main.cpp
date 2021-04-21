@@ -510,44 +510,29 @@ void codecTest () {
     i2c.init("H8,H7");
     i2c.detect();
 
+    // FIXME RCC name clash mcb/device
+    constexpr auto RCC = io32<0x4002'3800>;
+    enum { CR=0x00,AHB1ENR=0x30,APB2ENR=0x44,PLLI2SCFGR=0x84,DKCFGR1=0x8C };
+
+    // BSP_AUDIO_OUT_ClockConfig
+    RCC(DKCFGR1).mask(22, 2) = 1;       // SAI2SEL PLLI2S
+    RCC(CR)[26] = 0;                    // ~PLLI2SON
+    while (RCC(CR)[27]) {}              // wait until ~PLLI2SRDY
+    RCC(PLLI2SCFGR).mask(24, 4) = 7;    // PLLI2SQ
+    RCC(PLLI2SCFGR).mask(6, 9) = 344;   // PLLI2SN
+    RCC(CR)[26] = 1;                    // PLLI2SON
+    while (RCC(CR)[27] == 0) {}         // wait until PLLI2SRDY
+
+    RCC(APB2ENR)[23] = 1;               // SAI2EN
+    mcu::Pin pins[2];  // SD and INT pins (exti15)
+    mcu::Pin::define("G10:PH10,H15:FH", pins, sizeof pins);
+
+    RCC(AHB1ENR)[22] = 1; // AHB1ENR DMA2 (c0s7 16b)
+    // TODO dma setup, see BSP_AUDIO_IN_MspInit
+
 #if 0
-    /* Disable SAI */
-    SAIx_In_DeInit();
-    SAIx_Out_DeInit();
-
-    /* PLL clock is set depending on the AudioFreq (44.1khz vs 48khz groups) */
-    BSP_AUDIO_OUT_ClockConfig(&haudio_in_sai, AudioFreq, NULL); /* Clock config is shared between AUDIO IN and OUT */
-
-    /* SAI data transfer preparation:
-    Prepare the Media to be used for the audio transfer from SAI peripheral to memory */
-    haudio_in_sai.Instance = AUDIO_IN_SAIx;
-    if(HAL_SAI_GetState(&haudio_in_sai) == HAL_SAI_STATE_RESET)
-    {
-      /* Init the SAI MSP: this __weak function can be redefined by the application*/
-      BSP_AUDIO_IN_MspInit(&haudio_in_sai, NULL);
-    }
-
-    /* SAI data transfer preparation:
-    Prepare the Media to be used for the audio transfer from memory to SAI peripheral */
-    haudio_out_sai.Instance = AUDIO_OUT_SAIx;
-    if(HAL_SAI_GetState(&haudio_out_sai) == HAL_SAI_STATE_RESET)
-    {
-      /* Init the SAI MSP: this __weak function can be redefined by the application*/
-      BSP_AUDIO_OUT_MspInit(&haudio_out_sai, NULL);
-    }
-
-    /* Configure SAI in master mode :
-     *   - SAI2_block_A in master TX mode
-     *   - SAI2_block_B in slave RX mode synchronous from SAI2_block_A
-     */
-    if (InputDevice == INPUT_DEVICE_DIGITAL_MICROPHONE_2)
-    {
-      slot_active = CODEC_AUDIOFRAME_SLOT_13;
-    }
-    else
-    {
-      slot_active = CODEC_AUDIOFRAME_SLOT_02;
-    }
+    BSP_AUDIO_OUT_MspInit(&haudio_out_sai, NULL);
+    slot_active = CODEC_AUDIOFRAME_SLOT_13;
     SAIx_In_Init(SAI_MODEMASTER_TX, slot_active, AudioFreq);
 #endif
     

@@ -28,6 +28,40 @@ void dumpHex (void const* p, int n =16) {
     }
 }
 
+struct InputParser {
+    enum State : uint8_t { Ini, Cmd, Hex, Obj, Err };
+    State state =Ini;
+
+    InputParser () {}
+
+    auto feed (uint8_t const* ptr, int len) {
+        int pos = 0;
+        while (pos < len) {
+            state = next(ptr[pos++]);
+            if (Ini < state && state <= Err)
+                break; // parse complete
+        }
+        return len;
+    }
+private:
+    uint8_t tag;
+
+    auto next (uint8_t b) -> State {
+        switch (state) {
+            case Ini:
+            case Cmd:
+            case Hex:
+            case Obj:
+            case Err:
+                tag = b;
+                switch (b) {
+                }
+                break;
+        }
+        return state;
+    }
+};
+
 int main (int argc, char const** argv) {
     arch::init(10*1024);
 
@@ -36,11 +70,36 @@ int main (int argc, char const** argv) {
     if (fp == nullptr)
         perror(argv[1]);
     else {
-        char buf [16];
+        InputParser parser;
+
+        uint8_t buf [16];
         while (true) {
             auto n = fread(buf, 1, sizeof buf, fp);
             if (n <= 0)
                 break;
+            uint8_t const* ptr = buf;
+            while (n > 0) {
+                int i = parser.feed(ptr, n);
+                assert(0 < n && n <= n);
+                ptr += i;
+                n -= i;
+
+                switch (parser.state) {
+                    case parser.Cmd:
+                        printf("cmd\n");
+                        break;
+                    case parser.Hex:
+                        printf("hex\n");
+                        break;
+                    case parser.Obj:
+                        printf("obj\n");
+                        break;
+                    case parser.Err:
+                        printf("err\n");
+                        break;
+                    default: break;
+                }
+            }
             dumpHex(buf, n);
         }
     }
