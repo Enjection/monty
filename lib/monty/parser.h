@@ -204,13 +204,13 @@ private:
                 tag = stack.pop();
                 switch (tag) {
                     case '(':
-                        val = Tuple::create({v, (int) v.size(), 0});
+                        val = new Tuple (val);
                     case '[':
                         break;
                     case '_':
                     case '{':
                         if (tag == '_' || v.size() > 0) {
-                            val = Set::create({v, (int) v.size(), 0});
+                            val = new Set (val);
                             break;
                         }
                         [[fallthrough]];

@@ -635,7 +635,7 @@ void codecTest () {
             codec[cmds[i]] = cmds[i+1];
 }
 
-void cliTest () {
+void consoleTest () {
     printf("cli start\n");
     while (true) {
         auto [ptr, len] = stdIn->recv();
@@ -674,7 +674,7 @@ static void app () {
     //i2cTest();
     //touchTest();
     //codecTest();
-    cliTest();
+    consoleTest();
 }
 
 [[noreturn]] static void main2 () {

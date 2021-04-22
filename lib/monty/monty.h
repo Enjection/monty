@@ -80,9 +80,9 @@ namespace monty {
         struct {
             int
                 checks, sweeps, compacts,
-                toa, tob, tva, tvb, // totalObjAllocs/Bytes,totalVecAllocs/Bytes
-                coa, cob, cva, cvb, // currObjAllocs/Bytes,currVecAllocs/Bytes
-                moa, mob, mva, mvb; // maxObjAllocs/Bytes,maxVecAllocs/Bytes
+                toa, tob, tva, tvb, // total Obj/Vec Allocs/Bytes
+                coa, cob, cva, cvb, // curr  Obj/Vec Allocs/Bytes
+                moa, mob, mva, mvb; // max   Obj/Vec Allocs/Bytes
         };
         int v [15];
     };
