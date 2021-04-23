@@ -221,16 +221,20 @@ struct Ip4 : Frame {
 
     void received (Interface&); // dispatcher
 
+    static auto check16 (void const* p, int n, uint32_t s =0) -> uint16_t {
+        for (int i = 0; i < n/2; ++i)
+            s += ((Net16 const*) p)[i];
+        while (s > 0xFFFF)
+            s = (s >> 16) + (uint16_t) s;
+        return s;
+    }
+
     void sendIt (Interface& ni, uint16_t len) {
         _total = len - 14;
-#if 1
-        _hcheck = 0;
-        uint32_t s = 0;
-        for (int i = 0; i < 10; ++i)
-            s += ((Net16 const*) &_versLen)[i];
-        s += s >> 16;
-        _hcheck = ~s;
-#endif
+        if (true) { // calculate checksum
+            _hcheck = 0;
+            _hcheck = ~ check16(&_versLen, 20);
+        }
         ni.write((uint8_t const*) this, len);
     }
 };

@@ -42,11 +42,11 @@ struct Tcp : Ip4 {
         void dump (Tcp const& pkt) const {
             uint16_t rAdv = pkt._seq - rAck; if (rAdv > 99) rAdv = 99;
             uint16_t lAdv = pkt._ack - lUna; if (lAdv > 99) lAdv = 99;
-            printf("  %c %23s    r %04x+%02d l %04x+%02d iBuf %d oBuf %d\n",
+            printf("  %c %23s    r %04x+%02d l %04x+%02d iBuf %d oBuf %d sent %d\n",
                     "FLRSE12GTCK"[state], "",
                     (uint16_t) (rAck-rIni), rAdv,
                     (uint16_t) (lUna-0x0400), lAdv,
-                    iBuf.size(), oBuf.size());
+                    iBuf.size(), oBuf.size(), sent);
         }
     };
 
@@ -62,27 +62,26 @@ struct Tcp : Ip4 {
         _off = 5<<4;
         _code = flags;
         _win = win;
-#if 1
-        _sum = 0;
-        int n = bytes;
-        if (n & 1)
-            _data[n++] = 0;
-        uint32_t s = _proto + 20 + bytes;
-        for (int i = 0; i < 14+n/2; ++i)
-            s += ((Net16 const*) &_srcIp)[i];
-        s += s >> 16;
-        _sum = ~s;
-#endif
+        if (true) { // calculate checksum
+            _sum = 0;
+            int n = bytes;
+            if (n & 1)
+                _data[n++] = 0;
+            // TODO assumes hlen is 5, i.e. no options
+            _sum = ~ check16(&_srcIp, n + 28, _proto + 20 + bytes);
+        }
         sendIt(ni, sizeof *this + bytes);
     }
 
     void process (Interface& ni, Session& ts) {
+        if (_code & RST)
+            return ts.deinit(); // TODO need to reply with ACK in some cases
+
         // setup
         switch (ts.state) {
             case LSTN:
                 if (_code & SYN) {
-//ts.oBuf.clear();
-                    ts.lUna = 1024; // TODO
+                    ts.lUna = 1024; // TODO use cycle counter, systick, or RNG
                     ts.rIni = _seq;
                     ts.rAck = _seq+1;
                     return sendReply(ni, ts, SYNR, SYN+ACK, 0);
@@ -92,6 +91,7 @@ struct Tcp : Ip4 {
                 if ((_code & ACK) && _ack - ts.lUna >= 1) {
                     ++ts.lUna;
                     ts.state = ESTB;
+                    break;
                 }
                 return;
             case SYNS: // TODO
@@ -104,9 +104,7 @@ struct Tcp : Ip4 {
             case ESTB:
             case FIN1:
             case FIN2:
-printf("recv rAck %02d seq %02d nIn %d\n",
-        (ts.rAck - ts.rIni) & 0xFF, (_seq - ts.rIni) & 0xFF, nIn);
-nIn -= ts.rAck - _seq;
+                //nIn -= ts.rAck - _seq;
                 if (nIn > 0) {
                     dumpHex(_data, nIn);
                     ts.iBuf.insert(ts.iBuf.size(), nIn);
@@ -128,7 +126,6 @@ nIn -= ts.rAck - _seq;
                 nOut = ts.oBuf.size() - ts.sent;
                 if (nOut > _win)
                     nOut = _win;
-                //if (nOut > 2) nOut = 2;
                 if (nOut > 0) {
                     memcpy(_data, ts.oBuf.begin() + ts.sent, nOut);
                     ts.sent += nOut;
@@ -157,6 +154,8 @@ nIn -= ts.rAck - _seq;
                     ++ts.rAck;
                     return sendReply(ni, ts, TIMW, ACK, 0);
                 }
+                if (ts.rAck != _seq)
+                    return sendReply(ni, ts, FIN2, ACK, 0);
                 return;
             case CSNG:
                 if (_code & ACK) {
@@ -188,16 +187,19 @@ nIn -= ts.rAck - _seq;
 
         // only ESTB remains
         switch (ts.state) {
-            case ESTB:
-                if (_code & FIN) {
+            case ESTB: {
+                uint8_t r = 0;
+                if (_code & FIN)
                     ++ts.rAck;
-                    return sendReply(ni, ts, CLOW, ACK, nOut);
-                }
                 if (ts.oBuf.size() == 0)
-                    return sendReply(ni, ts, FIN1, FIN, nOut);
-                if (ts.rAck != _seq || ts.lUna != _ack || nOut > 0)
-                    return sendReply(ni, ts, ESTB, ACK, nOut);
+                    r |= FIN;
+                if (r != 0 || ts.rAck != _seq || ts.lUna != _ack || nOut > 0) {
+                    r |= ACK;
+                    return sendReply(ni, ts, _code & FIN ? FIN1 :
+                                                r & FIN ? FIN1 : ESTB, r, nOut);
+                }
                 return;
+            }
         }
     }
 
@@ -208,10 +210,9 @@ nIn -= ts.rAck - _seq;
                 (int) _sPort, (int) _dPort, (uint16_t) _seq, (uint16_t) _ack,
                 (int) _total, millis() % 1000);
 #else
-        printf("\nTCP %s .%d:%d %08x  tot %d @%03d\n",
+        printf("\nTCP %s .%d:%d %08x  tot %d\n",
                 decode(_code, "FSRPAU"), (uint8_t) _srcIp,
-                (int) _sPort, (uint32_t) _seq,
-                (int) _total, millis() % 1000);
+                (int) _sPort, (uint32_t) _seq, (int) _total);
 #endif
 
         auto sess = findSession({_srcIp, _sPort, _dPort});
