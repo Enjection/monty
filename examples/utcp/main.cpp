@@ -11,10 +11,14 @@
 
 using namespace monty;
 
+// TODO hacked for native use, "mcu.h" makes too many embedded assumptions
+
 #define ensure assert
 
 using SmallBuf = char [20];
 SmallBuf smallBuf;
+
+auto millis () -> uint32_t { return nowAsTicks(); }
 
 void dumpHex (void const* p, int n =16) {
     for (int off = 0; off < n; off += 16) {
@@ -39,21 +43,15 @@ void dumpHex (void const* p, int n =16) {
     }
 }
 
-auto millis () -> uint32_t {
-    return nowAsTicks();
-}
+struct Device {};
 
 struct Stream {
     int fd;
 
     auto write (uint8_t const* p, uint32_t n) -> int {
-        //printf("WRITE %d\n", n);
-        //dumpHex(p, n);
         return ::write(fd, p, n);
     }
 };
-
-struct Device {};
 
 #include "../f750/net.h"
 
@@ -77,26 +75,23 @@ auto initBpf () -> int {
     e = ioctl(fd, BIOCIMMEDIATE, &enable); assert(e >= 0);
 
     static struct bpf_insn insns [] = {
-        BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 12),         // check 16b @12
+        BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 12),             // check 16b @12
         BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 0x0800, 0, 10),
-        BPF_STMT(BPF_LD+BPF_B+BPF_ABS, 23),         // check 8b @23
+        BPF_STMT(BPF_LD+BPF_B+BPF_ABS, 23),             // check 8b @23
         BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 0x06, 0, 8),
-        BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 20),         // check unfragmented
+        BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 20),             // check unfragmented
         BPF_JUMP(BPF_JMP+BPF_JSET+BPF_K, 0x1FFF, 6, 0),
-        BPF_STMT(BPF_LDX+BPF_B+BPF_MSH, 14),        // get header length
-        BPF_STMT(BPF_LD+BPF_H+BPF_IND, 14),         // ... either srcIp matches
+        BPF_STMT(BPF_LDX+BPF_B+BPF_MSH, 14),            // get header length
+        BPF_STMT(BPF_LD+BPF_H+BPF_IND, 14),             // srcIp matches ...
         BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, PORT, 2, 0),
-        BPF_STMT(BPF_LD+BPF_H+BPF_IND, 16),         // .. or dstIp matches
+        BPF_STMT(BPF_LD+BPF_H+BPF_IND, 16),             // ... or dstIp matches
         BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, PORT, 0, 1),
-        BPF_STMT(BPF_RET+BPF_K, ~0U),               // accept
-        BPF_STMT(BPF_RET+BPF_K, 0),                 // reject
+        BPF_STMT(BPF_RET+BPF_K, ~0U),                   // accept
+        BPF_STMT(BPF_RET+BPF_K, 0),                     // reject
     };
 
-    static struct bpf_program fcode {
-        .bf_len = sizeof insns / sizeof *insns,
-        .bf_insns = insns,
-    };
-    e = ioctl(fd, BIOCSETF, &fcode); assert(e >= 0);
+    struct bpf_program filter { sizeof insns / sizeof *insns, insns };
+    e = ioctl(fd, BIOCSETF, &filter); assert(e >= 0);
 
     printf("%s :%d fd %d\n", dev, PORT, fd);
     return fd;
@@ -123,7 +118,6 @@ int main () {
         auto p = bpfBuf;
         while (p < bpfBuf + n) {
             auto& bh = *(struct bpf_hdr*) p;
-            //dumpHex(p + bh.bh_hdrlen, 64);
             ((Frame*) (p + bh.bh_hdrlen))->received(bpf);
             p += BPF_WORDALIGN(bh.bh_hdrlen + bh.bh_caplen);
         }
