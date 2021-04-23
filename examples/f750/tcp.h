@@ -54,7 +54,7 @@ struct Tcp : Ip4 {
         ts.state = state;
         auto win = ts.iBuf.cap() - ts.iBuf.size();
         printf("  > %s len %d win %d\n",
-                decode(flags, "FSRPAU"), bytes, win);
+                decode(flags, "FSRPAU"), bytes, (int) win);
         Ip4::isReply(ni);
         swap(_sPort, _dPort);
         _seq = ts.lUna - bytes + ts.sent;
@@ -62,6 +62,17 @@ struct Tcp : Ip4 {
         _off = 5<<4;
         _code = flags;
         _win = win;
+#if 1
+        _sum = 0;
+        int n = bytes;
+        if (n & 1)
+            _data[n++] = 0;
+        uint32_t s = _proto + 20 + bytes;
+        for (int i = 0; i < 14+n/2; ++i)
+            s += ((Net16 const*) &_srcIp)[i];
+        s += s >> 16;
+        _sum = ~s;
+#endif
         sendIt(ni, sizeof *this + bytes);
     }
 
