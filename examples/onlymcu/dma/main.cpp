@@ -125,6 +125,14 @@ int main () {
     printf("memdma: %6d cycles, %4d µs (%d%d)\n", t, t/mhz, buf1[0], buf1[N-1]);
     msWait(50);
 
+    buf1[0] = 0; buf2[0] = 5; buf1[N-1] = 0; buf2[N-1] = -5;
+    t = cycles::count();
+    for (int i = 0; i < N; ++i)
+        buf1[i] = buf2[i];
+    t = cycles::count() - t;
+    printf("inline: %6d cycles, %4d µs (%d%d)\n", t, t/mhz, buf1[0], buf1[N-1]);
+    msWait(50);
+
     while (true) {
         //msWait(100);
         printf("%d\n", millis());
