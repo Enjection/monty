@@ -476,26 +476,23 @@ namespace mcu {
         auto idx = Device::irqMap[irq-16];
         Device::devMap[idx]->irqHandler();
     }
+
+    extern "C" void whoops (uint32_t const* sp) {
+        // this goes out the SWO port, which needs debugger support to be seen
+        debugf("\r\n<< WHOOPS >> SP %p LR %p PC %p PSR %p CFSR %p\n",
+                sp, sp[5], sp[6], sp[7], (uint32_t) SCB(0xD28));
+        debugf(" R0 %p R1 %p R2 %p R3 %p R12 %p BFAR %p\n",
+                sp[0], sp[1], sp[2], sp[3], sp[4], (uint32_t) SCB(0xD38));
+        // try to get the first line out to serial, as DMA might still be ok
+        printf("\r\n<WHOOPS> SP %p LR %p PC %p PSR %p CFSR %p\n",
+                sp, sp[5], sp[6], sp[7], (uint32_t) SCB(0xD28));
+        // end of the road, only a reset (or watchdog) will get us out of here
+        while (true) {}
+    }
 }
 
 // fault handling (tricky, as gcc appears to mess with the LR register)
-
-extern "C" void whoops (uint32_t const* sp) {
-    using namespace mcu;
-    // this goes out the SWO port, which needs debugger support to be seen
-    debugf("\r\n<< WHOOPS >> SP %p LR %p PC %p PSR %p CFSR %p\n",
-            sp, sp[5], sp[6], sp[7], (uint32_t) SCB(0xD28));
-    debugf(" R0 %p R1 %p R2 %p R3 %p R12 %p BFAR %p\n",
-            sp[0], sp[1], sp[2], sp[3], sp[4], (uint32_t) SCB(0xD38));
-    // also try to get the first line out to serial, as DMA might still be ok
-    printf("\r\n<WHOOPS> SP %p LR %p PC %p PSR %p CFSR %p\n",
-            sp, sp[5], sp[6], sp[7], (uint32_t) SCB(0xD28));
-    // the end of the road, only a reset (or watchdog) will get us out of here
-    while (true) {}
-}
-
 extern "C" void HardFault_Handler  () __attribute__ ((naked));
-
 void HardFault_Handler () {
     asm ("tst lr, #4; ite eq; mrseq r0, msp; mrsne r0, psp; b whoops");
 }

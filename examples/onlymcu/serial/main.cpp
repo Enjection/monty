@@ -14,15 +14,10 @@ void mcu::failAt (void const* pc, void const* lr) {
 int main () {
     fastClock();
 
-    mcu::Pin tx, rx; // TODO use the altpins info
-    tx.define("A2:PU7");
-    rx.define("A15:PU3");
-
-    Serial serial (2);
-    serial.init();
+    Serial<Uart> serial (2, "A2:PU7,A15:PU3");
 
     Printer printer (&serial, [](void* obj, uint8_t const* ptr, int len) {
-        ((Serial*) obj)->write(ptr, len);
+        ((Serial<Uart>*) obj)->write(ptr, len);
     });
     stdOut = &printer;
 
