@@ -52,77 +52,15 @@ struct Uart : Device {
         }
     }
 
-    struct Chunk { uint8_t* buf; uint16_t len; };
-
-    auto recv () -> Chunk {
-        uint16_t end;
-        waitWhile([&]() {
-            end = rxNext();
-            return rxPull == end; // true if there's no data
-        });
-        if (end < rxPull)
-            end = sizeof rxBuf;
-        return {rxBuf+rxPull, (uint16_t) (end-rxPull)};
-    }
-
-    void didRecv (uint32_t len) {
-        rxPull = (rxPull + len) % sizeof rxBuf;
-    }
-
-    auto canSend () -> Chunk {
-        // there are 3 cases (note: #=sending, +=pending, .=free)
-        //
-        // txBuf: [   <-txLeft   txLast   txNext   ]
-        //        [...#################+++++++++...]
-        //
-        // txBuf: [   txLast   txNext   <-txLeft   ]
-        //        [#########+++++++++...###########]
-        //
-        // txBuf: [   txNext   <-txLeft   txLast   ]
-        //        [+++++++++...#################+++]
-        //
-        // txLeft() reads the "CNDTR" DMA register, which counts down to zero
-        // it's relative to txLast, which marks the current transfer limit
-        //
-        // when the DMA is done and txNext != txLast, a new xfer is started
-        // this happens at interrupt time and also adjusts txLast accordingly
-        // if txLast > txNext, two separate transfers need to be started
-
-        uint16_t avail;
-        waitWhile([&]() {
-            auto left = txLeft();
-            ensure(left < sizeof txBuf);
-            uint16_t take = txWrap(txNext + sizeof txBuf - left);
-            avail = take > txNext ? take - txNext : sizeof txBuf - txNext;
-            return left != 0 || avail == 0;
-        });
-        ensure(avail > 0);
-        return {txBuf+txNext, avail};
-    }
-
-    void send (uint8_t const* p, uint32_t n) {
-        while (n > 0) {
-            auto [ptr, len] = canSend();
-            if (len > n)
-                len = n;
-            memcpy(ptr, p, len);
-            txNext = txWrap(txNext + len);
-            if (txLeft() == 0)
-                txStart();
-            p += len;
-            n -= len;
-        }
-    }
-
     DevInfo dev;
-private:
+protected:
     uint8_t rxBuf [100], txBuf [100];
-    uint16_t rxPull =0, txNext =0, txLast =0;
+    uint16_t txNext =0, txLast =0;
 
     static auto txWrap (uint16_t n) -> uint16_t {
         return n < sizeof txBuf ? n : n - sizeof txBuf;
     }
-
+private:
     auto devReg (int off) const -> IOWord {
         return io32<0>(dev.base+off);
     }

@@ -78,7 +78,7 @@ struct Printer {
 private:
     uint16_t count;
     int8_t pad, width, radix, fill, limit;
-    uint8_t buf [48];
+    uint8_t buf [80];
 
     void flush () {
         auto len = fill;

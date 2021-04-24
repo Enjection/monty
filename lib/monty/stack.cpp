@@ -123,7 +123,7 @@ auto Event::wait (int ms) -> Value {
 // constantly adjust N counters on each tick. The logic is done modulo 65536,
 // because 16-bit arithmetic is so easy to do: just use a uint16_t.
 //
-// With deadliness, the remaining time is always: (deadline - now) % 65536
+// With deadlines, the remaining time is always: (deadline - now) % 65536
 // As the maximum valid timeout is 60s, this leads to the following ranges:
 //
 //      0 .. 60000 = ms ticks remaining before this timeout expires
@@ -131,7 +131,7 @@ auto Event::wait (int ms) -> Value {
 //
 //  Each events will keep track of a "combined deadline", i.e. a deadline which
 //  is guaranteed to be no later than the earliest one currently queued up. As
-//  there's always a deadline, there may be useless triggers once every 60s.
+//  there's always a deadline, there may be "unused" triggers once every 60s.
 
 auto Event::triggerExpired (uint32_t now) -> uint32_t {
     auto n = _queue.size();
