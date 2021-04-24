@@ -7,6 +7,8 @@
 using namespace monty;
 using namespace mcu;
 
+#include <parser.h>
+
 void dumpHex (void const* p, int n =16) {
     for (int off = 0; off < n; off += 16) {
         printf(" %03x:", off);
@@ -636,21 +638,42 @@ void codecTest () {
 }
 
 void consoleTest () {
-    printf("cli start\n");
+    printf("console start\n");
     while (true) {
         auto [ptr, len] = stdIn->recv();
         if (len == 0)
             break;
         for (int i = 0; i < len; ++i)
-#if 1
             putchar(ptr[i]);
-#else
-            printf(" %02x", ptr[i]);
-        printf("\n");
-#endif
         stdIn->didRecv(len);
     }
-    printf("cli end\n");
+    printf("console end\n");
+}
+
+void parserTest () {
+    printf("parser start\n");
+Value o = new Str ("abc def");
+{ Buffer b; b << o << "\n"; }
+    Parser parser;
+    while (true) {
+        auto [ptr, len] = stdIn->recv();
+        if (len == 0)
+            break;
+        stdIn->didRecv(parser.feed(ptr, len));
+
+        switch (parser.state) {
+            case parser.Cmd:    parser.val.dump("CMD"); break;
+            case parser.Hex:    printf("HEX %d addr %04x len %d\n",
+                                        parser.hexType(),
+                                        parser.hexAddr(),
+                                        parser.hexSize());
+                                break;
+            case parser.Obj:    parser.val.dump("OBJ"); break;
+            case parser.Err:    printf("ERR\n"); break;
+            default:            break;
+        }
+    }
+    printf("parser end\n");
 }
 
 mcu::Pin led;
@@ -674,7 +697,8 @@ static void app () {
     //i2cTest();
     //touchTest();
     //codecTest();
-    consoleTest();
+    //consoleTest();
+    parserTest();
 }
 
 [[noreturn]] static void main2 () {

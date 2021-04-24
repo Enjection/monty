@@ -286,6 +286,7 @@ void Bytes::repr (Buffer& buf) const {
 
 Str::Str (char const* s, int n)
         : Bytes (s, n >= 0 ? n : s != nullptr ? strlen(s) : 0) {
+printf("str<%s>%p\n", s, s);
     adj(_fill+1);
     *end() = 0;
 }
