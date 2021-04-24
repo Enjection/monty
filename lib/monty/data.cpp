@@ -262,7 +262,6 @@ void Value::dump (char const* msg) const {
             case Value::Str: printf("<S \"%s\">", (char const*) *this); break;
             case Value::Obj: printf("<O %s at %p>",
                                     (char const*) obj().type()._name, &obj());
-{ Buffer b; b << "\ndump: " << *this << "\n"; }
                             break;
         }
     if (msg != 0)

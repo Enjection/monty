@@ -643,7 +643,7 @@ void consoleTest () {
         auto [ptr, len] = stdIn->recv();
         if (len == 0)
             break;
-        for (int i = 0; i < len; ++i)
+        for (uint32_t i = 0; i < len; ++i)
             putchar(ptr[i]);
         stdIn->didRecv(len);
     }

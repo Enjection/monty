@@ -84,11 +84,11 @@ int main () {
 
     // output:
     //
-    //  80 MHz
-    //  msWait:  80129 cycles, 1001 µs (1-1)
+    //  msWait:  80122 cycles, 1001 µs (1-1)
     //  memcpy: 114711 cycles, 1433 µs (2-2)
-    //  duff's:  14874 cycles,  185 µs (3-3)
-    //  memdma:  20720 cycles,  259 µs (4-4)
+    //  duff's:  11301 cycles,  141 µs (3-3)
+    //  memDma:  20725 cycles,  259 µs (4-4)
+    //  inline:  28685 cycles,  358 µs (5-5)
 
     auto hz = mcu::systemClock(), mhz = hz/1'000'000;
     serial.baud(921600, hz);
@@ -122,7 +122,7 @@ int main () {
     memDma.init();
     memDma.xfer();
     t = cycles::count() - t;
-    printf("memdma: %6d cycles, %4d µs (%d%d)\n", t, t/mhz, buf1[0], buf1[N-1]);
+    printf("memDma: %6d cycles, %4d µs (%d%d)\n", t, t/mhz, buf1[0], buf1[N-1]);
     msWait(50);
 
     buf1[0] = 0; buf2[0] = 5; buf1[N-1] = 0; buf2[N-1] = -5;
