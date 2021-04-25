@@ -63,7 +63,6 @@ namespace hall {
     constexpr auto RCC  = io32<0x4002'1000>;
     constexpr auto GPIO = io32<0x4800'0000>;
 #endif
-    constexpr auto SCB  = io32<0xE000'E000>;
 
     struct Pin {
         uint8_t _port :4, _pin :4;
@@ -103,7 +102,11 @@ namespace hall {
 
     void idle () __attribute__ ((weak)); // called with interrupts disabled
 
+    void nvicEnable (uint8_t irq);
+    void nvicDisable (uint8_t irq);
+
     auto systemHz () -> uint32_t;
+    [[noreturn]] void systemReset ();
 
     namespace systick {
         extern void (*handler) ();

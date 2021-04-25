@@ -4,6 +4,9 @@
 extern uint32_t SystemCoreClock; // CMSIS
 
 namespace hall {
+    constexpr auto SCB  = io32<0xE000'E000>;
+    constexpr auto NVIC = io32<0xE000'E100>;
+
     void idle () {
         asm ("wfi");
     }
@@ -101,12 +104,25 @@ namespace hall {
         return d;
     }
 
+    void nvicEnable (uint8_t irq) {
+        NVIC(4*(irq>>5)) = 1 << (irq & 0x1F);
+    }
+
+    void nvicDisable (uint8_t irq) {
+        NVIC(0x80+4*(irq>>5)) = 1 << (irq & 0x1F);
+    }
+
     auto systemHz () -> uint32_t {
         return SystemCoreClock;
     }
 
+    void systemReset () {
+        SCB(0xD0C) = (0x5FA<<16) | (1<<2); // SCB AIRCR reset
+        while (true) {}
+    }
+
     namespace systick {
-        uint32_t ticks;
+        volatile uint32_t ticks;
         uint8_t rate;
         void (*handler) () = [] {};
 
