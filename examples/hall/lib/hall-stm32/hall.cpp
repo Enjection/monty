@@ -101,29 +101,41 @@ namespace hall {
         return d;
     }
 
-    auto systemClock () -> uint32_t {
+    auto systemHz () -> uint32_t {
         return SystemCoreClock;
     }
 
     namespace systick {
         uint32_t ticks;
         uint8_t rate;
+        void (*handler) () = [] {};
 
         void init (uint8_t ms) {
+            if (rate > 0)
+                ticks = millis();
             rate = ms;
-            auto hz = systemClock();
-            SCB(0x14) = (ms*(hz/1000))/8-1; // reload value
-            SCB(0x18) = 0;                  // current
-            SCB(0x10) = 0b011;              // control & status, ÷8 mode
+            SCB(0x14) = (ms*(systemHz()/1000))/8-1; // reload value
+            SCB(0x18) = 0;                          // current
+            SCB(0x10) = 0b011;                      // control, ÷8 mode
         }
 
         void deinit () {
+            ticks = millis();
             SCB(0x10) = 0;
             rate = 0;
         }
 
+        auto millis () -> uint32_t {
+            while (true) {
+                uint32_t t = ticks, n = SCB(0x18);
+                if (t == ticks)
+                    return t + rate - (n*8)/(systemHz()/1000);
+            } // ticked just now, spin one more time
+        }
+
         extern "C" void SysTick_Handler () {
             ticks += rate;
+            handler();
         }
     }
 }

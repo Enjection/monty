@@ -103,10 +103,13 @@ namespace hall {
 
     void idle () __attribute__ ((weak)); // called with interrupts disabled
 
-    auto systemClock () -> uint32_t;
+    auto systemHz () -> uint32_t;
 
     namespace systick {
+        extern void (*handler) ();
+
         void init (uint8_t ms =100);
         void deinit ();
+        auto millis () -> uint32_t;
     }
 }

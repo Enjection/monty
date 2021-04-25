@@ -15,12 +15,12 @@ def build(c):
 @task
 def disas(c):
     """show code disassembly"""
-    c.run("arm-none-eabi-objdump -dC .pio/build/nucleo-l432/firmware.elf")
+    c.run("arm-none-eabi-objdump -dC .pio/build/blink/firmware.elf")
 
 @task
 def map(c):
     """show a memory map with symbols"""
-    c.run("arm-none-eabi-nm -CnS .pio/build/nucleo-l432/firmware.elf |"
+    c.run("arm-none-eabi-nm -CnS .pio/build/blink/firmware.elf |"
           "grep -v Handler")
 
 # remove irrelevant tasks
