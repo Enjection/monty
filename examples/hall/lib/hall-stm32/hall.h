@@ -1,7 +1,7 @@
 #include <cstdint>
 
 namespace hall {
-    void idle ();
+    void idle () __attribute__ ((weak)); // called with interrupts disabled
 
     struct IOWord {
         uint32_t volatile& addr;
@@ -63,6 +63,7 @@ namespace hall {
     constexpr auto RCC  = io32<0x4002'1000>;
     constexpr auto GPIO = io32<0x4800'0000>;
 #endif
+    constexpr auto SCB  = io32<0xE000'E000>;
 
     struct Pin {
         uint8_t _port :4, _pin :4;
@@ -101,4 +102,11 @@ namespace hall {
     };
 
     void idle () __attribute__ ((weak)); // called with interrupts disabled
+
+    auto systemClock () -> uint32_t;
+
+    namespace systick {
+        void init (uint8_t ms =100);
+        void deinit ();
+    }
 }

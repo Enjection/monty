@@ -1,15 +1,19 @@
 #include <hall.h>
 
-using hall::Pin;
+using namespace hall;
 
 int main () {
     Pin leds [7];
     Pin::define("A6:P,A5,A4,A3,A1,A0,B3", leds, 7);
 
-    for (int n = 0; n < 100; ++n) {
-        for (int i = 0; i < 7; ++i)
+    systick::init(); // defaults to 100 ms
+
+    for (int n = 0; n < 50; ++n) {
+        for (int i = 0; i < 6; ++i)
             leds[i] = n % (i+2) == 0;
-        for (int i = 0; i < 100000; ++i)
-            asm ("");
+
+        leds[6] = 0;
+        asm ("wfi");
+        leds[6] = 1;
     }
 }

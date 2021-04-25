@@ -1,6 +1,8 @@
 #include "hall.h"
 #include <cstring>
 
+extern uint32_t SystemCoreClock; // CMSIS
+
 namespace hall {
     void idle () {
         asm ("wfi");
@@ -97,5 +99,31 @@ namespace hall {
                 break;
         }
         return d;
+    }
+
+    auto systemClock () -> uint32_t {
+        return SystemCoreClock;
+    }
+
+    namespace systick {
+        uint32_t ticks;
+        uint8_t rate;
+
+        void init (uint8_t ms) {
+            rate = ms;
+            auto hz = systemClock();
+            SCB(0x14) = (ms*(hz/1000))/8-1; // reload value
+            SCB(0x18) = 0;                  // current
+            SCB(0x10) = 0b011;              // control & status, ÷8 mode
+        }
+
+        void deinit () {
+            SCB(0x10) = 0;
+            rate = 0;
+        }
+
+        extern "C" void SysTick_Handler () {
+            ticks += rate;
+        }
     }
 }
