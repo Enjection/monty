@@ -39,6 +39,8 @@ extern "C" {
 }
 
 int main () {
+    fastClock();
+
     Pin leds [7];
     Pin::define("A6:P,A5,A4,A3,A1,A0,B3", leds, 7);
 

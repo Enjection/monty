@@ -5,7 +5,7 @@ os.environ.pop("PLATFORMIO_LIB_EXTRA_DIRS", None)
 
 env = cfg["platformio"].get("default_envs")
 
-@task(flash, call(serial, baud=115200), default=True)
+@task(flash, serial, default=True)
 def all(c):
     """compile, upload, and attach serial"""
 

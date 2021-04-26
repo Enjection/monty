@@ -4,6 +4,10 @@
 extern uint32_t SystemCoreClock; // CMSIS
 
 namespace hall {
+    uint8_t irqMap [100]; // TODO size according to real vector table
+    Device* devMap [20];  // must be large enough to hold all device objects
+    uint8_t devNext;
+
     constexpr auto SCB  = io32<0xE000'E000>;
 
     void idle () {
@@ -101,6 +105,18 @@ namespace hall {
                 break;
         }
         return d;
+    }
+
+    Device::Device () {
+        //TODO ensure(devNext < sizeof devMap / sizeof *devMap);
+        _id = devNext;
+        devMap[devNext++] = this;
+    }
+
+    void Device::irqInstall (uint32_t irq) const {
+        //TODO ensure(irq < sizeof irqMap);
+        irqMap[irq] = _id;
+        nvicEnable(irq);
     }
 
     auto systemHz () -> uint32_t {

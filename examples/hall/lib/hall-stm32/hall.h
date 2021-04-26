@@ -3,6 +3,8 @@
 namespace hall {
     void idle () __attribute__ ((weak)); // called with interrupts disabled
 
+    auto fastClock (bool pll =true) -> uint32_t;
+    auto slowClock (bool low =true) -> uint32_t;
     auto systemHz () -> uint32_t;
     [[noreturn]] void systemReset ();
 
@@ -104,11 +106,11 @@ namespace hall {
     };
 
     struct Device {
-        constexpr static auto NVIC = io32<0xE000'E100>;
+        uint8_t _id;
 
-        void irqInstall (uint32_t irq) {
-            nvicEnable(irq);
-        }
+        Device ();
+
+        void irqInstall (uint32_t irq) const;
 
         virtual void interrupt () {
             // TODO
@@ -121,6 +123,8 @@ namespace hall {
         static void nvicDisable (uint8_t irq) {
             NVIC(0x80+4*(irq>>5)) = 1 << (irq & 0x1F);
         }
+
+        constexpr static auto NVIC = io32<0xE000'E100>;
     };
 
     namespace systick {

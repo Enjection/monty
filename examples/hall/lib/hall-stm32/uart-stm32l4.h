@@ -23,7 +23,7 @@ struct Uart : Device {
         irqInstall(dmaInfo[dev.rxDma].streams[dev.rxStream]);
         irqInstall(dmaInfo[dev.txDma].streams[dev.txStream]);
 
-baud(115200, systemHz());
+baud(921600, systemHz());
 txBuf[0] = 'a'; txBuf[1] = 'b'; txBuf[2] = 'c'; txNext = 3;
 txStart();
     }
