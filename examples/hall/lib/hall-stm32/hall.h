@@ -90,10 +90,10 @@ namespace hall {
 
         // pin definition string: [A-O][<pin#>]:[AFPO][DU][LNHV][<alt#>][,]
         // return -1 on error, 0 if no mode set, or the mode (always > 0)
-        auto define (char const*) -> int;
+        auto config (char const*) -> int;
 
         // define multiple pins, return nullptr if ok, else ptr to error
-        static auto define (char const*, Pin*, int) -> char const*;
+        static auto define (char const*, Pin* =nullptr, int =0) -> char const*;
     private:
         auto gpio32 (int off) const -> IOWord { return GPIO(0x400*_port+off); }
         auto mode (int) const -> int;

@@ -5,9 +5,9 @@ os.environ.pop("PLATFORMIO_LIB_EXTRA_DIRS", None)
 
 env = cfg["platformio"].get("default_envs")
 
-@task(flash, serial, default=True)
+@task(flash, default=True)
 def all(c):
-    """compile, upload, and attach serial"""
+    """compile and upload"""
 
 @task(generate)
 def builds(c):
@@ -28,4 +28,4 @@ def map(c):
           "grep -v Handler" % env)
 
 # remove irrelevant tasks
-del mrfs, native, python, runner, serial, test, upload, watch
+del mrfs, native, python, runner, test, upload, watch

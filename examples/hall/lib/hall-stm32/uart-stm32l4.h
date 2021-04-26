@@ -1,7 +1,9 @@
 struct Uart : Device {
     Uart (UartInfo const& d) : dev (d) {}
 
-    void init () {
+    void init (char const* desc, uint32_t rate =115200) {
+        Pin::define(desc);
+
         RCC(APB1ENR)[dev.ena] = 1; // uart on
         RCC(AHB1ENR)[dev.dma] = 1; // dma on
 
@@ -13,6 +15,7 @@ struct Uart : Device {
         dmaTX(CPAR) = dev.base + TDR;
         dmaTX(CCR) = 0b1001'0011; // MINC, DIR, TCIE, EN
 
+        baud(rate);
         devReg(CR1) = 0b0001'1101; // IDLEIE, TE, RE, UE
         devReg(CR3) = 0b1100'0000; // DMAT, DMAR
 
@@ -23,7 +26,6 @@ struct Uart : Device {
         irqInstall(dmaInfo[dev.dma].streams[dev.rxStream]);
         irqInstall(dmaInfo[dev.dma].streams[dev.txStream]);
 
-baud(921600);
 txBuf[0] = 'a'; txBuf[1] = 'b'; txBuf[2] = 'c'; txNext = 3;
 txStart();
     }
@@ -47,7 +49,7 @@ txStart();
             dmaTX(CNDTR) = len;
             dmaTX(CMAR) = (uint32_t) txBuf + txLast;
             txLast = txWrap(txLast + len);
-            while (devReg(SR)[7] == 0) {} // wait for TXE
+            while (devReg(SR)[7] == 0) {} // wait for TXE, TODO inside irq?
             dmaTX(CCR)[0] = 1; // EN
         }
     }

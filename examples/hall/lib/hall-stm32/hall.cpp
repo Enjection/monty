@@ -75,7 +75,7 @@ namespace hall {
         return mode(m + (a<<8));
     }
 
-    auto Pin::define (char const* desc) -> int {
+    auto Pin::config (char const* desc) -> int {
         if ('A' <= *desc && *desc <= 'O') {
             _port = *desc++ - 'A';
             _pin = 0;
@@ -86,23 +86,23 @@ namespace hall {
     }
 
     auto Pin::define (char const* d, Pin* v, int n) -> char const* {
+        Pin dummy;
         int lastMode = 0;
-        while (--n >= 0) {
-            auto m = v->define(d);
+        while (*d != 0) {
+            if (--n < 0)
+                v = &dummy;
+            auto m = v->config(d);
             if (m < 0)
                 break;
             if (m != 0)
                 lastMode = m;
             else if (lastMode != 0)
                 v->mode(lastMode);
-            ++v;
             auto p = strchr(d, ',');
-            if (n == 0)
-                return *d != 0 ? p : nullptr; // point to comma if more
-            if (p != nullptr)
-                d = p+1;
-            else if (lastMode == 0)
-                break;
+            if (p == nullptr)
+                return n > 0 ? d : nullptr;
+            d = p+1;
+            ++v;
         }
         return d;
     }
