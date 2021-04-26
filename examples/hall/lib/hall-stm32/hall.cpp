@@ -161,4 +161,17 @@ namespace hall {
             handler();
         }
     }
+
+    extern "C" void irqDispatch () {
+        uint8_t irq = SCB(0xD04); // ICSR
+        auto idx = irqMap[irq-16];
+        devMap[idx]->interrupt();
+    }
+}
+
+// to re-generate "irqs.h", see the "all-irqs.sh" script
+
+#define IRQ(f) void f () __attribute__ ((alias ("irqDispatch")));
+extern "C" {
+#include "irqs.h"
 }

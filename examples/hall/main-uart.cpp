@@ -10,20 +10,18 @@ DmaInfo const dmaInfo [] = {
 };
 
 struct UartInfo {
-    uint8_t pos :4, num :4, ena;
-    uint8_t rxDma :1, rxChan :4, rxStream :3;
-    uint8_t txDma :1, txChan :4, txStream :3;
-    uint8_t irq;
+    uint8_t num :4, ena, irq;
+    uint8_t dma :1, rxChan :4, rxStream :3, txChan :4, txStream :3;
     uint32_t base;
 
-    auto dmaBase () const { return dmaInfo[rxDma].base; }
+    auto dmaBase () const { return dmaInfo[dma].base; }
 };
 
 UartInfo const uartInfo [] = {
-    { 0, 1, 78, 0, 2, 5, 0, 2, 4, 37, 0x4001'3800 },
-    { 1, 2, 17, 0, 2, 6, 0, 2, 7, 38, 0x4000'4400 },
-    { 2, 3, 18, 0, 2, 3, 0, 2, 2, 38, 0x4000'4800 },
-    { 3, 4, 19, 1, 2, 5, 1, 2, 3, 52, 0x4000'4C00 },
+    { 1, 78, 37, 0, 2, 5, 2, 4, 0x4001'3800 },
+    { 2, 17, 38, 0, 2, 6, 2, 7, 0x4000'4400 },
+    { 3, 18, 38, 0, 2, 3, 2, 2, 0x4000'4800 },
+    { 4, 19, 52, 1, 2, 5, 2, 3, 0x4000'4C00 },
 };
 
 namespace hall {
@@ -31,12 +29,6 @@ namespace hall {
 }
 
 Uart uart {uartInfo[1]};
-
-extern "C" {
-    void USART2_IRQHandler () { uart.interrupt(); }
-    void DMA1_Channel6_IRQHandler () __attribute__ ((alias ("USART2_IRQHandler")));
-    void DMA1_Channel7_IRQHandler () __attribute__ ((alias ("USART2_IRQHandler")));
-}
 
 int main () {
     fastClock();
@@ -49,6 +41,7 @@ int main () {
     Pin txrx [2];
     Pin::define("A2:PU7,A15:PU3", txrx, 2);
     uart.init();
+    uart.baud(921600);
 
     for (int n = 0; n < 50; ++n) {
         for (int i = 0; i < 6; ++i)

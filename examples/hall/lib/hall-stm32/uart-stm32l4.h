@@ -2,8 +2,8 @@ struct Uart : Device {
     Uart (UartInfo const& d) : dev (d) {}
 
     void init () {
-        RCC(APB1ENR)[dev.ena] = 1;   // uart on
-        RCC(AHB1ENR)[dev.rxDma] = 1; // dma on
+        RCC(APB1ENR)[dev.ena] = 1; // uart on
+        RCC(AHB1ENR)[dev.dma] = 1; // dma on
 
         dmaRX(CNDTR) = sizeof rxBuf;
         dmaRX(CPAR) = dev.base + RDR;
@@ -20,20 +20,23 @@ struct Uart : Device {
         dmaReg(CSELR) = (dmaReg(CSELR) & ~(0xF<<rxSh) & ~(0xF<<txSh)) |
                                     (dev.rxChan<<rxSh) | (dev.txChan<<txSh);
         irqInstall(dev.irq);
-        irqInstall(dmaInfo[dev.rxDma].streams[dev.rxStream]);
-        irqInstall(dmaInfo[dev.txDma].streams[dev.txStream]);
+        irqInstall(dmaInfo[dev.dma].streams[dev.rxStream]);
+        irqInstall(dmaInfo[dev.dma].streams[dev.txStream]);
 
-baud(921600, systemHz());
+baud(921600);
 txBuf[0] = 'a'; txBuf[1] = 'b'; txBuf[2] = 'c'; txNext = 3;
 txStart();
     }
 
     void deinit () {
-        RCC(APB1ENR)[dev.ena] = 0;   // uart off
-        RCC(AHB1ENR)[dev.rxDma] = 0; // dma off
+        RCC(APB1ENR)[dev.ena] = 0; // uart off
+        RCC(AHB1ENR)[dev.dma] = 0; // dma off
     }
 
-    void baud (uint32_t bd, uint32_t hz) const { devReg(BRR) = (hz+bd/2)/bd; }
+    void baud (uint32_t bd, uint32_t hz =systemHz()) const {
+        devReg(BRR) = (hz+bd/2)/bd;
+    }
+
     auto rxNext () -> uint16_t { return sizeof rxBuf - dmaRX(CNDTR); }
     auto txLeft () -> uint16_t { return dmaTX(CNDTR); }
 
