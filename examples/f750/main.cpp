@@ -652,8 +652,6 @@ void consoleTest () {
 
 void parserTest () {
     printf("parser start\n");
-Value o = new Str ("abc def");
-{ Buffer b; b << o << "\n"; }
     Parser parser;
     while (true) {
         auto [ptr, len] = stdIn->recv();

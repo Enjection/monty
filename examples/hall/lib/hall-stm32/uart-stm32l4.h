@@ -1,7 +1,7 @@
 struct Uart : Device {
     Uart (UartInfo const& d) : dev (d) {}
 
-    void init (char const* desc, uint32_t rate =115200) {
+    void init (char const* desc, uint32_t rate) {
         Pin::define(desc);
 
         RCC(APB1ENR)[dev.ena] = 1; // uart on
@@ -76,7 +76,7 @@ txStart();
 
     UartInfo dev;
 protected:
-    uint8_t rxBuf [100], txBuf [100];
+    uint8_t rxBuf [4], txBuf [4];
     uint16_t txNext =0, txLast =0;
 
     static auto txWrap (uint16_t n) -> uint16_t {

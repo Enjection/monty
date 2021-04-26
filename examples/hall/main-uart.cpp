@@ -11,24 +11,22 @@ DmaInfo const dmaInfo [] = {
 
 struct UartInfo {
     uint8_t num :4, ena, irq;
-    uint8_t dma :1, rxChan :4, rxStream :3, txChan :4, txStream :3;
+    uint16_t dma :1, rxChan :4, rxStream :3, txChan :4, txStream :3;
     uint32_t base;
 
     auto dmaBase () const { return dmaInfo[dma].base; }
-};
-
-UartInfo const uartInfo [] = {
-    { 1, 78, 37, 0, 2, 5, 2, 4, 0x4001'3800 },
-    { 2, 17, 38, 0, 2, 6, 2, 7, 0x4000'4400 },
-    { 3, 18, 38, 0, 2, 3, 2, 2, 0x4000'4800 },
-    { 4, 19, 52, 1, 2, 5, 2, 3, 0x4000'4C00 },
 };
 
 namespace hall {
 #include <uart-stm32l4.h>
 }
 
-Uart uart {uartInfo[1]};
+Uart uart [] = {
+    UartInfo { 1, 78, 37, 0, 2, 5, 2, 4, 0x4001'3800 },
+    UartInfo { 2, 17, 38, 0, 2, 6, 2, 7, 0x4000'4400 },
+    UartInfo { 3, 18, 38, 0, 2, 3, 2, 2, 0x4000'4800 },
+    UartInfo { 4, 19, 52, 1, 2, 5, 2, 3, 0x4000'4C00 },
+};
 
 int main () {
     fastClock();
@@ -37,7 +35,7 @@ int main () {
     Pin::define("A6:P,A5,A4,A3,A1,A0,B3", leds, 7);
 
     systick::init(); // defaults to 100 ms
-    uart.init("A2:PU7,A15:PU3", 921600);
+    uart[1].init("A2:PU7,A15:PU3", 921600);
 
     for (int n = 0; n < 50; ++n) {
         for (int i = 0; i < 6; ++i)
