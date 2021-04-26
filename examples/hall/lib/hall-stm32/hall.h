@@ -3,6 +3,9 @@
 namespace hall {
     void idle () __attribute__ ((weak)); // called with interrupts disabled
 
+    auto systemHz () -> uint32_t;
+    [[noreturn]] void systemReset ();
+
     struct IOWord {
         uint32_t volatile& addr;
 
@@ -31,16 +34,16 @@ namespace hall {
             return IOMask {(&addr)[b>>5], (uint8_t) (b & 0x1F), w};
         }
 
-#if STM32L0 || STM32F7
-        auto& at (int b) { return mask(b); }
-#else
-        // use bit-banding, only works for specific RAM and periperhal areas
         auto& at (int b) {
+#if STM32L0 || STM32F7
+            return mask(b);
+#else
+            // use bit-band, only works for specific RAM and periperhal areas
             auto a = (uint32_t) &addr;
             return *(uint32_t volatile*)
                 ((a & 0xF000'0000) + 0x0200'0000 + (a << 5) + (b << 2));
-        }
 #endif
+        }
 
         // shorthand
         auto& operator[] (int b) { return at(b); }
@@ -100,13 +103,25 @@ namespace hall {
         ~BlockIRQ () { asm ("cpsie i"); }
     };
 
-    void idle () __attribute__ ((weak)); // called with interrupts disabled
+    struct Device {
+        constexpr static auto NVIC = io32<0xE000'E100>;
 
-    void nvicEnable (uint8_t irq);
-    void nvicDisable (uint8_t irq);
+        void irqInstall (uint32_t irq) {
+            nvicEnable(irq);
+        }
 
-    auto systemHz () -> uint32_t;
-    [[noreturn]] void systemReset ();
+        virtual void interrupt () {
+            // TODO
+        }
+
+        static void nvicEnable (uint8_t irq) {
+            NVIC(0x00+4*(irq>>5)) = 1 << (irq & 0x1F);
+        }
+
+        static void nvicDisable (uint8_t irq) {
+            NVIC(0x80+4*(irq>>5)) = 1 << (irq & 0x1F);
+        }
+    };
 
     namespace systick {
         extern void (*handler) ();

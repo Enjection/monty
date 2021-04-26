@@ -17,12 +17,6 @@ struct UartInfo {
     uint32_t base;
 
     auto dmaBase () const { return dmaInfo[rxDma].base; }
-
-    void initIrqs() const {
-        nvicEnable(irq);
-        nvicEnable(dmaInfo[rxDma].streams[rxStream]);
-        nvicEnable(dmaInfo[txDma].streams[txStream]);
-    }
 };
 
 UartInfo const uartInfo [] = {
@@ -33,12 +27,6 @@ UartInfo const uartInfo [] = {
 };
 
 namespace hall {
-    struct Device {
-        virtual void interrupt () {
-            // TODO
-        }
-    };
-
 #include <uart-stm32l4.h>
 }
 

@@ -5,7 +5,6 @@ extern uint32_t SystemCoreClock; // CMSIS
 
 namespace hall {
     constexpr auto SCB  = io32<0xE000'E000>;
-    constexpr auto NVIC = io32<0xE000'E100>;
 
     void idle () {
         asm ("wfi");
@@ -102,14 +101,6 @@ namespace hall {
                 break;
         }
         return d;
-    }
-
-    void nvicEnable (uint8_t irq) {
-        NVIC(4*(irq>>5)) = 1 << (irq & 0x1F);
-    }
-
-    void nvicDisable (uint8_t irq) {
-        NVIC(0x80+4*(irq>>5)) = 1 << (irq & 0x1F);
     }
 
     auto systemHz () -> uint32_t {

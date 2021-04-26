@@ -1,6 +1,5 @@
-template <typename DEV>
 struct Uart : Device {
-    Uart (DEV const& d) : dev (d) {}
+    Uart (UartInfo const& d) : dev (d) {}
 
     void init () {
         RCC(APB1ENR)[dev.ena] = 1;   // uart on
@@ -20,7 +19,9 @@ struct Uart : Device {
         auto rxSh = 4*(dev.rxStream-1), txSh = 4*(dev.txStream-1);
         dmaReg(CSELR) = (dmaReg(CSELR) & ~(0xF<<rxSh) & ~(0xF<<txSh)) |
                                     (dev.rxChan<<rxSh) | (dev.txChan<<txSh);
-        dev.initIrqs();
+        irqInstall(dev.irq);
+        irqInstall(dmaInfo[dev.rxDma].streams[dev.rxStream]);
+        irqInstall(dmaInfo[dev.txDma].streams[dev.txStream]);
 
 baud(115200, systemHz());
 txBuf[0] = 'a'; txBuf[1] = 'b'; txBuf[2] = 'c'; txNext = 3;
@@ -68,7 +69,7 @@ txStart();
         Device::interrupt();
     }
 
-    DEV dev;
+    UartInfo dev;
 protected:
     uint8_t rxBuf [100], txBuf [100];
     uint16_t txNext =0, txLast =0;
