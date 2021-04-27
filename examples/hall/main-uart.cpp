@@ -28,7 +28,7 @@ Uart uart [] = {
     UartInfo { 4, 19, 52, 1, 2, 5, 2, 3, 0x4000'4C00 },
 };
 
-template <int N, int SZ =128>
+template <int N =40, int SZ =128>
 struct Pool {
     enum { NBUF=N, SZBUF=SZ };
 
@@ -39,30 +39,27 @@ struct Pool {
     }
 
     auto tag (uint8_t i) -> uint8_t& { return buffers[0][i]; }
+    auto id (uint8_t* p) const -> uint8_t { return (p - buffers[0]) / SZ; }
 
     auto allocate () {
         // grab the irq free chain if the main one is empty, but do it safely
         if (tag(0) == 0) {
             BlockIRQ crit;
-            irqRelease(0); // this grabs the irqFree chain
+            irqRelease((uint8_t) 0); // this grabs the irqFree chain
         }
         auto n = tag(0);
         //TODO ensure(n != 0);
         tag(0) = tag(n);
         tag(n) = 0;
-        return n;
+        return buffers[n];
     }
 
-    void release (uint8_t i) {
-        tag(i) = tag(0);
-        tag(0) = i;
-    }
+    void release (uint8_t i) { tag(i) = tag(0); tag(0) = i; }
+    void release (uint8_t* p) { release(id(p)); }
 
     // only call this version from interrupt context, i.e. with IRQs disabled
-    void irqRelease (uint8_t i) {
-        tag(i) = irqFree;
-        irqFree = i;
-    }
+    void irqRelease (uint8_t i) { tag(i) = irqFree; irqFree = i; }
+    void irqRelease (uint8_t* p) { irqRelease(id(p)); }
 
     auto numFree () const {
         int n = 0;
@@ -91,14 +88,86 @@ struct Pool {
     auto operator[] (uint8_t i) -> uint8_t* { return buffers[i]; }
 
 private:
-    alignas (4) uint8_t buffers [N][SZ];
+    uint8_t buffers [N][SZ];
     volatile uint8_t irqFree; // second free chain, for use from IRQ context
 
-    static_assert(N <= 256, "buffer index must fit in a uint8_t");
+    static_assert(N <= 256, "buffer id must fit in a uint8_t");
     static_assert(N <= SZ, "free chain must fit in buffer[0]");
 };
 
-Pool<40> pool;
+Pool pool;
+
+struct Queue {
+    auto pull () {
+        auto i = first;
+        if (i != 0) {
+            first = pool.tag(i);
+            if (first == 0)
+                last = 0;
+            pool.tag(i) = 0;
+        }
+        return i;
+    }
+    void insert (uint8_t i) {
+        pool.tag(i) = first;
+        first = i;
+        if (last == 0)
+            last = first;
+    }
+    void append (uint8_t i) {
+        if (last != 0)
+            pool.tag(last) = i;
+        last = i;
+        if (first == 0)
+            first = last;
+    }
+
+    uint8_t first =0, last =0;
+};
+
+struct Fiber {
+    auto operator new (unsigned, void* p) -> void* { return p; }
+
+    auto id () const { return pool.id((uint8_t*) this); }
+
+    static auto at (uint8_t i) -> Fiber& { return *(Fiber*) pool[i]; }
+
+    static auto current () {
+        if (curr == 0)
+            curr = (new (pool.allocate()) Fiber)->id();
+        return curr;
+    }
+
+    static void suspend () {}
+    static void resume (uint8_t) {}
+
+    static uint8_t curr;
+    static Queue ready;
+};
+
+uint8_t Fiber::curr;
+Queue Fiber::ready;
+
+struct Semaphore {
+    Semaphore (int n =0) : count (n) {}
+
+    void post () {
+        if (++count <= 0)
+            Fiber::resume(queue.pull());
+    }
+    void pend () {
+        if (--count < 0) {
+            queue.append(Fiber::current());
+            Fiber::suspend();
+        }
+    }
+
+    int16_t count;
+    Queue queue;
+};
+
+#include <cstdarg>
+#include <printer.h>
 
 int main () {
     fastClock();
