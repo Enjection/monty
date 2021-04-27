@@ -28,6 +28,78 @@ Uart uart [] = {
     UartInfo { 4, 19, 52, 1, 2, 5, 2, 3, 0x4000'4C00 },
 };
 
+template <int N, int SZ =128>
+struct Pool {
+    enum { NBUF=N, SZBUF=SZ };
+
+    Pool () {
+        for (int i = 0; i < N-1; ++i)
+            tag(i) = i+1;
+        irqFree = tag(N-1) = 0;
+    }
+
+    auto tag (uint8_t i) -> uint8_t& { return buffers[0][i]; }
+
+    auto allocate () {
+        // grab the irq free chain if the main one is empty, but do it safely
+        if (tag(0) == 0) {
+            BlockIRQ crit;
+            irqRelease(0); // this grabs the irqFree chain
+        }
+        auto n = tag(0);
+        //TODO ensure(n != 0);
+        tag(0) = tag(n);
+        tag(n) = 0;
+        return n;
+    }
+
+    void release (uint8_t i) {
+        tag(i) = tag(0);
+        tag(0) = i;
+    }
+
+    // only call this version from interrupt context, i.e. with IRQs disabled
+    void irqRelease (uint8_t i) {
+        tag(i) = irqFree;
+        irqFree = i;
+    }
+
+    auto numFree () const {
+        int n = 0;
+        for (int i = tag(0); i != 0; i = tag(i))
+            ++n;
+        BlockIRQ crit;
+        for (int i = irqFree; i != 0; i = tag(i))
+            ++n;
+        return n;
+    }
+
+    void check () const {
+        bool inUse [N];
+        memset(inUse, 0, sizeof inUse);
+        for (int i = tag(0); i != 0; i = tag(i)) {
+            //TODO ensure(!inUse[i]);
+            inUse[i] = true;
+        }
+        BlockIRQ crit;
+        for (int i = irqFree; i != 0; i = tag(i)) {
+            //TODO ensure(!inUse[i]);
+            inUse[i] = true;
+        }
+    }
+
+    auto operator[] (uint8_t i) -> uint8_t* { return buffers[i]; }
+
+private:
+    alignas (4) uint8_t buffers [N][SZ];
+    volatile uint8_t irqFree; // second free chain, for use from IRQ context
+
+    static_assert(N <= 256, "buffer index must fit in a uint8_t");
+    static_assert(N <= SZ, "free chain must fit in buffer[0]");
+};
+
+Pool<40> pool;
+
 int main () {
     fastClock();
 
