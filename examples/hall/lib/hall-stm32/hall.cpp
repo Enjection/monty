@@ -200,7 +200,7 @@ namespace hall {
         }
     }
 
-    namespace watchdog {  // [1] pp.495
+    namespace watchdog {
         constexpr auto IWDG = io32<0x4000'3000>;
         enum { KR=0x00,PR=0x04,RLR=0x08,SR=0x0C };
 
@@ -235,74 +235,6 @@ namespace hall {
         }
         void kick () {
             IWDG(KR) = 0xAAAA;      // reset the watchdog timout
-        }
-    }
-
-    namespace rtc {
-        constexpr auto RTC = io32<0x4000'2800>;
-        constexpr auto PWR = io32<0x4000'7000>;
-        enum { TR=0x00,DR=0x04,CR=0x08,ISR=0x0C,WPR=0x24,BKPR=0x50 };
-        enum { BDCR=0x70 };
-
-        void init () {
-            RCC(0x40)[28] = 1; // enable PWREN
-            PWR(0x00)[8] = 1;  // set DBP [1] p.481
-
-            RCC(BDCR)[0] = 1;             // LSEON backup domain
-            while (RCC(BDCR)[1] == 0) {}  // wait for LSERDY
-            RCC(BDCR)[8] = 1;             // RTSEL = LSE
-            RCC(BDCR)[15] = 1;            // RTCEN
-        }
-
-        auto get () -> DateTime {
-            RTC(WPR) = 0xCA;  // disable write protection, [1] p.803
-            RTC(WPR) = 0x53;
-
-            RTC(ISR)[5] = 0;              // clear RSF
-            while (RTC(ISR)[5] == 0) {}   // wait for RSF
-
-            RTC(WPR) = 0xFF;  // re-enable write protection
-
-            // shadow registers are now valid and won't change while being read
-            uint32_t tod = RTC(TR);
-            uint32_t doy = RTC(DR);
-
-            DateTime dt;
-            dt.ss = (tod & 0xF) + 10 * ((tod>>4) & 0x7);
-            dt.mm = ((tod>>8) & 0xF) + 10 * ((tod>>12) & 0x7);
-            dt.hh = ((tod>>16) & 0xF) + 10 * ((tod>>20) & 0x3);
-            dt.dy = (doy & 0xF) + 10 * ((doy>>4) & 0x3);
-            dt.mo = ((doy>>8) & 0xF) + 10 * ((doy>>12) & 0x1);
-            // works until end 2063, will fail (i.e. roll over) in 2064 !
-            dt.yr = ((doy>>16) & 0xF) + 10 * ((doy>>20) & 0x7);
-            return dt;
-        }
-
-        void set (DateTime dt) {
-            RTC(WPR) = 0xCA;  // disable write protection, [1] p.803
-            RTC(WPR) = 0x53;
-
-            RTC(ISR)[7] = 1;             // set INIT
-            while (RTC(ISR)[6] == 0) {}  // wait for INITF
-            RTC(TR) = (dt.ss + 6 * (dt.ss/10)) |
-                ((dt.mm + 6 * (dt.mm/10)) << 8) |
-                ((dt.hh + 6 * (dt.hh/10)) << 16);
-            RTC(DR) = (dt.dy + 6 * (dt.dy/10)) |
-                ((dt.mo + 6 * (dt.mo/10)) << 8) |
-                ((dt.yr + 6 * (dt.yr/10)) << 16);
-            RTC(ISR)[7] = 0;             // clear INIT
-
-            RTC(WPR) = 0xFF;  // re-enable write protection
-        }
-
-        // access to the backup registers
-
-        auto getData (int reg) -> uint32_t {
-            return RTC(BKPR + 4*reg);  // regs 0..31
-        }
-
-        void setData (int reg, uint32_t val) {
-            RTC(BKPR + 4*reg) = val;  // regs 0..31
         }
     }
 
