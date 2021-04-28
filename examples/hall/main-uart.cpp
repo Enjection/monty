@@ -184,12 +184,32 @@ Uart uart [] = {
     UartInfo { 4, 19, 52, 1, 2, 5, 2, 3, 0x4000'4C00 },
 };
 
-#include <cstdarg>
-#include <printer.h>
+static void uartEmit (void* o, int c) {
+    static uint8_t* buf;
+    static uint8_t fill;
+    auto flush = [&]() {
+        auto i = pool.idOf(buf);
+        pool.tag(i) = fill - 1;
+        ((Uart*) o)->txStart(i);
+        fill = 0;
+    };
 
-Printer printf (&uart[1], [](void* arg, uint8_t n) {
-    ((Uart*) arg)->txStart(n);
-});
+    if (fill >= pool.SZBUF)
+        flush();
+    if (fill == 0)
+        buf = pool.allocate();
+    buf[fill++] = c;
+    if (c == '\n')
+        flush();
+}
+
+int printf (const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int n = veprintf(uartEmit, &uart[1], fmt, ap);
+    va_end(ap);
+    return n;
+}
 
 int main () {
     fastClock();

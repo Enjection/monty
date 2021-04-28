@@ -1,3 +1,4 @@
+#include <cstdarg>
 #include <cstdint>
 
 namespace hall {
@@ -164,4 +165,6 @@ namespace hall {
         auto getData (int reg) -> uint32_t;
         void setData (int reg, uint32_t val);
     }
+
+    auto veprintf(void(*)(void*,int), void*, char const* fmt, va_list ap) -> int;
 }
