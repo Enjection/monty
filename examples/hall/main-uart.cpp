@@ -1,32 +1,7 @@
 #include <hall.h>
+#include <setjmp.h>
 
 using namespace hall;
-
-struct DmaInfo { uint32_t base; uint8_t streams [8]; };
-
-DmaInfo const dmaInfo [] = {
-    { 0x4002'0000, { 0, 11, 12, 13, 14, 15, 16, 17 }},
-    { 0x4002'0400, { 0, 56, 57, 58, 59, 60, 68, 69 }},
-};
-
-struct UartInfo {
-    uint8_t num :4, ena, irq;
-    uint16_t dma :1, rxChan :4, rxStream :3, txChan :4, txStream :3;
-    uint32_t base;
-
-    auto dmaBase () const { return dmaInfo[dma].base; }
-};
-
-namespace hall {
-#include <uart-stm32l4.h>
-}
-
-Uart uart [] = {
-    UartInfo { 1, 78, 37, 0, 2, 5, 2, 4, 0x4001'3800 },
-    UartInfo { 2, 17, 38, 0, 2, 6, 2, 7, 0x4000'4400 },
-    UartInfo { 3, 18, 38, 0, 2, 3, 2, 2, 0x4000'4800 },
-    UartInfo { 4, 19, 52, 1, 2, 5, 2, 3, 0x4000'4C00 },
-};
 
 template <int N =40, int SZ =128>
 struct Pool {
@@ -38,14 +13,21 @@ struct Pool {
         irqFree = tag(N-1) = 0;
     }
 
+    auto idOf (void const* p) const -> uint8_t {
+        //TODO ensure(buffers[1] <= p && p < buffers[N]);
+        return ((uint8_t const*) p - buffers[0]) / SZ;
+    }
+
     auto tag (uint8_t i) -> uint8_t& { return buffers[0][i]; }
-    auto id (uint8_t* p) const -> uint8_t { return (p - buffers[0]) / SZ; }
+    auto tagOf (void const* p) -> uint8_t& { return tag(idOf(p)); }
+
+    auto hasFree () { return tag(0) != 0 || irqFree != 0; }
 
     auto allocate () {
         // grab the irq free chain if the main one is empty, but do it safely
         if (tag(0) == 0) {
             BlockIRQ crit;
-            irqRelease((uint8_t) 0); // this grabs the irqFree chain
+            irqRelease(0); // this grabs the irqFree chain
         }
         auto n = tag(0);
         //TODO ensure(n != 0);
@@ -55,11 +37,11 @@ struct Pool {
     }
 
     void release (uint8_t i) { tag(i) = tag(0); tag(0) = i; }
-    void release (uint8_t* p) { release(id(p)); }
+    void releasePtr (uint8_t* p) { release(idOf(p)); }
 
     // only call this version from interrupt context, i.e. with IRQs disabled
     void irqRelease (uint8_t i) { tag(i) = irqFree; irqFree = i; }
-    void irqRelease (uint8_t* p) { irqRelease(id(p)); }
+    void irqReleasePtr (uint8_t* p) { irqRelease(idOf(p)); }
 
     auto numFree () const {
         int n = 0;
@@ -128,13 +110,15 @@ struct Queue {
 struct Fiber {
     auto operator new (unsigned, void* p) -> void* { return p; }
 
-    auto id () const { return pool.id((uint8_t*) this); }
+    auto id () const { return pool.idOf(this); }
 
     static auto at (uint8_t i) -> Fiber& { return *(Fiber*) pool[i]; }
 
     static auto current () {
-        if (curr == 0)
+        if (curr == 0) {
+            //TODO ensure(pool.hasFree());
             curr = (new (pool.allocate()) Fiber)->id();
+        }
         return curr;
     }
 
@@ -143,6 +127,11 @@ struct Fiber {
 
     static uint8_t curr;
     static Queue ready;
+
+    uintptr_t _arg;
+    uint16_t _timeout;
+    jmp_buf _context;
+    uint8_t _data [];
 };
 
 uint8_t Fiber::curr;
@@ -166,8 +155,38 @@ struct Semaphore {
     Queue queue;
 };
 
+struct DmaInfo { uint32_t base; uint8_t streams [8]; };
+
+DmaInfo const dmaInfo [] = {
+    { 0x4002'0000, { 0, 11, 12, 13, 14, 15, 16, 17 }},
+    { 0x4002'0400, { 0, 56, 57, 58, 59, 60, 68, 69 }},
+};
+
+struct UartInfo {
+    uint8_t num :4, ena, irq;
+    uint16_t dma :1, rxChan :4, rxStream :3, txChan :4, txStream :3;
+    uint32_t base;
+
+    auto dmaBase () const { return dmaInfo[dma].base; }
+};
+
+namespace hall {
+#include <uart-stm32l4.h>
+}
+
+Uart uart [] = {
+    UartInfo { 1, 78, 37, 0, 2, 5, 2, 4, 0x4001'3800 },
+    UartInfo { 2, 17, 38, 0, 2, 6, 2, 7, 0x4000'4400 },
+    UartInfo { 3, 18, 38, 0, 2, 3, 2, 2, 0x4000'4800 },
+    UartInfo { 4, 19, 52, 1, 2, 5, 2, 3, 0x4000'4C00 },
+};
+
 #include <cstdarg>
 #include <printer.h>
+
+Printer printf (&uart[1], [](void* arg, uint8_t n) {
+    ((Uart*) arg)->txStart(n);
+});
 
 int main () {
     fastClock();
@@ -185,5 +204,7 @@ int main () {
         leds[6] = 0;
         asm ("wfi");
         leds[6] = 1;
+
+        printf("hello %d\n", systick::millis());
     }
 }

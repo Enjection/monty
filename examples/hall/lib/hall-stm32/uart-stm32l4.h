@@ -3,11 +3,12 @@ struct Uart : Device {
 
     void init (char const* desc, uint32_t rate) {
         Pin::define(desc);
+        rxBuf = pool.allocate();
 
         RCC(APB1ENR)[dev.ena] = 1; // uart on
         RCC(AHB1ENR)[dev.dma] = 1; // dma on
 
-        dmaRX(CNDTR) = sizeof rxBuf;
+        dmaRX(CNDTR) = RXSIZE;
         dmaRX(CPAR) = dev.base + RDR;
         dmaRX(CMAR) = (uint32_t) rxBuf;
         dmaRX(CCR) = 0b1010'0111; // MINC, CIRC, HTIE, TCIE, EN
@@ -25,33 +26,32 @@ struct Uart : Device {
         irqInstall(dev.irq);
         irqInstall(dmaInfo[dev.dma].streams[dev.rxStream]);
         irqInstall(dmaInfo[dev.dma].streams[dev.txStream]);
-
-txBuf[0] = 'a'; txBuf[1] = 'b'; txBuf[2] = 'c'; txNext = 3;
-txStart();
     }
 
     void deinit () {
         RCC(APB1ENR)[dev.ena] = 0; // uart off
         RCC(AHB1ENR)[dev.dma] = 0; // dma off
+        pool.releasePtr(rxBuf);
     }
 
     void baud (uint32_t bd, uint32_t hz =systemHz()) const {
         devReg(BRR) = (hz+bd/2)/bd;
     }
 
-    auto rxNext () -> uint16_t { return sizeof rxBuf - dmaRX(CNDTR); }
+    auto rxNext () -> uint16_t { return RXSIZE - dmaRX(CNDTR); }
     auto txLeft () -> uint16_t { return dmaTX(CNDTR); }
 
-    void txStart () {
-        auto len = txNext >= txLast ? txNext - txLast : sizeof txBuf - txLast;
-        if (len > 0) {
-            dmaTX(CCR)[0] = 0; // ~EN
-            dmaTX(CNDTR) = len;
-            dmaTX(CMAR) = (uint32_t) txBuf + txLast;
-            txLast = txWrap(txLast + len);
-            while (devReg(SR)[7] == 0) {} // wait for TXE, TODO inside irq?
-            dmaTX(CCR)[0] = 1; // EN
-        }
+    void txStart (uint8_t i) {
+        dmaTX(CCR)[0] = 0; // ~EN
+        dmaTX(CNDTR) = pool.tag(i)+1;
+        dmaTX(CMAR) = (uint32_t) pool[i];
+        while (devReg(SR)[7] == 0) {} // wait for TXE, TODO inside irq?
+        dmaTX(CCR)[0] = 1; // EN
+    }
+
+    void txDone () {
+        auto p = (uint8_t*)(uint32_t) dmaTX(CMAR);
+        pool.irqReleasePtr(p);
     }
 
     // the actual interrupt handler, with access to the uart object
@@ -69,19 +69,15 @@ txStart();
         dmaReg(IFCR) = (1<<rxSh) | (1<<txSh); // global clear rx and tx dma
 
         if ((stat & (1<<(1+txSh))) != 0) // TCIF
-            txStart();
+            txDone();
 
         Device::interrupt();
     }
 
     UartInfo dev;
 protected:
-    uint8_t rxBuf [4], txBuf [4];
-    uint16_t txNext =0, txLast =0;
-
-    static auto txWrap (uint16_t n) -> uint16_t {
-        return n < sizeof txBuf ? n : n - sizeof txBuf;
-    }
+    constexpr static auto RXSIZE = pool.SZBUF;
+    uint8_t* rxBuf;
 private:
     auto devReg (int off) const -> IOWord {
         return io32<0>(dev.base+off);
