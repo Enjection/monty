@@ -87,7 +87,7 @@ private:
     void flush (bool done =false) {
         if (fill > 0) {
             auto n = pool.idOf(buf);
-            pool.tag(n) = fill-1;
+            pool.tag(n) = fill - 1;
             //TODO ensure(pool.tag(n) == fill);
             count += fill;
             fill = 0;

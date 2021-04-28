@@ -14,10 +14,11 @@ struct Uart : Device {
         dmaRX(CCR) = 0b1010'0111; // MINC, CIRC, HTIE, TCIE, EN
 
         dmaTX(CPAR) = dev.base + TDR;
-        dmaTX(CCR) = 0b1001'0010; // MINC, DIR, TCIE
+        dmaTX(CMAR) = 0;
+        dmaTX(CCR) = 0b1001'0000; // MINC, DIR
 
         baud(rate);
-        devReg(CR1) = 0b0001'1101; // IDLEIE, TE, RE, UE
+        devReg(CR1) = 0b0101'1101; // TCIE, IDLEIE, TE, RE, UE
         devReg(CR3) = 0b1100'0000; // DMAT, DMAR
 
         auto rxSh = 4*(dev.rxStream-1), txSh = 4*(dev.txStream-1);
@@ -42,11 +43,9 @@ struct Uart : Device {
     auto txLeft () -> uint16_t { return dmaTX(CNDTR); }
 
     void txStart (uint8_t i) {
-        dmaTX(CCR)[0] = 0; // ~EN
-        dmaTX(CNDTR) = pool.tag(i)+1;
+        dmaTX(CNDTR) = pool.tag(i) + 1;
         dmaTX(CMAR) = (uint32_t) pool[i];
         devReg(CR) = (1<<6); // clear TC
-//while (devReg(SR)[7] == 0) {} // wait for TXE, TODO inside irq?
         dmaTX(CCR)[0] = 1; // EN
     }
 
@@ -63,16 +62,20 @@ struct Uart : Device {
                 systemReset(); // two CTRL-C's in a row *and* idling: reset!
         }
 
-        devReg(CR) = 0b0001'1111; // clear idle and error flags
+        devReg(CR) = 0b0101'1111; // clear TCCF, IDLECF, and error flags
 
-        auto rxSh = 4*(dev.rxStream-1), txSh = 4*(dev.txStream-1);
-        auto stat = dmaReg(ISR);
-        dmaReg(IFCR) = (1<<rxSh) | (1<<txSh); // global clear rx and tx dma
-
-        if ((stat & (1<<(1+txSh))) != 0) // TCIF
-            txDone();
+        auto rxSh = 4*(dev.rxStream-1);
+        dmaReg(IFCR) = 1<<rxSh; // global clear RX DMA
 
         Device::interrupt();
+    }
+
+    void process () override {
+        if (dmaTX(CCR)[0]) { // EN
+            dmaTX(CCR)[0] = 0; // ~EN
+            pool.irqReleasePtr((uint8_t*)(uint32_t) dmaTX(CMAR));
+            //TODO tx queue post
+        }
     }
 
     UartInfo dev;

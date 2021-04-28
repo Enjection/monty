@@ -7,6 +7,7 @@ namespace hall {
     uint8_t irqMap [100]; // TODO size according to real vector table
     Device* devMap [20];  // must be large enough to hold all device objects
     uint8_t devNext;
+    volatile uint32_t Device::pending;
 
     constexpr auto SCB  = io32<0xE000'E000>;
 
@@ -117,6 +118,18 @@ namespace hall {
         //TODO ensure(irq < sizeof irqMap);
         irqMap[irq] = _id;
         nvicEnable(irq);
+    }
+
+    void Device::processAllPending () {
+        uint32_t pend;
+        {
+            BlockIRQ crit;
+            pend = pending;
+            pending = 0;
+        }
+        for (int i = 0; i < devNext; ++i)
+            if (pend & (1<<i))
+                devMap[i]->process();
     }
 
     auto systemHz () -> uint32_t {

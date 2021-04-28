@@ -112,9 +112,10 @@ namespace hall {
 
         void irqInstall (uint32_t irq) const;
 
-        virtual void interrupt () {
-            // TODO
-        }
+        virtual void interrupt () { pending |= 1<<_id; }
+        virtual void process () {}
+
+        static void processAllPending ();
 
         static void nvicEnable (uint8_t irq) {
             NVIC(0x00+4*(irq>>5)) = 1 << (irq & 0x1F);
@@ -123,6 +124,8 @@ namespace hall {
         static void nvicDisable (uint8_t irq) {
             NVIC(0x80+4*(irq>>5)) = 1 << (irq & 0x1F);
         }
+
+        static volatile uint32_t pending;
 
         constexpr static auto NVIC = io32<0xE000'E100>;
     };

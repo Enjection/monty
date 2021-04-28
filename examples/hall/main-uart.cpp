@@ -3,7 +3,7 @@
 
 using namespace hall;
 
-template <int N =40, int SZ =128>
+template <int N =30, int SZ =128>
 struct Pool {
     enum { NBUF=N, SZBUF=SZ };
 
@@ -31,6 +31,7 @@ struct Pool {
         }
         auto n = tag(0);
         //TODO ensure(n != 0);
+if (n == 0) while (true) {}
         tag(0) = tag(n);
         tag(n) = 0;
         return buffers[n];
@@ -115,20 +116,17 @@ struct Fiber {
     static auto at (uint8_t i) -> Fiber& { return *(Fiber*) pool[i]; }
 
     static auto current () {
-        if (curr == 0) {
-            //TODO ensure(pool.hasFree());
+        if (curr == 0)
             curr = (new (pool.allocate()) Fiber)->id();
-        }
         return curr;
     }
 
-    static void suspend () {}
-    static void resume (uint8_t) {}
+    static void suspend (Queue&, uint16_t =60'000);
+    static void resume (uint8_t);
 
     static uint8_t curr;
     static Queue ready;
 
-    uintptr_t _arg;
     uint16_t _timeout;
     jmp_buf _context;
     uint8_t _data [];
@@ -145,10 +143,8 @@ struct Semaphore {
             Fiber::resume(queue.pull());
     }
     void pend () {
-        if (--count < 0) {
-            queue.append(Fiber::current());
-            Fiber::suspend();
-        }
+        if (--count < 0)
+            Fiber::suspend(queue);
     }
 
     int16_t count;
@@ -199,15 +195,19 @@ int main () {
 
     uart[1].init("A2:PU7,A15:PU3", 921600);
     printf("\n");
+    asm ("wfi");
 
     for (int n = 0; n < 50; ++n) {
         for (int i = 0; i < 6; ++i)
             leds[i] = n % (i+2) == 0;
 
+        printf("hello %4d %010u\n", systick::millis(), cycles::count());
+        asm ("wfi");
+
         leds[6] = 0;
         asm ("wfi");
         leds[6] = 1;
 
-        printf("hello %2d %010u\n", systick::millis(), cycles::count());
+        Device::processAllPending();
     }
 }
