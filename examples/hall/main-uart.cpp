@@ -184,7 +184,7 @@ Uart uart [] = {
     UartInfo { 4, 19, 52, 1, 2, 5, 2, 3, 0x4000'4C00 },
 };
 
-static void uartEmit (void* o, int c) {
+static void putcUart (void* o, int c) {
     static uint8_t* buf;
     static uint8_t fill;
     auto flush = [&]() {
@@ -206,7 +206,7 @@ static void uartEmit (void* o, int c) {
 int printf (const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    int n = veprintf(uartEmit, &uart[1], fmt, ap);
+    int n = veprintf(putcUart, &uart[1], fmt, ap);
     va_end(ap);
     return n;
 }

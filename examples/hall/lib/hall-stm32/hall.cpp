@@ -238,12 +238,6 @@ namespace hall {
         }
     }
 
-    extern "C" void irqDispatch () {
-        uint8_t irq = SCB(0xD04); // ICSR
-        auto idx = irqMap[irq-16];
-        devMap[idx]->interrupt();
-    }
-
     auto veprintf(void (*fun) (void*,int), void* arg,
                         char const* fmt, va_list ap) -> int {
         int pad, count = 0;
@@ -255,8 +249,7 @@ namespace hall {
                 emit(c);
             else {
                 pad = *fmt == '0' ? '0' : ' ';
-                int radix = 0;
-                int width = 0;
+                int width = 0, radix = 0;
                 while (radix == 0)
                     switch (c = *fmt++) {
                         case 'b': radix =  2; break;
@@ -285,30 +278,54 @@ namespace hall {
                                     radix = 1; // stop scanning
                     }
                 if (radix > 1) {
-                    static uint8_t numBuf [32]; // shared by all printf's
-                    uint8_t numFill = 0;
+                    static uint8_t buf [32]; // shared by all printf's
+                    uint8_t pos = 0;
                     int val = va_arg(ap, int);
                     auto sign = val < 0 && c == 'd';
                     uint32_t num = sign ? -val : val;
                     do {
-                        numBuf[numFill++] = "0123456789ABCDEF"[num % radix];
+                        buf[pos++] = "0123456789ABCDEF"[num % radix];
                         num /= radix;
                     } while (num != 0);
                     if (sign) {
                         if (pad == ' ')
-                            numBuf[numFill++] = '-';
+                            buf[pos++] = '-';
                         else {
                             --width;
                             emit('-');
                         }
                     }
-                    fill(width - numFill);
-                    while (numFill > 0)
-                        emit(numBuf[--numFill]);
+                    fill(width - pos);
+                    while (pos > 0)
+                        emit(buf[--pos]);
                 }
             }
 
         return count;
+    }
+
+    void putcSwo (void*, int c) {
+        constexpr auto ITM8 = io8<0xE000'0000>;
+        constexpr auto ITM = io32<0xE000'0000>;
+        enum { TER=0xE00, TCR=0xE80, LAR=0xFB0 };
+
+        if (ITM(TCR)[0] && ITM(TER)[0]) {
+            while (ITM(0)[0] == 0) {}
+            ITM8(0) = c;
+        }
+    }
+
+    void debugf (const char* fmt, ...) {
+        va_list ap;
+        va_start(ap, fmt);
+        veprintf(putcSwo, nullptr, fmt, ap);
+        va_end(ap);
+    }
+
+    extern "C" void irqDispatch () {
+        uint8_t irq = SCB(0xD04); // ICSR
+        auto idx = irqMap[irq-16];
+        devMap[idx]->interrupt();
     }
 }
 
