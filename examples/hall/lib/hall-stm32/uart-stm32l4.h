@@ -14,7 +14,7 @@ struct Uart : Device {
         dmaRX(CCR) = 0b1010'0111; // MINC, CIRC, HTIE, TCIE, EN
 
         dmaTX(CPAR) = dev.base + TDR;
-        dmaTX(CCR) = 0b1001'0011; // MINC, DIR, TCIE, EN
+        dmaTX(CCR) = 0b1001'0010; // MINC, DIR, TCIE
 
         baud(rate);
         devReg(CR1) = 0b0001'1101; // IDLEIE, TE, RE, UE
@@ -31,7 +31,7 @@ struct Uart : Device {
     void deinit () {
         RCC(APB1ENR)[dev.ena] = 0; // uart off
         RCC(AHB1ENR)[dev.dma] = 0; // dma off
-        pool.releasePtr(rxBuf);
+        pool.releasePtr(rxBuf); // TODO what about a TX in progress?
     }
 
     void baud (uint32_t bd, uint32_t hz =systemHz()) const {
@@ -45,7 +45,8 @@ struct Uart : Device {
         dmaTX(CCR)[0] = 0; // ~EN
         dmaTX(CNDTR) = pool.tag(i)+1;
         dmaTX(CMAR) = (uint32_t) pool[i];
-        while (devReg(SR)[7] == 0) {} // wait for TXE, TODO inside irq?
+        devReg(CR) = (1<<6); // clear TC
+//while (devReg(SR)[7] == 0) {} // wait for TXE, TODO inside irq?
         dmaTX(CCR)[0] = 1; // EN
     }
 

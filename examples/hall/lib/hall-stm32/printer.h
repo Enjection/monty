@@ -90,13 +90,12 @@ private:
             pool.tag(n) = fill-1;
             //TODO ensure(pool.tag(n) == fill);
             count += fill;
+            fill = 0;
             buf = nullptr;
             fun(arg, n);
         }
-        if (!done) {
+        if (!done)
             buf = pool.allocate();
-            fill = 0;
-        }
     }
 
     void emit (int c) {

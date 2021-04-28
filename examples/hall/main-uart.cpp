@@ -195,7 +195,10 @@ int main () {
     Pin::define("A6:P,A5,A4,A3,A1,A0,B3", leds, 7);
 
     systick::init(); // defaults to 100 ms
+    cycles::init();
+
     uart[1].init("A2:PU7,A15:PU3", 921600);
+    printf("\n");
 
     for (int n = 0; n < 50; ++n) {
         for (int i = 0; i < 6; ++i)
@@ -205,6 +208,6 @@ int main () {
         asm ("wfi");
         leds[6] = 1;
 
-        printf("hello %d\n", systick::millis());
+        printf("hello %2d %010u\n", systick::millis(), cycles::count());
     }
 }

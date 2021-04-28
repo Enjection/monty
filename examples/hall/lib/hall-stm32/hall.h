@@ -134,4 +134,30 @@ namespace hall {
         void deinit ();
         auto millis () -> uint32_t;
     }
+
+    namespace cycles {
+        constexpr auto DWT = io32<0xE000'1000>;
+
+        void init ();
+        void deinit ();
+        inline void clear () { DWT(0x04) = 0; }
+        inline auto count () -> uint32_t { return DWT(0x04); }
+    }
+
+    namespace watchdog {  // [1] pp.495
+        auto resetCause () -> int;  // watchdog: -1, nrst: 1, power: 2, other: 0
+        void init (int rate =6);    // max timeout, 0 ≈ 500 ms, 6 ≈ 32 s
+        void reload (int n);        // 0..4095 x 125 µs (0) .. 8 ms (6)
+        void kick ();
+    }
+
+    namespace rtc {
+        struct DateTime { uint8_t yr, mo, dy, hh, mm, ss; };
+
+        void init ();
+        auto get () -> DateTime;
+        void set (DateTime dt);
+        auto getData (int reg) -> uint32_t;
+        void setData (int reg, uint32_t val);
+    }
 }
