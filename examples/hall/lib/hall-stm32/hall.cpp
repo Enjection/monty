@@ -169,6 +169,15 @@ namespace hall {
             } // ticked just now, spin one more time
         }
 
+        auto micros () -> uint32_t {
+            // scaled to work with any clock rate multiple of 100 kHz
+            while (true) {
+                uint32_t t = ticks, n = SCB(0x18);
+                if (t == ticks)
+                    return (t%1000 + rate)*1000 - (n*80)/(systemHz()/100'000);
+            } // ticked just now, spin one more time
+        }
+
         extern "C" void SysTick_Handler () {
             ticks += rate;
             handler();

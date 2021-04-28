@@ -1,10 +1,8 @@
 struct Printer {
-    Printer (void* arg, void (*fun) (void*, uint8_t))
-        : fun (fun), arg (arg), limit (LIMIT), buf (nullptr) {}
+    Printer (void* arg, void (*fun) (void*, uint8_t)) : fun (fun), arg (arg) {}
 
     auto vprintf(char const* fmt, va_list ap) {
         count = 0;
-        flush();
         while (*fmt)
             if (char c = *fmt++; c != '%')
                 emit(c);
@@ -39,31 +37,28 @@ struct Printer {
                                       radix = 1; // stop scanning
                     }
                 if (radix > 1) {
-                    // number conversion uses the (unused) end of the buffer
-                    // %b output needs up to 32 chars, the rest can do with 12
-                    if (fill > limit - (radix == 2 ? 32 : 12))
-                        flush(); // flush now, so there is always enough room
+                    static uint8_t numBuf [32]; // shared by all Printer objs
+                    uint8_t numFill = sizeof numBuf;
                     int val = va_arg(ap, int);
                     auto sign = val < 0 && c == 'd';
                     uint32_t num = sign ? -val : val;
                     do {
-                        buf[--limit] = "0123456789ABCDEF"[num % radix];
+                        numBuf[--numFill] = "0123456789ABCDEF"[num % radix];
                         num /= radix;
                     } while (num != 0);
                     if (sign) {
                         if (pad == ' ')
-                            buf[--limit] = '-';
+                            numBuf[--numFill] = '-';
                         else {
                             --width;
                             emit('-');
                         }
                     }
-                    putFiller(width - (LIMIT - limit));
-                    while (limit < LIMIT)
-                        emit(buf[limit++]);
+                    putFiller(width - (sizeof numBuf - numFill));
+                    while (numFill < sizeof numBuf)
+                        emit(numBuf[numFill++]);
                 }
             }
-        flush(true);
         return count;
     }
 
@@ -78,30 +73,30 @@ struct Printer {
     void (*fun) (void*, uint8_t);
     void* arg;
 private:
-    constexpr static auto LIMIT = pool.SZBUF;
-    uint16_t count, fill, limit;
+    uint16_t count, fill =0;
     int16_t width;
     int8_t pad, radix;
     uint8_t* buf;
 
-    void flush (bool done =false) {
-        if (fill > 0) {
-            auto n = pool.idOf(buf);
-            pool.tag(n) = fill - 1;
-            //TODO ensure(pool.tag(n) == fill);
-            count += fill;
-            fill = 0;
-            buf = nullptr;
-            fun(arg, n);
-        }
-        if (!done)
-            buf = pool.allocate();
+    void flush () {
+        //TODO ensure(fill > 0);
+        auto n = pool.idOf(buf);
+        pool.tag(n) = fill - 1;
+        //TODO ensure(pool.tag(n) == fill);
+        count += fill;
+        fill = 0;
+        buf = nullptr;
+        fun(arg, n);
     }
 
     void emit (int c) {
-        if (fill >= limit)
+        if (fill == 0)
+            buf = pool.allocate();
+        else if (fill >= pool.SZBUF)
             flush();
         buf[fill++] = c;
+        if (c == '\n')
+            flush();
     }
 
     void putFiller (int n) {

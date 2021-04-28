@@ -44,13 +44,20 @@ if (n == 0) while (true) {}
     void irqRelease (uint8_t i) { tag(i) = irqFree; irqFree = i; }
     void irqReleasePtr (uint8_t* p) { irqRelease(idOf(p)); }
 
-    auto numFree () const {
+    auto items (uint8_t i) const {
         int n = 0;
-        for (int i = tag(0); i != 0; i = tag(i))
+        do {
             ++n;
+            i = tag(i);
+        } while (i != 0);
+        return n;
+    }
+
+    auto numFree () const {
+        int n = items(0);
         BlockIRQ crit;
-        for (int i = irqFree; i != 0; i = tag(i))
-            ++n;
+        if (irqFree != 0)
+            n += items(irqFree);
         return n;
     }
 
