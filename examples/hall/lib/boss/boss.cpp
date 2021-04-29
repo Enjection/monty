@@ -1,10 +1,6 @@
 #include "boss.h"
 
 namespace boss {
-    Pool<> pool;
-    uint8_t Fiber::curr;
-    Queue Fiber::ready;
-
     auto veprintf(void (*fun) (void*,int), void* arg,
                         char const* fmt, va_list ap) -> int {
         int pad, count = 0;
@@ -78,6 +74,14 @@ namespace boss {
         va_end(ap);
     }
 
+    void failAt (void const* pc, void const* lr) { // weak, can be redefined
+        debugf("failAt %p %p\n", pc, lr);
+        for (uint32_t i = 0; i < systemHz() >> 15; ++i) {}
+        systemReset();
+    }
+
+    Pool<> pool;
+
     auto Queue::pull () -> uint8_t {
         auto i = first;
         if (i != 0) {
@@ -104,15 +108,28 @@ namespace boss {
             first = last;
     }
 
-    auto Fiber::current () -> uint8_t {
-        if (curr == 0)
-            curr = (new (pool.allocate()) Fiber)->id();
+    uint8_t Fiber::curr;
+    Queue Fiber::ready;
+    jmp_buf resumer;
+
+    auto Fiber::runLoop () -> uint8_t {
         return curr;
     }
 
-    void Fiber::suspend (Queue&, uint16_t) {
+    static void resumeFixer (void* top) {
+        auto fp = &Fiber::at(Fiber::curr);
+        //TODO memcpy <- fp->data
+        debugf("resume top %p data %p\n", top, fp->_data);
     }
 
-    void Fiber::resume (uint8_t) {
+    void Fiber::suspend (Queue& q, uint16_t) {
+        auto fp = curr == 0 ? new (pool.allocate()) Fiber : &at(curr);
+        q.append(fp->id());
+        if (setjmp(fp->_context) == 0) {
+            //TODO memcpy -> fp->data
+            debugf("suspend top %p data %p\n", &fp, fp->_data);
+            longjmp(resumer, 1);
+        }
+        resumeFixer(&fp);
     }
 }

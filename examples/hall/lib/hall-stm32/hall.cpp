@@ -243,8 +243,8 @@ namespace hall {
         constexpr auto ITM = io32<0xE000'0000>;
         enum { TER=0xE00, TCR=0xE80, LAR=0xFB0 };
 
-        if (ITM(TCR)[0] && ITM(TER)[0]) {
-            while (ITM(0)[0] == 0) {}
+        if ((ITM(TCR) & 1) && (ITM(TER) & 1)) {
+            while ((ITM(0) & 1) == 0) {}
             ITM8(0) = c;
         }
     }

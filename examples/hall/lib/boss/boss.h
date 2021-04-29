@@ -2,8 +2,25 @@
 #include <cstdarg>
 #include <setjmp.h>
 
+// see https://interrupt.memfault.com/blog/asserts-in-embedded-systems
+#ifdef NDEBUG
+#define ensure(exp) ((void)0)
+#else
+#define ensure(exp)                                 \
+  do                                                \
+    if (!(exp)) {                                   \
+      void* pc;                                     \
+      asm volatile ("mov %0, pc" : "=r" (pc));      \
+      void const* lr = __builtin_return_address(0); \
+      boss::failAt(pc, lr);                         \
+    }                                               \
+  while (false)
+#endif
+
 namespace boss {
     using namespace hall;
+
+    [[noreturn]] void failAt (void const*, void const*) __attribute__ ((weak));
 
     auto veprintf(void(*)(void*,int), void*, char const* fmt, va_list ap) -> int;
     void debugf (const char* fmt, ...);
@@ -19,7 +36,7 @@ namespace boss {
         }
 
         auto idOf (void const* p) const -> uint8_t {
-            //TODO ensure(buffers[1] <= p && p < buffers[N]);
+            ensure(buffers[1] <= p && p < buffers[N]);
             return ((uint8_t const*) p - buffers[0]) / SZ;
         }
 
@@ -35,7 +52,7 @@ namespace boss {
                 irqRelease(0); // this grabs the irqFree chain
             }
             auto n = tag(0);
-            //TODO ensure(n != 0);
+            ensure(n != 0);
             tag(0) = tag(n);
             tag(n) = 0;
             return buffers[n];
@@ -69,12 +86,12 @@ namespace boss {
             bool inUse [N];
             memset(inUse, 0, sizeof inUse);
             for (int i = tag(0); i != 0; i = tag(i)) {
-                //TODO ensure(!inUse[i]);
+                ensure(!inUse[i]);
                 inUse[i] = true;
             }
             BlockIRQ crit;
             for (int i = irqFree; i != 0; i = tag(i)) {
-                //TODO ensure(!inUse[i]);
+                ensure(!inUse[i]);
                 inUse[i] = true;
             }
         }
@@ -105,9 +122,9 @@ namespace boss {
         auto id () const { return pool.idOf(this); }
 
         static auto at (uint8_t i) -> Fiber& { return *(Fiber*) pool[i]; }
-        static auto current () -> uint8_t;
+        static auto runLoop () -> uint8_t;
         static void suspend (Queue&, uint16_t ms =60'000);
-        static void resume (uint8_t);
+        static void resume (uint8_t fid) { ready.append(fid); }
 
         static uint8_t curr;
         static Queue ready;

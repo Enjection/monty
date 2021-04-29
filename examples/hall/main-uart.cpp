@@ -58,8 +58,8 @@ int printf (const char* fmt, ...) {
 int main () {
     fastClock();
 
-    Pin leds [7];
-    Pin::define("A6:P,A5,A4,A3,A1,A0,B3", leds, 7);
+    Pin leds [6];
+    Pin::define("A6:P,A5,A4,A3,A1,A0", leds, sizeof leds);
 
     systick::init(); // defaults to 100 ms
     cycles::init();
@@ -67,17 +67,19 @@ int main () {
     uart[1].init("A2:PU7,A15:PU3", 921600);
     printf("\n");
     asm ("wfi");
+    
+    debugf("hello %s!\n", "SWO");
 
     for (int n = 0; n < 50; ++n) {
-        for (int i = 0; i < 6; ++i)
+        for (int i = 0; i < 5; ++i)
             leds[i] = n % (i+2) == 0;
 
         printf("hello %4d %010u\n", systick::millis(), cycles::count());
         asm ("wfi");
 
-        leds[6] = 0;
+        leds[5] = 0;
         asm ("wfi");
-        leds[6] = 1;
+        leds[5] = 1;
 
         Device::processAllPending();
     }
