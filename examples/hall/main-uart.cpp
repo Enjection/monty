@@ -85,6 +85,10 @@ int main () {
     }
 
     debugf("11\n");
-    Fiber::runLoop();
-    debugf("22\n");
+    while (true) {
+        Fiber::runLoop();
+        for (int i = 0; i < 10; ++i)
+            idle();
+        debugf("\n");
+    }
 }

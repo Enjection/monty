@@ -119,22 +119,13 @@ debugf(" R>");
         resumer = &bottom;
         setjmp(bottom);
 debugf(" S>");
-
         Device::processAllPending();
-
         curr = ready.pull();
         if (curr != 0) {
 debugf(" L>");
             longjmp(at(curr)._context, 1);
         }
-
-        while (true) {
 debugf(" I>");
-            for (int i = 0; i < 10; ++i)
-                idle();
-            suspend(ready);
-debugf(" J>");
-        }
     }
 
     static void resumeFixer (void* top) {
