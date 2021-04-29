@@ -1,4 +1,5 @@
 #include "boss.h"
+#include <cstring>
 
 namespace boss {
     auto veprintf(void (*fun) (void*,int), void* arg,
@@ -110,26 +111,51 @@ namespace boss {
 
     uint8_t Fiber::curr;
     Queue Fiber::ready;
-    jmp_buf resumer;
+    jmp_buf* resumer;
 
-    auto Fiber::runLoop () -> uint8_t {
-        return curr;
+    void Fiber::runLoop () {
+debugf(" R>");
+        jmp_buf bottom;
+        resumer = &bottom;
+        setjmp(bottom);
+debugf(" S>");
+
+        Device::processAllPending();
+
+        curr = ready.pull();
+        if (curr != 0) {
+debugf(" L>");
+            longjmp(at(curr)._context, 1);
+        }
+
+        while (true) {
+debugf(" I>");
+            for (int i = 0; i < 10; ++i)
+                idle();
+            suspend(ready);
+debugf(" J>");
+        }
     }
 
     static void resumeFixer (void* top) {
         auto fp = &Fiber::at(Fiber::curr);
-        //TODO memcpy <- fp->data
-        debugf("resume top %p data %p\n", top, fp->_data);
+        debugf("\tRF %d top %p data %p resumer %p\n",
+                Fiber::curr, top, fp->_data, resumer);
+        memcpy(top, fp->_data, (uintptr_t) resumer - (uintptr_t) top);
+debugf(" X>");
     }
 
     void Fiber::suspend (Queue& q, uint16_t) {
+debugf(" E>");
         auto fp = curr == 0 ? new (pool.allocate()) Fiber : &at(curr);
         q.append(fp->id());
         if (setjmp(fp->_context) == 0) {
-            //TODO memcpy -> fp->data
-            debugf("suspend top %p data %p\n", &fp, fp->_data);
-            longjmp(resumer, 1);
+            debugf("\tFS %d top %p data %p resumer %p\n",
+                    fp->id(), &fp, fp->_data, resumer);
+            memcpy(fp->_data, &fp, (uintptr_t) resumer - (uintptr_t) &fp);
+            longjmp(*resumer, 1);
         }
+debugf(" F>");
         resumeFixer(&fp);
     }
 }

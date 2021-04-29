@@ -122,7 +122,7 @@ namespace boss {
         auto id () const { return pool.idOf(this); }
 
         static auto at (uint8_t i) -> Fiber& { return *(Fiber*) pool[i]; }
-        static auto runLoop () -> uint8_t;
+        static void runLoop ();
         static void suspend (Queue&, uint16_t ms =60'000);
         static void resume (uint8_t fid) { ready.append(fid); }
 

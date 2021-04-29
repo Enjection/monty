@@ -68,7 +68,7 @@ int main () {
     printf("\n");
     asm ("wfi");
     
-    debugf("hello %s!\n", "SWO");
+    debugf("hello %d\n", sizeof (Fiber));
 
     for (int n = 0; n < 50; ++n) {
         for (int i = 0; i < 5; ++i)
@@ -83,4 +83,8 @@ int main () {
 
         Device::processAllPending();
     }
+
+    debugf("11\n");
+    Fiber::runLoop();
+    debugf("22\n");
 }
