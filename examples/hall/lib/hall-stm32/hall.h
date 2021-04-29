@@ -1,4 +1,3 @@
-#include <cstdarg>
 #include <cstdint>
 
 namespace hall {
@@ -8,6 +7,7 @@ namespace hall {
     auto slowClock (bool low =true) -> uint32_t;
     auto systemHz () -> uint32_t;
     [[noreturn]] void systemReset ();
+    void debugPutc (void*, int c);
 
     struct IOWord {
         uint32_t volatile& addr;
@@ -165,7 +165,4 @@ namespace hall {
         auto getData (int reg) -> uint32_t;
         void setData (int reg, uint32_t val);
     }
-
-    auto veprintf(void(*)(void*,int), void*, char const* fmt, va_list ap) -> int;
-    void debugf (const char* fmt, ...);
 }
