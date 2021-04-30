@@ -150,9 +150,9 @@ namespace hall {
     }
 
     namespace watchdog {  // [1] pp.495
-        auto resetCause () -> int;  // watchdog: -1, nrst: 1, power: 2, other: 0
-        void init (int rate =6);    // max timeout, 0 ≈ 500 ms, 6 ≈ 32 s
-        void reload (int n);        // 0..4095 x 125 µs (0) .. 8 ms (6)
+        auto resetCause () -> int; // watchdog: -1, nrst: 1, power: 2, other: 0
+        void init (int rate =6);   // max timeout, 0 ≈ 500 ms, 6 ≈ 32 s
+        void reload (int n);       // 0..4095 x 125 µs (0) .. 8 ms (6)
         void kick ();
     }
 

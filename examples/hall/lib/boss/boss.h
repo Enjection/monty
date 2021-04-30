@@ -128,10 +128,11 @@ namespace boss {
 
         static uint8_t curr;
         static Queue ready;
+        static void (*app)();
 
         uint16_t _timeout;
         jmp_buf _context;
-        uint8_t _data [];
+        uint32_t _data [];
     };
 
     struct Semaphore {

@@ -55,10 +55,11 @@ int printf (const char* fmt, ...) {
     return n;
 }
 
+Pin leds [6];
+
 int main () {
     fastClock();
 
-    Pin leds [6];
     Pin::define("A6:P,A5,A4,A3,A1,A0", leds, sizeof leds);
 
     systick::init(); // defaults to 100 ms
@@ -85,6 +86,27 @@ int main () {
     }
 
     debugf("11\n");
+
+    Fiber::app = []() {
+        while (true) {
+            leds[0].toggle();
+            idle();
+            Fiber::suspend(Fiber::ready);
+            leds[1].toggle();
+            idle();
+            Fiber::suspend(Fiber::ready);
+            leds[2].toggle();
+            idle();
+            Fiber::suspend(Fiber::ready);
+            leds[3].toggle();
+            idle();
+            Fiber::suspend(Fiber::ready);
+            leds[4].toggle();
+            idle();
+            Fiber::suspend(Fiber::ready);
+        }
+    };
+
     while (true) {
         Fiber::runLoop();
         for (int i = 0; i < 10; ++i)

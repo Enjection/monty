@@ -11,15 +11,15 @@ struct Uart : Device {
         dmaRX(CNDTR) = RXSIZE;
         dmaRX(CPAR) = dev.base + RDR;
         dmaRX(CMAR) = (uint32_t) rxBuf;
-        dmaRX(CCR) = 0b1010'0111; // MINC, CIRC, HTIE, TCIE, EN
+        dmaRX(CCR) = 0b1010'0111; // MINC CIRC HTIE TCIE EN
 
         dmaTX(CPAR) = dev.base + TDR;
         dmaTX(CMAR) = 0;
-        dmaTX(CCR) = 0b1001'0000; // MINC, DIR
+        dmaTX(CCR) = 0b1001'0000; // MINC DIR
 
         baud(rate);
-        devReg(CR1) = 0b0101'1101; // TCIE, IDLEIE, TE, RE, UE
-        devReg(CR3) = 0b1100'0000; // DMAT, DMAR
+        devReg(CR1) = 0b0101'1101; // TCIE IDLEIE TE RE UE
+        devReg(CR3) = 0b1100'0000; // DMAT DMAR
 
         auto rxSh = 4*(dev.rxStream-1), txSh = 4*(dev.txStream-1);
         dmaReg(CSELR) = (dmaReg(CSELR) & ~(0xF<<rxSh) & ~(0xF<<txSh)) |
@@ -47,11 +47,6 @@ struct Uart : Device {
         dmaTX(CMAR) = (uint32_t) pool[i];
         devReg(CR) = (1<<6); // clear TC
         dmaTX(CCR)[0] = 1; // EN
-    }
-
-    void txDone () {
-        auto p = (uint8_t*)(uint32_t) dmaTX(CMAR);
-        pool.irqReleasePtr(p);
     }
 
     // the actual interrupt handler, with access to the uart object

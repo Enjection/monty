@@ -2,7 +2,7 @@
 #include <cstring>
 
 namespace boss {
-    auto veprintf(void (*fun) (void*,int), void* arg,
+    auto veprintf(void (*fun)(void*,int), void* arg,
                         char const* fmt, va_list ap) -> int {
         int pad, count = 0;
         auto emit = [&](int c) { ++count; fun(arg, c); };
@@ -111,42 +111,48 @@ namespace boss {
 
     uint8_t Fiber::curr;
     Queue Fiber::ready;
-    jmp_buf* resumer;
+    void (*Fiber::app)() = []{};
+    jmp_buf returner;
+    uint32_t* bottom;
 
     void Fiber::runLoop () {
-debugf(" R>");
-        jmp_buf bottom;
-        resumer = &bottom;
-        setjmp(bottom);
-debugf(" S>");
+        debugf(" R>");
+        uint32_t dummy;
+        if (bottom == nullptr && setjmp(returner) == 0) {
+            bottom = &dummy;
+            debugf(" A>");
+            app();
+        }
+        debugf(" S>");
         Device::processAllPending();
         curr = ready.pull();
         if (curr != 0) {
-debugf(" L>");
+            debugf(" L>");
             longjmp(at(curr)._context, 1);
         }
-debugf(" I>");
+        debugf(" I>");
     }
 
     static void resumeFixer (void* top) {
         auto fp = &Fiber::at(Fiber::curr);
-        debugf("\tRF %d top %p data %p resumer %p\n",
-                Fiber::curr, top, fp->_data, resumer);
-        memcpy(top, fp->_data, (uintptr_t) resumer - (uintptr_t) top);
-debugf(" X>");
+        debugf("\tRF %d top %p data %p bottom %p\n",
+                Fiber::curr, top, fp->_data, bottom);
+        memcpy(top, fp->_data, (uintptr_t) bottom - (uintptr_t) top);
+        debugf(" X>");
     }
 
     void Fiber::suspend (Queue& q, uint16_t) {
-debugf(" E>");
+        debugf(" E>");
         auto fp = curr == 0 ? new (pool.allocate()) Fiber : &at(curr);
+        curr = 0;
         q.append(fp->id());
         if (setjmp(fp->_context) == 0) {
-            debugf("\tFS %d top %p data %p resumer %p\n",
-                    fp->id(), &fp, fp->_data, resumer);
-            memcpy(fp->_data, &fp, (uintptr_t) resumer - (uintptr_t) &fp);
-            longjmp(*resumer, 1);
+            debugf("\tFS %d top %p data %p bottom %p\n",
+                    fp->id(), &fp, fp->_data, bottom);
+            memcpy(fp->_data, &fp, (uintptr_t) bottom - (uintptr_t) &fp);
+            longjmp(returner, 1);
         }
-debugf(" F>");
+        debugf(" F>");
         resumeFixer(&fp);
     }
 }
