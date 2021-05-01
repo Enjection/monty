@@ -115,6 +115,7 @@ namespace hall {
 
         virtual void interrupt () { pending |= 1<<_id; }
         virtual void process () {}
+        virtual auto expire (uint16_t) -> uint16_t { return 60'000; }
 
         static void processAllPending ();
 
@@ -132,8 +133,6 @@ namespace hall {
     };
 
     namespace systick {
-        extern void (*handler) ();
-
         void init (uint8_t ms =100);
         void deinit ();
         auto millis () -> uint32_t;

@@ -56,6 +56,11 @@ int printf (const char* fmt, ...) {
 }
 
 Pin leds [6];
+Semaphore timers {0};
+
+extern "C" auto expireTimers (uint16_t now) -> uint16_t {
+    return timers.expire(now);
+}
 
 int main () {
     fastClock();
@@ -66,11 +71,11 @@ int main () {
     cycles::init();
 
     uart[1].init("A2:PU7,A15:PU3", 921600);
-    printf("\n");
-    asm ("wfi");
+    //printf("\n");
+    //asm ("wfi");
     
     debugf("hello %d\n", sizeof (Fiber));
-
+#if 0
     for (int n = 0; n < 50; ++n) {
         for (int i = 0; i < 5; ++i)
             leds[i] = n % (i+2) == 0;
@@ -84,33 +89,29 @@ int main () {
 
         Device::processAllPending();
     }
-
+#endif
     debugf("11\n");
+    Device::processAllPending();
 
     Fiber::app = []() {
         while (true) {
             leds[0].toggle();
-            idle();
-            Fiber::suspend(Fiber::ready);
+            timers.pend(1000);
             leds[1].toggle();
-            idle();
-            Fiber::suspend(Fiber::ready);
+            timers.pend(1000);
             leds[2].toggle();
-            idle();
-            Fiber::suspend(Fiber::ready);
+            timers.pend(1000);
             leds[3].toggle();
-            idle();
-            Fiber::suspend(Fiber::ready);
+            timers.pend(1000);
             leds[4].toggle();
-            idle();
-            Fiber::suspend(Fiber::ready);
+            timers.pend(1000);
         }
     };
 
     while (true) {
         Fiber::runLoop();
-        for (int i = 0; i < 10; ++i)
-            idle();
-        debugf("\n");
+        leds[5] = 0;
+        asm ("wfi");
+        leds[5] = 1;
     }
 }

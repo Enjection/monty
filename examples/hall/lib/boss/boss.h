@@ -29,7 +29,7 @@ namespace boss {
     auto veprintf(void(*)(void*,int), void*, char const* fmt, va_list ap) -> int;
     void debugf (const char* fmt, ...);
 
-    template <int N =30, int SZ =128>
+    template <int N =10, int SZ =192>
     struct Pool {
         enum { NBUF=N, SZBUF=SZ };
 
@@ -113,6 +113,8 @@ namespace boss {
     extern Pool<> pool;
 
     struct Queue {
+        auto isEmpte () const { return first == 0; }
+
         auto pull () -> uint8_t;
         void insert (uint8_t i);
         void append (uint8_t i);
@@ -127,23 +129,35 @@ namespace boss {
 
         static auto at (uint8_t i) -> Fiber& { return *(Fiber*) pool[i]; }
         static void runLoop ();
-        static void suspend (Queue&, uint16_t ms =60'000);
-        static void resume (uint8_t fid) { ready.append(fid); }
+        static auto suspend (Queue&, uint16_t ms =60'000) -> int;
+        static void resume (uint8_t fid, int i) {
+            at(fid)._status = i;
+            ready.append(fid);
+        }
 
         static uint8_t curr;
         static Queue ready;
         static void (*app)();
 
         uint16_t _timeout;
+        int8_t _status;
         jmp_buf _context;
         uint32_t _data [];
     };
 
     struct Semaphore {
-        Semaphore (int n =0) : count (n) {}
+        Semaphore (int n) : count (n) {}
 
-        void post () { if (++count <= 0) Fiber::resume(queue.pull()); }
-        void pend () { if (--count < 0) Fiber::suspend(queue); }
+        void post () {
+            if (++count <= 0)
+                Fiber::resume(queue.pull(), 1);
+        }
+
+        auto pend (uint32_t ms =60'000) -> int {
+            return --count >= 0 ? 1 : Fiber::suspend(queue, ms);
+        }
+
+        auto expire (uint16_t now) -> uint16_t;
 
         int16_t count;
         Queue queue;

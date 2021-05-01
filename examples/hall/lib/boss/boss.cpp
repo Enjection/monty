@@ -102,6 +102,7 @@ namespace boss {
     }
 
     void Queue::append (uint8_t i) {
+        pool.tag(i) = 0;
         if (last != 0)
             pool.tag(last) = i;
         last = i;
@@ -116,43 +117,75 @@ namespace boss {
     uint32_t* bottom;
 
     void Fiber::runLoop () {
-        debugf(" R>");
+        //debugf(" R>");
         uint32_t dummy;
         if (bottom == nullptr && setjmp(returner) == 0) {
             bottom = &dummy;
-            debugf(" A>");
+            //debugf(" A>");
             app();
         }
-        debugf(" S>");
+        //debugf(" S>");
         Device::processAllPending();
         curr = ready.pull();
         if (curr != 0) {
-            debugf(" L>");
+            //debugf(" L>");
             longjmp(at(curr)._context, 1);
         }
-        debugf(" I>");
+        //debugf(" I>");
     }
 
-    static void resumeFixer (void* top) {
+    extern void blah () { debugf(""); }
+
+    static auto resumeFixer (void* top) {
         auto fp = &Fiber::at(Fiber::curr);
+#if 0
         debugf("\tRF %d top %p data %p bottom %p\n",
                 Fiber::curr, top, fp->_data, bottom);
+#endif
         memcpy(top, fp->_data, (uintptr_t) bottom - (uintptr_t) top);
-        debugf(" X>");
+        //debugf(" X>");
+asm ("nop");
+        return fp->_status;
     }
 
-    void Fiber::suspend (Queue& q, uint16_t) {
-        debugf(" E>");
+    auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
+        //debugf(" E>");
         auto fp = curr == 0 ? new (pool.allocate()) Fiber : &at(curr);
         curr = 0;
+        fp->_timeout = (uint16_t) systick::millis() + ms;
         q.append(fp->id());
         if (setjmp(fp->_context) == 0) {
+#if 0
             debugf("\tFS %d top %p data %p bottom %p\n",
                     fp->id(), &fp, fp->_data, bottom);
+#endif
             memcpy(fp->_data, &fp, (uintptr_t) bottom - (uintptr_t) &fp);
             longjmp(returner, 1);
         }
-        debugf(" F>");
-        resumeFixer(&fp);
+        //debugf(" F>");
+        return resumeFixer(&fp);
+    }
+
+    auto Semaphore::expire (uint16_t now) -> uint16_t {
+//debugf("f %d c %d n %d\n", queue.first, count, now);
+        uint16_t limit = 60'000;
+        if (count < 0)
+            for (uint8_t* p = &queue.first; *p != 0; p = &pool.tag(*p)) {
+                auto& f = Fiber::at(*p);
+                uint16_t remain = f._timeout - now;
+                if (remain == 0 || remain > 60'000) {
+                    auto next = pool.tag(*p);
+                    if (queue.last == *p)
+                        queue.last = next;
+                    Fiber::resume(*p, 0);
+                    ++count;
+                    *p = next;
+                } else if (limit > remain)
+{ debugf("s %p %d\n", &f, remain);
+                    limit = remain;
+}
+            }
+//debugf(" l %d f %d\n", limit, queue.first);
+        return limit;
     }
 }

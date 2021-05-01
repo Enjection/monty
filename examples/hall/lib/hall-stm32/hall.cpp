@@ -1,4 +1,4 @@
-#include "hall.h"
+#include "boss.h"
 #include <cstring>
 
 extern uint32_t SystemCoreClock; // CMSIS
@@ -144,7 +144,28 @@ namespace hall {
     namespace systick {
         volatile uint32_t ticks;
         uint8_t rate;
-        void (*handler) () = [] {};
+
+        extern "C" auto expireTimers (uint16_t) -> uint16_t;
+
+        struct Ticker : Device {
+            void process () override {
+                auto now = (uint16_t) millis();
+                uint16_t limit = 60'000;
+                for (int i = 0; i < devNext; ++i) {
+                    auto t = devMap[i]->expire(now);
+                    if (limit > t)
+                        limit = t;
+                }
+                init(limit < 100 ? limit : 100);
+boss::debugf("%d\n", limit);
+            }
+
+            auto expire (uint16_t now) -> uint16_t override {
+                return expireTimers(now);
+            }
+        };
+
+        Ticker ticker;
 
         void init (uint8_t ms) {
             if (rate > 0)
@@ -180,7 +201,7 @@ namespace hall {
 
         extern "C" void SysTick_Handler () {
             ticks += rate;
-            handler();
+            devMap[ticker._id]->interrupt();
         }
     }
 

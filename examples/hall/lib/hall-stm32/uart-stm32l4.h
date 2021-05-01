@@ -68,14 +68,21 @@ struct Uart : Device {
     void process () override {
         if (dmaTX(CCR)[0]) { // EN
             dmaTX(CCR)[0] = 0; // ~EN
-            pool.irqReleasePtr((uint8_t*)(uint32_t) dmaTX(CMAR));
+            pool.releasePtr((uint8_t*)(uint32_t) dmaTX(CMAR));
             //TODO tx queue post
         }
+    }
+
+    auto expire (uint16_t now) -> uint16_t {
+        auto msRx = readers.expire(now);
+        auto msTx = writers.expire(now);
+        return msRx < msTx ? msRx : msTx;
     }
 
     UartInfo dev;
 protected:
     constexpr static auto RXSIZE = pool.SZBUF;
+    Semaphore writers {1}, readers {0};
     uint8_t* rxBuf;
 private:
     auto devReg (int off) const -> IOWord {
