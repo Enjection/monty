@@ -94,26 +94,11 @@ int main () {
     Device::processAllPending();
 
     Fiber::app = []() {
-#if 0
         while (true)
             for (int i = 0; i < 5; ++i) {
                 leds[i].toggle();
-                timers.pend(100);
+                timers.pend(1000);
             }
-#else
-        while (true) {
-            leds[0].toggle();
-            timers.pend(1000);
-            leds[1].toggle();
-            timers.pend(1000);
-            leds[2].toggle();
-            timers.pend(1000);
-            leds[3].toggle();
-            timers.pend(1000);
-            leds[4].toggle();
-            timers.pend(1000);
-        }
-#endif
     };
 
     while (true) {
