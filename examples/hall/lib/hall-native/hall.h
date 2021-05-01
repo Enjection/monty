@@ -5,7 +5,10 @@ namespace hall {
     [[noreturn]] void systemReset ();
     void debugPutc (void*, int c);
 
-    struct BlockIRQ {};
+    struct BlockIRQ {
+        BlockIRQ () {}
+        ~BlockIRQ () {}
+    };
 
     struct Device {
         static void processAllPending () {}
