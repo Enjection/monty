@@ -5,6 +5,9 @@
 // see https://interrupt.memfault.com/blog/asserts-in-embedded-systems
 #ifdef NDEBUG
 #define ensure(exp) ((void)0)
+#elif NATIVE
+#include <cassert>
+#define ensure(exp) assert(exp)
 #else
 #define ensure(exp)                                 \
   do                                                \
@@ -36,7 +39,7 @@ namespace boss {
         }
 
         auto idOf (void const* p) const -> uint8_t {
-            ensure(buffers[1] <= p && p < buffers[N]);
+            ensure(buffers + 1 <= p && p < buffers + N);
             return ((uint8_t const*) p - buffers[0]) / SZ;
         }
 
@@ -117,7 +120,7 @@ namespace boss {
     };
 
     struct Fiber {
-        auto operator new (unsigned, void* p) -> void* { return p; }
+        auto operator new (unsigned long, void* p) -> void* { return p; }
 
         auto id () const { return pool.idOf(this); }
 
