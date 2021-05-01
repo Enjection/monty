@@ -75,7 +75,7 @@ int main () {
     //asm ("wfi");
     
     debugf("hello %d\n", sizeof (Fiber));
-#if 0
+#if 1
     for (int n = 0; n < 50; ++n) {
         for (int i = 0; i < 5; ++i)
             leds[i] = n % (i+2) == 0;
@@ -94,6 +94,13 @@ int main () {
     Device::processAllPending();
 
     Fiber::app = []() {
+#if 0
+        while (true)
+            for (int i = 0; i < 5; ++i) {
+                leds[i].toggle();
+                timers.pend(100);
+            }
+#else
         while (true) {
             leds[0].toggle();
             timers.pend(1000);
@@ -106,6 +113,7 @@ int main () {
             leds[4].toggle();
             timers.pend(1000);
         }
+#endif
     };
 
     while (true) {
