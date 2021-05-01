@@ -1,5 +1,6 @@
 #include "hall.h"
 #include <cstdarg>
+#include <cstddef>
 #include <setjmp.h>
 
 // see https://interrupt.memfault.com/blog/asserts-in-embedded-systems
@@ -120,7 +121,7 @@ namespace boss {
     };
 
     struct Fiber {
-        auto operator new (unsigned long, void* p) -> void* { return p; }
+        auto operator new (size_t, void* p) -> void* { return p; }
 
         auto id () const { return pool.idOf(this); }
 

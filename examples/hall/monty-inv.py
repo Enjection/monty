@@ -28,6 +28,12 @@ def map(c):
           "grep -v Handler" % env)
 
 @task
+def native(c, file="verify/hello.py"):
+    """compile and run natively"""
+    c.run(pio("run -e native -s"), pty=True)
+    c.run(exe)
+
+@task
 def openocd(c):
     """launch openocd, ready for uploads and serving SWO on port 6464"""
     print("launch 'nc 127.0.0.1 6464' in separate window to see SWO output")
@@ -39,4 +45,4 @@ def openocd(c):
     c.run(" ".join(cmd), pty=True)
 
 # remove irrelevant tasks
-del mrfs, native, python, runner, test, upload, watch
+del mrfs, python, runner, test, upload, watch
