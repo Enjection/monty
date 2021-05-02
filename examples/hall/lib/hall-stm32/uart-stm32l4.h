@@ -73,10 +73,9 @@ struct Uart : Device {
         }
     }
 
-    auto expire (uint16_t now) -> uint16_t {
-        auto msRx = readers.expire(now);
-        auto msTx = writers.expire(now);
-        return msRx < msTx ? msRx : msTx;
+    void expire (uint16_t now, uint16_t& limit) {
+        readers.expire(now, limit);
+        writers.expire(now, limit);
     }
 
     UartInfo dev;

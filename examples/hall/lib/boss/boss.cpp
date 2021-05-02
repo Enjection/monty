@@ -110,6 +110,26 @@ namespace boss {
             first = last;
     }
 
+    auto Queue::expire (uint16_t now, uint16_t& limit) -> int {
+        int num = 0;
+        for (uint8_t* p = &first; *p != 0; p = &pool.tag(*p)) {
+            auto& f = Fiber::at(*p);
+            uint16_t remain = f._timeout - now;
+            if (remain == 0 || remain > 60'000) {
+                auto next = pool.tag(*p);
+                if (last == *p)
+                    last = next;
+                Fiber::resume(*p, 0);
+                ++num;
+                *p = next;
+            } else if (limit > remain)
+{ //if (remain > 2000) debugf("s %p %d\n", &f, remain);
+                limit = remain;
+}
+        }
+        return num;
+    }
+
     uint8_t Fiber::curr;
     Queue Fiber::ready;
     void (*Fiber::app)() = []{};
@@ -166,26 +186,10 @@ asm ("nop");
         return resumeFixer(&fp);
     }
 
-    auto Semaphore::expire (uint16_t now) -> uint16_t {
+    void Semaphore::expire (uint16_t now, uint16_t& limit) {
 //debugf("f %d c %d n %d\n", queue.first, count, now);
-        uint16_t limit = 60'000;
         if (count < 0)
-            for (uint8_t* p = &queue.first; *p != 0; p = &pool.tag(*p)) {
-                auto& f = Fiber::at(*p);
-                uint16_t remain = f._timeout - now;
-                if (remain == 0 || remain > 60'000) {
-                    auto next = pool.tag(*p);
-                    if (queue.last == *p)
-                        queue.last = next;
-                    Fiber::resume(*p, 0);
-                    ++count;
-                    *p = next;
-                } else if (limit > remain)
-{ debugf("s %p %d\n", &f, remain);
-                    limit = remain;
-}
-            }
+            count += queue.expire(now, limit);
 //debugf(" l %d f %d\n", limit, queue.first);
-        return limit;
     }
 }

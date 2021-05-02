@@ -119,6 +119,8 @@ namespace boss {
         void insert (uint8_t i);
         void append (uint8_t i);
 
+        auto expire (uint16_t now, uint16_t& limit) -> int;
+    private:
         uint8_t first =0, last =0;
     };
 
@@ -157,8 +159,8 @@ namespace boss {
             return --count >= 0 ? 1 : Fiber::suspend(queue, ms);
         }
 
-        auto expire (uint16_t now) -> uint16_t;
-
+        void expire (uint16_t now, uint16_t& limit);
+    private:
         int16_t count;
         Queue queue;
     };

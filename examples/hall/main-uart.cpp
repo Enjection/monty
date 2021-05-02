@@ -56,10 +56,10 @@ int printf (const char* fmt, ...) {
 }
 
 Pin leds [6];
-Semaphore timers {0};
+Queue timers;
 
-extern "C" auto expireTimers (uint16_t now) -> uint16_t {
-    return timers.expire(now);
+extern "C" void expireTimers (uint16_t now, uint16_t& limit) {
+    timers.expire(now, limit);
 }
 
 int main () {
@@ -91,13 +91,12 @@ int main () {
     }
 #endif
     debugf("11\n");
-    Device::processAllPending();
 
     Fiber::app = []() {
         while (true)
             for (int i = 0; i < 5; ++i) {
                 leds[i].toggle();
-                timers.pend(1000);
+                Fiber::suspend(timers, 1000);
             }
     };
 

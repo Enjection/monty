@@ -115,7 +115,7 @@ namespace hall {
 
         virtual void interrupt () { pending |= 1<<_id; }
         virtual void process () {}
-        virtual auto expire (uint16_t) -> uint16_t { return 60'000; }
+        virtual void expire (uint16_t, uint16_t&) {}
 
         static void processAllPending ();
 

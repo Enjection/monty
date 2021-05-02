@@ -145,23 +145,20 @@ namespace hall {
         volatile uint32_t ticks;
         uint8_t rate;
 
-        extern "C" auto expireTimers (uint16_t) -> uint16_t;
+        extern "C" void expireTimers (uint16_t, uint16_t&); // TODO yuck
 
         struct Ticker : Device {
             void process () override {
                 auto now = (uint16_t) millis();
                 uint16_t limit = 60'000;
-                for (int i = 0; i < devNext; ++i) {
-                    auto t = devMap[i]->expire(now);
-                    if (limit > t)
-                        limit = t;
-                }
+                for (int i = 0; i < devNext; ++i)
+                    devMap[i]->expire(now, limit);
                 init(limit < 100 ? limit : 100);
 boss::debugf("%d\n", limit);
             }
 
-            auto expire (uint16_t now) -> uint16_t override {
-                return expireTimers(now);
+            void expire (uint16_t now, uint16_t& limit) override {
+                expireTimers(now, limit);
             }
         };
 
