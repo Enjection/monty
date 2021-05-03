@@ -29,14 +29,18 @@ namespace boss {
     auto veprintf(void(*)(void*,int), void*, char const* fmt, va_list ap) -> int;
     void debugf (const char* fmt, ...);
 
+#if NATIVE
+    template <int N =100, int SZ =1024>
+#else
     template <int N =10, int SZ =192>
+#endif
     struct Pool {
         enum { NBUF=N, SZBUF=SZ };
 
         Pool () {
             for (int i = 0; i < N-1; ++i)
                 tag(i) = i+1;
-            irqFree = tag(N-1) = 0;
+            tag(N-1) = 0;
         }
 
         auto idOf (void const* p) const -> uint8_t {
@@ -47,14 +51,9 @@ namespace boss {
         auto tag (uint8_t i) -> uint8_t& { return buffers[0][i]; }
         auto tagOf (void const* p) -> uint8_t& { return tag(idOf(p)); }
 
-        auto hasFree () { return tag(0) != 0 || irqFree != 0; }
+        auto hasFree () { return tag(0) != 0; }
 
         auto allocate () {
-            // grab the irq free chain if the main one is empty, but do it safely
-            if (tag(0) == 0) {
-                BlockIRQ crit;
-                irqRelease(0); // this grabs the irqFree chain
-            }
             auto n = tag(0);
             ensure(n != 0);
             tag(0) = tag(n);
@@ -65,11 +64,7 @@ namespace boss {
         void release (uint8_t i) { tag(i) = tag(0); tag(0) = i; }
         void releasePtr (uint8_t* p) { release(idOf(p)); }
 
-        // only call these versions from interrupt context, i.e. with IRQs disabled
-        void irqRelease (uint8_t i) { tag(i) = irqFree; irqFree = i; }
-        void irqReleasePtr (uint8_t* p) { irqRelease(idOf(p)); }
-
-        auto items (uint8_t i) const {
+        auto items (uint8_t i) {
             int n = 0;
             do {
                 ++n;
@@ -79,22 +74,14 @@ namespace boss {
         }
 
         auto numFree () const {
-            int n = items(0);
-            BlockIRQ crit;
-            if (irqFree != 0)
-                n += items(irqFree);
-            return n;
+            return items(0);
         }
 
-        void check () const {
+        void check () {
             bool inUse [N];
-            memset(inUse, 0, sizeof inUse);
+            for (int i = 0; i < N; ++i)
+                inUse[i] = 0;
             for (int i = tag(0); i != 0; i = tag(i)) {
-                ensure(!inUse[i]);
-                inUse[i] = true;
-            }
-            BlockIRQ crit;
-            for (int i = irqFree; i != 0; i = tag(i)) {
                 ensure(!inUse[i]);
                 inUse[i] = true;
             }
@@ -104,7 +91,6 @@ namespace boss {
 
     private:
         uint8_t buffers [N][SZ];
-        volatile uint8_t irqFree; // second free chain, for use from IRQ context
 
         static_assert(N <= 256, "buffer id must fit in a uint8_t");
         static_assert(N <= SZ, "free chain must fit in buffer[0]");
@@ -113,7 +99,8 @@ namespace boss {
     extern Pool<> pool;
 
     struct Queue {
-        auto isEmpte () const { return first == 0; }
+        auto isEmpty () const { return first == 0; }
+        auto length () const { return isEmpty() ? 0 : pool.items(first); }
 
         auto pull () -> uint8_t;
         void insert (uint8_t i);
@@ -147,21 +134,20 @@ namespace boss {
         uint32_t _data [];
     };
 
-    struct Semaphore {
+    struct Semaphore : private Queue {
         Semaphore (int n) : count (n) {}
 
         void post () {
             if (++count <= 0)
-                Fiber::resume(queue.pull(), 1);
+                Fiber::resume(pull(), 1);
         }
 
         auto pend (uint32_t ms =60'000) -> int {
-            return --count >= 0 ? 1 : Fiber::suspend(queue, ms);
+            return --count >= 0 ? 1 : Fiber::suspend(*this, ms);
         }
 
         void expire (uint16_t now, uint16_t& limit);
     private:
         int16_t count;
-        Queue queue;
     };
 }

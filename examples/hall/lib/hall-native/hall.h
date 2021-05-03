@@ -1,16 +1,15 @@
-#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 
 namespace hall {
-    auto systemHz () -> uint32_t;
+    void idle();
+
     [[noreturn]] void systemReset ();
     void debugPutc (void*, int c);
+    void processAllPending ();
 
-    struct BlockIRQ {
-        BlockIRQ () {}
-        ~BlockIRQ () {}
-    };
-
-    struct Device {
-        static void processAllPending () {}
-    };
+    namespace systick {
+        void init (uint8_t ms =100);
+        auto millis () -> uint32_t;
+    }
 }

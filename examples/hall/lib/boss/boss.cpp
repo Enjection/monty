@@ -77,7 +77,6 @@ namespace boss {
 
     void failAt (void const* pc, void const* lr) { // weak, can be redefined
         debugf("failAt %p %p\n", pc, lr);
-        for (uint32_t i = 0; i < systemHz() >> 15; ++i) {}
         systemReset();
     }
 
@@ -112,20 +111,21 @@ namespace boss {
 
     auto Queue::expire (uint16_t now, uint16_t& limit) -> int {
         int num = 0;
-        for (uint8_t* p = &first; *p != 0; p = &pool.tag(*p)) {
+        uint8_t* p = &first;
+        while (*p != 0) {
+            auto& next = pool.tag(*p);
             auto& f = Fiber::at(*p);
             uint16_t remain = f._timeout - now;
             if (remain == 0 || remain > 60'000) {
-                auto next = pool.tag(*p);
-                if (last == *p)
+                auto c = *p;
+                if (last == c)
                     last = next;
-                Fiber::resume(*p, 0);
-                ++num;
                 *p = next;
+                Fiber::resume(c, 0);
+                ++num;
             } else if (limit > remain)
-{ //if (remain > 2000) debugf("s %p %d\n", &f, remain);
                 limit = remain;
-}
+            p = &next;
         }
         return num;
     }
@@ -137,21 +137,15 @@ namespace boss {
     uint32_t* bottom;
 
     void Fiber::runLoop () {
-        //debugf(" R>");
         uint32_t dummy;
         if (bottom == nullptr && setjmp(returner) == 0) {
             bottom = &dummy;
-            //debugf(" A>");
             app();
         }
-        //debugf(" S>");
-        Device::processAllPending();
+        processAllPending();
         curr = ready.pull();
-        if (curr != 0) {
-            //debugf(" L>");
+        if (curr != 0)
             longjmp(at(curr)._context, 1);
-        }
-        //debugf(" I>");
     }
 
     extern void blah () { debugf(""); }
@@ -159,37 +153,35 @@ namespace boss {
     static auto resumeFixer (void* top) {
         auto fp = &Fiber::at(Fiber::curr);
 #if 0
-        debugf("\tRF %d top %p data %p bottom %p\n",
-                Fiber::curr, top, fp->_data, bottom);
+        debugf("\tRF %d rdy %d top %p data %p bytes %d\n",
+                Fiber::curr, Fiber::ready.length(), top, fp->_data,
+                (int) ((uintptr_t) bottom - (uintptr_t) top));
 #endif
         memcpy(top, fp->_data, (uintptr_t) bottom - (uintptr_t) top);
-        //debugf(" X>");
 asm ("nop");
         return fp->_status;
     }
 
     auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
-        //debugf(" E>");
         auto fp = curr == 0 ? new (pool.allocate()) Fiber : &at(curr);
         curr = 0;
         fp->_timeout = (uint16_t) systick::millis() + ms;
         q.append(fp->id());
         if (setjmp(fp->_context) == 0) {
 #if 0
-            debugf("\tFS %d top %p data %p bottom %p\n",
-                    fp->id(), &fp, fp->_data, bottom);
+            debugf("\tFS %d rdy %d top %p data %p bytes %d\n",
+                    fp->id(), ready.length(), &fp, fp->_data,
+                    (int) ((uintptr_t) bottom - (uintptr_t) &fp));
 #endif
             memcpy(fp->_data, &fp, (uintptr_t) bottom - (uintptr_t) &fp);
+            curr = 0;
             longjmp(returner, 1);
         }
-        //debugf(" F>");
         return resumeFixer(&fp);
     }
 
     void Semaphore::expire (uint16_t now, uint16_t& limit) {
-//debugf("f %d c %d n %d\n", queue.first, count, now);
         if (count < 0)
-            count += queue.expire(now, limit);
-//debugf(" l %d f %d\n", limit, queue.first);
+            count += Queue::expire(now, limit);
     }
 }

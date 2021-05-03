@@ -87,7 +87,7 @@ int main () {
         asm ("wfi");
         leds[5] = 1;
 
-        Device::processAllPending();
+        processAllPending();
     }
 #endif
     debugf("11\n");
@@ -96,7 +96,7 @@ int main () {
         while (true)
             for (int i = 0; i < 5; ++i) {
                 leds[i].toggle();
-                Fiber::suspend(timers, 1000);
+                Fiber::suspend(timers, 100*(i+1));
             }
     };
 

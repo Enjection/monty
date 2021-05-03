@@ -117,8 +117,6 @@ namespace hall {
         virtual void process () {}
         virtual void expire (uint16_t, uint16_t&) {}
 
-        static void processAllPending ();
-
         static void nvicEnable (uint8_t irq) {
             NVIC(0x00+4*(irq>>5)) = 1 << (irq & 0x1F);
         }
@@ -131,6 +129,8 @@ namespace hall {
 
         constexpr static auto NVIC = io32<0xE000'E100>;
     };
+
+    void processAllPending ();
 
     namespace systick {
         void init (uint8_t ms =100);

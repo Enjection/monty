@@ -1,4 +1,4 @@
-#include "boss.h"
+#include "hall.h"
 #include <cstring>
 
 extern uint32_t SystemCoreClock; // CMSIS
@@ -120,12 +120,12 @@ namespace hall {
         nvicEnable(irq);
     }
 
-    void Device::processAllPending () {
+    void processAllPending () {
         uint32_t pend;
         {
             BlockIRQ crit;
-            pend = pending;
-            pending = 0;
+            pend = Device::pending;
+            Device::pending = 0;
         }
         for (int i = 0; i < devNext; ++i)
             if (pend & (1<<i))
@@ -137,6 +137,7 @@ namespace hall {
     }
 
     void systemReset () {
+        for (uint32_t i = 0; i < systemHz() >> 15; ++i) {}
         SCB(0xD0C) = (0x5FA<<16) | (1<<2); // SCB AIRCR reset
         while (true) {}
     }
@@ -154,7 +155,6 @@ namespace hall {
                 for (int i = 0; i < devNext; ++i)
                     devMap[i]->expire(now, limit);
                 init(limit < 100 ? limit : 100);
-boss::debugf("%d\n", limit);
             }
 
             void expire (uint16_t now, uint16_t& limit) override {
