@@ -152,11 +152,6 @@ namespace boss {
 
     static auto resumeFixer (void* top) {
         auto fp = &Fiber::at(Fiber::curr);
-#if 0
-        debugf("\tRF %d rdy %d top %p data %p bytes %d\n",
-                Fiber::curr, Fiber::ready.length(), top, fp->_data,
-                (int) ((uintptr_t) bottom - (uintptr_t) top));
-#endif
         memcpy(top, fp->_data, (uintptr_t) bottom - (uintptr_t) top);
 asm ("nop");
         return fp->_status;

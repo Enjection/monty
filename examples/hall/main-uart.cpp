@@ -71,26 +71,9 @@ int main () {
     cycles::init();
 
     uart[1].init("A2:PU7,A15:PU3", 921600);
-    //printf("\n");
-    //asm ("wfi");
+    printf("\n");
     
     debugf("hello %d\n", sizeof (Fiber));
-#if 1
-    for (int n = 0; n < 50; ++n) {
-        for (int i = 0; i < 5; ++i)
-            leds[i] = n % (i+2) == 0;
-
-        printf("hello %4d %010u\n", systick::millis(), cycles::count());
-        asm ("wfi");
-
-        leds[5] = 0;
-        asm ("wfi");
-        leds[5] = 1;
-
-        processAllPending();
-    }
-#endif
-    debugf("11\n");
 
     Fiber::app = []() {
         while (true)
