@@ -163,9 +163,7 @@ auto Event::unop ([[maybe_unused]] UnOp op) const -> Value {
 }
 
 auto Event::create (ArgVec const& args, Type const*) -> Value {
-    //CG2 args
-    auto ainfo = args.parse("");
-    if (ainfo.isObj()) return ainfo;
+    //CG: args
     return new Event;
 }
 

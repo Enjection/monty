@@ -1,6 +1,4 @@
-//CG2 includes
-#include <extend.h>
-#include <pyvm.h>
+//CG: includes
 
 namespace arch {
     void init (int =0);

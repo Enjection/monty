@@ -42,7 +42,7 @@ struct Pins : Object {
     }
 };
 
-Type Pins::info (Q(218,"<pins>"));
+Type Pins::info (Q(0,"<pins>"));
 
 static Pins pins; // there is one static pins object, used via attr access
 
@@ -66,23 +66,9 @@ struct Spi : Object, jeeh::SpiGpio {
     auto disable () -> Value { jeeh::SpiGpio::disable(); return {}; }
 };
 
-//CG< wrappers Spi
-static   auto const  m_spi_disable = Method::wrap(&Spi::disable);
-static Method const mo_spi_disable (m_spi_disable);
-static   auto const  m_spi_enable = Method::wrap(&Spi::enable);
-static Method const mo_spi_enable (m_spi_enable);
-static   auto const  m_spi_xfer = Method::wrap(&Spi::xfer);
-static Method const mo_spi_xfer (m_spi_xfer);
+//CG: wrappers Spi
 
-static Lookup::Item const spi_map [] = {
-    { Q(204,"disable"), mo_spi_disable },
-    { Q(205,"enable"), mo_spi_enable },
-    { Q(206,"xfer"), mo_spi_xfer },
-};
-Lookup const Spi::attrs (spi_map);
-//CG>
-
-Type Spi::info (Q(219,"<spi>"), &Spi::attrs);
+Type Spi::info (Q(0,"<spi>"), &Spi::attrs);
 
 struct RF69 : Object, jeeh::RF69<jeeh::SpiGpio> {
     static Lookup const attrs;
@@ -116,23 +102,9 @@ struct RF69 : Object, jeeh::RF69<jeeh::SpiGpio> {
     //CG: wrap RF69 recv xmit sleep
 };
 
-//CG< wrappers RF69
-static   auto const  m_rf69_recv = Method::wrap(&RF69::recv);
-static Method const mo_rf69_recv (m_rf69_recv);
-static   auto const  m_rf69_sleep = Method::wrap(&RF69::sleep);
-static Method const mo_rf69_sleep (m_rf69_sleep);
-static   auto const  m_rf69_xmit = Method::wrap(&RF69::xmit);
-static Method const mo_rf69_xmit (m_rf69_xmit);
+//CG: wrappers RF69
 
-static Lookup::Item const rf69_map [] = {
-    { Q(207,"recv"), mo_rf69_recv },
-    { Q(208,"sleep"), mo_rf69_sleep },
-    { Q(209,"xmit"), mo_rf69_xmit },
-};
-Lookup const RF69::attrs (rf69_map);
-//CG>
-
-Type RF69::info (Q(220,"<rf69>"), &RF69::attrs);
+Type RF69::info (Q(0,"<rf69>"), &RF69::attrs);
 
 //CG1 bind spi arg:s
 static auto f_spi (char const* arg) -> Value {
@@ -231,27 +203,9 @@ static auto f_kick () -> Value {
     return {};
 }
 
-//CG< wrappers
-static Function const fo_cycles ("*", (Function::Prim) f_cycles);
-static Function const fo_dog ("?i", (Function::Prim) f_dog);
-static Function const fo_kick ("", (Function::Prim) f_kick);
-static Function const fo_rf69 ("siii", (Function::Prim) f_rf69);
-static Function const fo_spi ("s", (Function::Prim) f_spi);
-static Function const fo_ticker ("?i", (Function::Prim) f_ticker);
-static Function const fo_ticks ("", (Function::Prim) f_ticks);
-
+//CG1 wrappers
 static Lookup::Item const machine_map [] = {
-    { Q(210,"cycles"), fo_cycles },
-    { Q(211,"dog"), fo_dog },
-    { Q(212,"kick"), fo_kick },
-    { Q(213,"rf69"), fo_rf69 },
-    { Q(214,"spi"), fo_spi },
-    { Q(215,"ticker"), fo_ticker },
-    { Q(216,"ticks"), fo_ticks },
-//CG>
-    { Q(221,"pins"), pins },
+    { Q(0,"pins"), pins },
 };
 
-//CG2 module-end
-static Lookup const machine_attrs (machine_map);
-Module ext_machine (Q(217,"machine"), machine_attrs);
+//CG: module-end

@@ -14,7 +14,7 @@ Value const monty::Null  {None::noneObj};
 Value const monty::False {Bool::falseObj};
 Value const monty::True  {Bool::trueObj};
 
-Type const Object::info (Q(166,"<object>"));
+Type const Object::info (Q(0,"<object>"));
 
 Lookup const Bool::attrs;
 Lookup const Int::attrs;
@@ -372,10 +372,7 @@ auto Bool::unop (UnOp op) const -> Value {
 }
 
 auto Bool::create (ArgVec const& args, Type const*) -> Value {
-    //CG3 args ? arg
-    Value arg;
-    auto ainfo = args.parse("?v",&arg);
-    if (ainfo.isObj()) return ainfo;
+    //CG: args ? arg
     return ainfo < 0 ? False : arg.unOp(UnOp::Boln);
 }
 
@@ -450,10 +447,7 @@ auto Int::binop (BinOp op, Value rhs) const -> Value {
 }
 
 auto Int::create (ArgVec const& args, Type const*) -> Value {
-    //CG3 args v
-    Value v;
-    auto ainfo = args.parse("v",&v);
-    if (ainfo.isObj()) return ainfo;
+    //CG: args v
     switch (v.tag()) {
         case Value::Nil:
         case Value::Int: return v;
@@ -516,10 +510,7 @@ auto Range::len () const -> uint32_t {
 }
 
 auto Range::create (ArgVec const& args, Type const*) -> Value {
-    //CG3 args a:i ? b:i c:i
-    int a, b, c;
-    auto ainfo = args.parse("i?ii",&a,&b,&c);
-    if (ainfo.isObj()) return ainfo;
+    //CG: args a:i ? b:i c:i
     switch (ainfo) { // N<0 means N missing
         case -2: b = a; a = 0; [[fallthrough]];
         case -1: c = 1;
@@ -548,10 +539,7 @@ auto Slice::asRange (int sz) const -> Range {
 }
 
 auto Slice::create (ArgVec const& args, Type const*) -> Value {
-    //CG3 args a ? b c
-    Value a, b, c;
-    auto ainfo = args.parse("v?vv",&a,&b,&c);
-    if (ainfo.isObj()) return ainfo;
+    //CG: args a ? b c
     switch (ainfo) { // N<0 means N missing
         case -2: b = a; a = Null; [[fallthrough]];
         case -1: c = Null;
