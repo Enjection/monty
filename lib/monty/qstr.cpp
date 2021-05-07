@@ -7,14 +7,16 @@ using namespace monty;
 //CG: mod-list d
 
 static Lookup::Item const mod_map [] = {
-//CG: mod-list a
+//CG1 mod-list a
+    { Q(0), {} },
 };
 
 static Lookup const mod_attrs (mod_map);
 Dict Module::loaded (&mod_attrs);
 
 extern char const monty::qstrBase [] =
-//CG: qstr-emit
+//CG1 qstr-emit
+    {}
 ;
 
 int const monty::qstrBaseLen = sizeof qstrBase;

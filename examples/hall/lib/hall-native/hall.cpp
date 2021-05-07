@@ -59,7 +59,7 @@ namespace hall {
 
         void init (uint8_t ms) {
             rate = counter = ms;
-            if (tickId == nullptr)
+            if (tickId == 0)
                 pthread_create(&tickId, nullptr, tickThread, nullptr);
         }
 

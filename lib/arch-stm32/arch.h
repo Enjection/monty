@@ -9,7 +9,12 @@ namespace altpins {
 #include <jee.h>
 #include <jee-stm32.h>
 
-//CG: includes
+//CG< includes
+#include <extend.h>
+#include <pyvm.h>
+
+#include <mrfs.h>
+//CG>
 
 namespace arch {
     using namespace monty;

@@ -9,7 +9,7 @@ extern "C" int printf (char const*, ...);
 
 namespace monty {
     //CG1 version
-    constexpr auto VERSION = "<stripped>";
+    constexpr auto VERSION = "v1.2-34-gd35d43a";
 
 // see gc.cpp - objects and vectors with garbage collection
 
@@ -390,8 +390,10 @@ namespace monty {
 
     void Value::marker () const { if (isObj()) mark(obj()); }
 
-    //CG1 type <none>
+    //CG3 type <none>
     struct None : StaticObj {
+        static Type info;
+        auto type () const -> Type const& override { return info; }
         void repr (Buffer&) const override;
 
         auto binop (BinOp, Value) const -> Value override;
@@ -401,8 +403,14 @@ namespace monty {
         constexpr None () =default; // can't construct more instances
     };
 
-    //CG1 type bool
+    //CG< type bool
     struct Bool : StaticObj {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         auto unop (UnOp) const -> Value override;
 
         static Bool const trueObj, falseObj;
@@ -414,8 +422,14 @@ namespace monty {
     auto Value::isFalse () const -> bool { return _o == &Bool::falseObj; }
     auto Value::isTrue  () const -> bool { return _o == &Bool::trueObj; }
 
-    //CG1 type int
+    //CG< type int
     struct Int : Object {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         static auto make (int64_t i) -> Value;
         static auto conv (char const* s) -> Value;
 
@@ -447,8 +461,10 @@ namespace monty {
         Value _obj, _pos, _val;
     };
 
-    //CG1 type <iterator>
+    //CG3 type <iterator>
     struct Iterator : Object, RawIter {
+        static Type info;
+        auto type () const -> Type const& override { return info; }
         Iterator (Value obj, Value pos ={}) : RawIter (obj, pos) {}
 
         auto next () -> Value override { return stepper(); }
@@ -459,8 +475,14 @@ namespace monty {
     auto Value::begin () const -> RawIter { return *this; }
     auto Value::end () const -> RawIter { return {{}, 0}; }
 
-    //CG1 type range
+    //CG< type range
     struct Range : Object {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         auto len () const -> uint32_t override;
         auto getAt (Value k) const -> Value override { return _from + k * _by; }
         auto iter () const -> Value override { return 0; }
@@ -470,8 +492,14 @@ namespace monty {
         int32_t _from, _to, _by;
     };
 
-    //CG1 type slice
+    //CG< type slice
     struct Slice : Object {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         auto asRange (int sz) const -> Range;
 
     private:
@@ -481,8 +509,14 @@ namespace monty {
         Value _off, _num, _step;
     };
 
-    //CG1 type bytes
+    //CG< type bytes
     struct Bytes : Object, ByteVec {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         constexpr Bytes () =default;
         Bytes (void const*, uint32_t =0);
 
@@ -494,8 +528,14 @@ namespace monty {
         auto copy (Range const&) const -> Value override;
     };
 
-    //CG1 type str
+    //CG< type str
     struct Str : Bytes {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         Str (char const* s, int n =-1);
 
         operator char const* () const { return (char const*) begin(); }
@@ -507,8 +547,10 @@ namespace monty {
 
 // see type.cpp - collection types and type system
 
-    //CG1 type <buffer>
+    //CG3 type <buffer>
     struct Buffer : Bytes {
+        static Type info;
+        auto type () const -> Type const& override { return info; }
         void repr (Buffer& buf) const override { Object::repr(buf); }
 
         ~Buffer () override;
@@ -552,8 +594,10 @@ namespace monty {
         }
     };
 
-    //CG1 type <lookup>
+    //CG3 type <lookup>
     struct Lookup : StaticObj {
+        static Type info;
+        auto type () const -> Type const& override { return info; }
         struct Item { Q k; Value v; };
 
         constexpr Lookup (Lookup const* chain =nullptr) : _chain (chain) {}
@@ -575,8 +619,14 @@ namespace monty {
         friend struct Exception; // to get exception's string name
     };
 
-    //CG1 type tuple
+    //CG< type tuple
     struct Tuple : Object, Vector {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         constexpr Tuple () =default;
         Tuple (Value);
         Tuple (ArgVec const&);
@@ -593,8 +643,14 @@ namespace monty {
         static Tuple const emptyObj;
     };
 
-    //CG1 type list
+    //CG< type list
     struct List : Tuple {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         using Tuple::Tuple;
 
         //CG: wrap List pop append clear
@@ -606,8 +662,14 @@ namespace monty {
         auto store (Range const&, Object const&) -> Value override;
     };
 
-    //CG1 type set
+    //CG< type set
     struct Set : List {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         using List::List;
 
         auto find (Value v) const -> uint32_t;
@@ -627,8 +689,14 @@ namespace monty {
         auto setAt (Value k, Value v) -> Value override;
     };
 
-    //CG1 type dict
+    //CG< type dict
     struct Dict : Set {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         constexpr Dict (Object const* ch =nullptr) : _chain (ch) {}
         Dict (Value);
 
@@ -653,8 +721,14 @@ namespace monty {
         Object const* _chain {nullptr};
     };
 
-    //CG1 type type
+    //CG< type type
     struct Type : Dict {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         using Factory = auto (*)(ArgVec const&,Type const*) -> Value;
 
         constexpr Type (Value s, Lookup const* a =nullptr, Factory f =noFactory)
@@ -674,14 +748,26 @@ namespace monty {
         static auto noFactory (ArgVec const&, Type const*) -> Value;
     };
 
-    //CG1 type class
+    //CG< type class
     struct Class : Type {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
     private:
         Class (ArgVec const& args);
     };
 
-    //CG1 type super
+    //CG< type super
     struct Super : Object {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         void marker () const override { _sclass.marker(); _sinst.marker(); }
     private:
         Super (Value sclass, Value sinst) : _sclass (sclass), _sinst (sinst) {}
@@ -709,8 +795,14 @@ namespace monty {
 
 // see stack.cpp - events, stacklets, and various call mechanisms
 
-    //CG1 type event
+    //CG< type event
     struct Event : Object {
+        static auto create (ArgVec const&,Type const* =nullptr) -> Value;
+        static Lookup const attrs;
+        static Type info;
+        auto type () const -> Type const& override { return info; }
+        void repr (Buffer&) const override;
+    //CG>
         ~Event () override { deregHandler(); set(); }
 
         auto unop (UnOp) const -> Value override;
@@ -739,8 +831,10 @@ namespace monty {
         uint16_t _deadline;
     };
 
-    //CG1 type <stacklet>
+    //CG3 type <stacklet>
     struct Stacklet : List {
+        static Type info;
+        auto type () const -> Type const& override { return info; }
         void repr (Buffer& buf) const override { Object::repr(buf); }
 
         auto iter () const -> Value override { return this; }
@@ -777,8 +871,10 @@ namespace monty {
         static volatile uint32_t pending;
     };
 
-    //CG1 type <module>
+    //CG3 type <module>
     struct Module : Dict {
+        static Type info;
+        auto type () const -> Type const& override { return info; }
         void repr (Buffer&) const override;
 
         constexpr Module (Value nm, Object const& lu =builtins)
@@ -786,7 +882,7 @@ namespace monty {
 
         auto attr (Value name, Value&) const -> Value override {
             Value v = getAt(name);
-            return v.isNil() && name == Q(0,"__name__") ? _name : v;
+            return v.isNil() && name == Q(23,"__name__") ? _name : v;
         }
 
         static Dict builtins;
@@ -795,8 +891,10 @@ namespace monty {
         Value _name;
     };
 
-    //CG1 type <function>
+    //CG3 type <function>
     struct Function : StaticObj {
+        static Type info;
+        auto type () const -> Type const& override { return info; }
         using Prim = auto (*)(ArgVec const&) -> Value;
 
         constexpr Function (Prim f) : _func (f) {}
@@ -814,8 +912,10 @@ namespace monty {
     // Template trickery - this wraps several different argument calls into a
     // virtual Method::Base object, which Method can then call in a generic way.
 
-    //CG1 type <method>
+    //CG3 type <method>
     struct Method : StaticObj {
+        static Type info;
+        auto type () const -> Type const& override { return info; }
     private:
         // Method objects point to these base instances to make virtual calls
         struct Base {
@@ -861,8 +961,10 @@ namespace monty {
 
 // see builtin.cpp - exceptions and auto-generated built-in tables
 
-    //CG1 type <exception>
+    //CG3 type <exception>
     struct Exception : Tuple {
+        static Type info;
+        auto type () const -> Type const& override { return info; }
         void repr (Buffer&) const override;
 
         auto binop (BinOp, Value) const -> Value override;

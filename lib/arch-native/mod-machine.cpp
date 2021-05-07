@@ -61,8 +61,16 @@ static auto f_ticks () -> Value {
     return msNow();
 }
 
-//CG1 wrappers
+//CG< wrappers
+static Function const fo_ticker ("?i", (Function::Prim) f_ticker);
+static Function const fo_ticks ("", (Function::Prim) f_ticks);
+
 static Lookup::Item const machine_map [] = {
+    { Q(204,"ticker"), fo_ticker },
+    { Q(205,"ticks"), fo_ticks },
+//CG>
 };
 
-//CG: module-end
+//CG2 module-end
+static Lookup const machine_attrs (machine_map);
+Module ext_machine (Q(206,"machine"), machine_attrs);
