@@ -21,7 +21,7 @@ else:
 # need some extra info, since the SVD files are incomplete (and inconsistent)
 cfg = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
 cfg.read(path.join(myDir, "stm32.ini"))
-patches = cfg[svdName[:7]]
+patches = cfg[svdName[:7].upper()]
 
 with open("%s/%s.svd" % (svdDir, svdName), 'rb') as f:
     parsed = xmltodict.parse(f)
