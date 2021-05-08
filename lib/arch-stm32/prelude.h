@@ -72,7 +72,7 @@ constexpr auto UART1         = 0x40013800;  // USART
 constexpr auto UART2         = 0x40004400;  // USART
 constexpr auto UART3         = 0x40004800;  // USART
 constexpr auto UART4         = 0x40004C00;  // USART
-constexpr auto USB_FS        = 0x40006800;  // USB
+constexpr auto USB_FS        = 0x40006800;  // USART
 constexpr auto USB_SRAM      = 0x40006C00;  // USB
 constexpr auto VREFBUF       = 0x40010030;  // VREF
 constexpr auto WWDG          = 0x40002C00;  // WWDG
@@ -157,7 +157,7 @@ enum struct IrqVec : uint8_t {
     UART2                 =  38,  // USART
     UART3                 =  39,  // USART
     UART4                 =  52,  // USART
-    USB_FS                =  67,  // USB
+    USB_FS                =  67,  // USART
     WWDG                  =   0,  // WWDG
     //CG>
     limit = 85

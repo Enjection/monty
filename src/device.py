@@ -8,7 +8,7 @@
 
 import configparser, os, re, sys
 from os import path
-from cmsis_svd.parser import SVDParser
+import xmltodict
 
 myDir = path.dirname(sys.argv[0])
 svdName = sys.argv[1]
@@ -23,7 +23,8 @@ cfg = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation
 cfg.read(path.join(myDir, "stm32.ini"))
 patches = cfg[svdName[:7]]
 
-parser = SVDParser.for_xml_file("%s/%s.svd" % (svdDir, svdName))
+with open("%s/%s.svd" % (svdDir, svdName), 'rb') as f:
+    parsed = xmltodict.parse(f)
 
 template = """
 // from: %s.svd
@@ -77,7 +78,7 @@ DevInfo const spiInfo [] = {
 def patch(name):
     return patches.get(name, "").split()
 
-# there are inconsistenties in the SVD files, use UART iso USART everywhere
+# there are inconsistencies in the SVD files, use UART iso USART everywhere
 def uartfix(s):
     if s.startswith("USART"):
         s = "UART" + s[5:]
@@ -94,11 +95,15 @@ irqs = {}
 irqLimit = 0
 groups = {}
 
+xp = parsed['device']['peripherals']['peripheral']
+
 periphs = []
-for p in sorted(parser.get_device().peripherals, key=lambda p: uartsort(p.name)):
-    u = p.name.upper()
-    g = p.group_name.upper()
-    b = p.base_address
+#for p in sorted(parsed.get_device().peripherals, key=lambda p: uartsort(p.name)):
+for p in sorted(xp, key=lambda p: uartsort(p['name'])):
+    u = p['name'].upper()
+    g = p.get('groupName', '').upper() or g
+    b = int(p['baseAddress'], 0)
+    print(u, g, b, file=sys.stderr)
 
     if not g in groups:
         groups[g] = []
@@ -106,10 +111,14 @@ for p in sorted(parser.get_device().peripherals, key=lambda p: uartsort(p.name))
 
     periphs.append("constexpr auto %-13s = 0x%08X;  // %s" % (uartfix(u), b, g))
 
-    for x in p.interrupts:
-        irqs[x.name] = (x.value, g)
-        if irqLimit <= x.value:
-            irqLimit = x.value + 1
+    interrupts = p.get('interrupt', [])
+    if type(interrupts) is not list:
+        interrupts = [interrupts]
+    for x in interrupts:
+        n, v = x['name'], int(x['value'])
+        irqs[n] = (v, g)
+        if irqLimit <= v:
+            irqLimit = v + 1
 
     if 0: # can be used to print out specific details
         for r in p.registers:
@@ -160,7 +169,7 @@ for p in sorted(groups["USART"], key=uartsort):
     enaBits = patch("ena_uart")
     drxBits = patch("dma_uart_rx")
     dtxBits = patch("dma_uart_tx")
-    if p[0] == "U": # ignore LPUART
+    if p[0] == "U" and p[2] != "B": # ignore LPUART and USB (!)
         n = int(re.sub('\D+', '', p))
         u = uartfix(p)
         e = enaBits[n-1] if n-1 < len(enaBits) else "0"
