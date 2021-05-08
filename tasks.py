@@ -142,15 +142,15 @@ def generate(c, strip=False, verbose=False, norun=False):
             cmd += v.split()
     cmd += ["qstr.cpp"]
     c.run(" ".join(cmd))
-    if strip and not root: # don't forget to strip all the examples
-        c.run("""for d in `find examples -name monty-pio.ini`
+    if strip and not root: # don't forget to strip all the apps
+        c.run("""for d in `find apps -name monty-pio.ini`
                     do (cd `dirname $d` && inv generate -s -v); done""")
 
 @task(call(generate, strip=True))
 def clean(c):
     """delete all build results"""
     c.run("rm -rf .pio kcov-out/ src/__pycache__ tests/py/*.mpy")
-    c.run("rm -rf examples/*/.pio examples/*/*/.pio")
+    c.run("rm -rf apps/*/.pio apps/*/*/.pio")
 
 @task(generate, default=not root,
       help={"file": "name of the .py or .mpy file to run"})
@@ -352,12 +352,10 @@ if not root: # the following tasks are NOT available for use out-of-tree
     @task(generate)
     def examples(c):
         """build each of the example projects"""
-        examples = os.listdir("examples")
-        examples.sort()
-        for ex in examples:
-            if path.isfile("examples/%s/README.md" % ex):
-                print("building '%s' example" % ex)
-                c.run("cd examples/%s && inv generate && pio run -c ../../platformio.ini -t size -s" % ex, warn=True)
+        for ex in sorted(os.listdir("apps/examples")):
+            print("building '%s' example" % ex)
+            c.run("cd apps/examples/%s && inv generate && "
+                  "pio run -c ../../../platformio.ini -t size -s" % ex, warn=True)
 
     @task
     def health(c):
@@ -383,7 +381,7 @@ if not root: # the following tasks are NOT available for use out-of-tree
     def init(c, name, subdir=False):
         """intialise a new custom build area for Monty"""
         c.run("mkdir %s" % name)
-        c.run("cp -a %s %s" % ("examples/template/", name))
+        c.run("cp -a %s %s" % ("apps/template/", name))
         rel = path.relpath(".", name)
         if not dry:
             with open(path.join(name, "monty-pio.ini"), "w") as f:
@@ -411,7 +409,7 @@ if not root: # the following tasks are NOT available for use out-of-tree
     @task
     def x_tags(c):
         """update the (c)tags file"""
-        c.run("ctags -R examples lib src test")
+        c.run("ctags -R lib src tests")
 
     @task
     def x_version(c):
