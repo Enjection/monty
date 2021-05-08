@@ -3,7 +3,6 @@
 import configparser, json, os, sys
 from invoke import task, call
 from os import path
-from src.runner import compileIfOutdated, compareWithExpected, printSeparator
 
 if not path.isfile("monty-pio.ini") and not path.isfile("platformio.ini"):
     if "--complete" not in sys.argv:
@@ -19,6 +18,8 @@ root = os.environ.get("MONTY_ROOT", "") or getMontyDir()
 if root:
     os.environ["MONTY_ROOT"] = root
     sys.path.insert(0, root)
+
+from src.runner import compileIfOutdated, compareWithExpected, printSeparator
 
 dry = "-R" in sys.argv or "--dry" in sys.argv
 exe = ".pio/build/native/program" # for native builds
