@@ -103,7 +103,6 @@ for p in sorted(xp, key=lambda p: uartsort(p['name'])):
     u = p['name'].upper()
     g = p.get('groupName', '').upper() or g
     b = int(p['baseAddress'], 0)
-    print(u, g, b, file=sys.stderr)
 
     if not g in groups:
         groups[g] = []
