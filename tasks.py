@@ -149,13 +149,13 @@ def generate(c, strip=False, verbose=False, norun=False):
 @task(call(generate, strip=True))
 def clean(c):
     """delete all build results"""
-    c.run("rm -rf .pio kcov-out/ src/__pycache__ verify/*.mpy")
+    c.run("rm -rf .pio kcov-out/ src/__pycache__ tests/py/*.mpy")
     c.run("rm -rf examples/*/.pio examples/*/*/.pio")
 
 @task(generate, default=not root,
       help={"file": "name of the .py or .mpy file to run"})
-def native(c, file="verify/hello.py"):
-    """run script using the native build  [verify/hello.py]"""
+def native(c, file="tests/py/hello.py"):
+    """run script using the native build  [tests/py/hello.py]"""
     c.run(pio("run -e native -s"), pty=True)
     c.run("%s %s" % (exe, compileIfOutdated(file)))
 
@@ -173,10 +173,10 @@ def shortTestOutput(r):
             "ignore": "one specific test to ignore",
             "coverage": "generate a code coverage report using 'kcov'"})
 def python(c, ignore=[], coverage=False, tests=""):
-    """run Python tests natively          [in verify/: {*}.py]"""
+    """run Python tests natively          [in tests/py/: {*}.py]"""
     c.run(pio("run -e native -s"), pty=True)
     if dry:
-        msg = tests or "verify/*.py"
+        msg = tests or "tests/py/*.py"
         print("# tasks.py: run and compare each test (%s)" % msg)
         return
 
@@ -190,7 +190,7 @@ def python(c, ignore=[], coverage=False, tests=""):
     if tests:
         files = [t + ".py" for t in tests.split(",")]
     else:
-        files = os.listdir("verify/")
+        files = os.listdir("tests/py/")
         files.sort()
     for fn in files:
         if fn.endswith(".py") and fn[:-3] not in ignore:
@@ -198,7 +198,7 @@ def python(c, ignore=[], coverage=False, tests=""):
                 skip += 1
                 continue # skip non-native tests
             num += 1
-            py = "verify/" + fn
+            py = "tests/py/" + fn
             try:
                 mpy = compileIfOutdated(py)
             except FileNotFoundError as e:
@@ -268,12 +268,12 @@ def upload(c, filter="*"):
       help={"tests": "specific tests to run, comma-separated",
             "ignore": "one specific test to ignore"})
 def runner(c, ignore=[], tests=""):
-    """run Python tests, sent to µC       [in verify/: {*}.py]"""
+    """run Python tests, sent to µC       [in tests/py/: {*}.py]"""
     match = "{%s}" % tests if "," in tests else (tests or "*")
     iflag = ""
     if ignore:
         iflag = "-i " + ",".join(ignore)
-    cmd = [inRoot("src/runner.py"), iflag, "verify/%s.py" % match]
+    cmd = [inRoot("src/runner.py"), iflag, "tests/py/%s.py" % match]
     c.run(" ".join(cmd), pty=True)
 
 @task(help={"offset": "flash offset (default: 0x0)",
@@ -281,12 +281,12 @@ def runner(c, ignore=[], tests=""):
 def mrfs(c, offset=0, file=""):
     """upload tests as Minimal Replaceable File Storage image"""
     #c.run("cd lib/mrfs/ && g++ -std=c++17 -DTEST -o mrfs mrfs.cpp")
-    #c.run("lib/mrfs/mrfs wipe && lib/mrfs/mrfs save verify/*.mpy" )
+    #c.run("lib/mrfs/mrfs wipe && lib/mrfs/mrfs save tests/py/*.mpy" )
     mrfs = inRoot("src/mrfs.py")
     if file:
-        c.run("%s -o %s verify/*.py" % (mrfs, file))
+        c.run("%s -o %s tests/py/*.py" % (mrfs, file))
     else:
-        c.run("%s -u %s verify/*.py" % (mrfs, offset), pty=True)
+        c.run("%s -u %s tests/py/*.py" % (mrfs, offset), pty=True)
 
 @task(help={"baud": "specify baudrate (default 921600)"})
 def serial(c, baud=921600):

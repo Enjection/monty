@@ -11,6 +11,8 @@ static void* pool;
 
 #if HAS_PYVM
 
+constexpr auto IMPORT_PATH = "tests/py/%s.mpy";
+
 static auto loadFile (char const* name) -> uint8_t const* {
     auto fp = fopen(name, "rb");
     if (fp == nullptr)
@@ -29,8 +31,8 @@ auto monty::vmImport (char const* name) -> uint8_t const* {
     if (data != nullptr)
         return data;
     assert(strlen(name) < 25);
-    char buf [40];
-    sprintf(buf, "verify/%s.mpy", name);
+    char buf [sizeof IMPORT_PATH + 25];
+    sprintf(buf, IMPORT_PATH, name);
     return loadFile(buf);
 }
 
