@@ -85,10 +85,10 @@ protected:
     uint8_t* rxBuf;
 private:
     auto devReg (int off) const -> IOWord {
-        return io32<0>(dev.base+off);
+        return IOWord {dev.base+off};
     }
     auto dmaReg (int off) const -> IOWord {
-        return io32<0>(dev.dmaBase()+off);
+        return IOWord {dev.dmaBase()+off};
     }
     auto dmaRX (int off) const -> IOWord {
         return dmaReg(off+0x14*(dev.rxStream-1));

@@ -1,6 +1,19 @@
 #include <cstdint>
 
 namespace hall {
+    enum struct STM { F1, F4, F7, L0, L4 };
+#if STM32F1
+    constexpr auto FAMILY = STM::F1;
+#elif STM32F4
+    constexpr auto FAMILY = STM::F4;
+#elif STM32F7
+    constexpr auto FAMILY = STM::F7;
+#elif STM32L0
+    constexpr auto FAMILY = STM::L0;
+#elif STM32L4
+    constexpr auto FAMILY = STM::L4;
+#endif
+
     void idle () __attribute__ ((weak)); // called with interrupts disabled
 
     auto fastClock (bool pll =true) -> uint32_t;
@@ -10,76 +23,61 @@ namespace hall {
     void debugPutc (void*, int c);
 
     struct IOWord {
-        uint32_t volatile& addr;
+        const uint32_t addr;
 
-        operator uint32_t () const { return addr; }
-        auto operator= (uint32_t v) const -> uint32_t { addr = v; return v; }
+        operator uint32_t () const {
+            return *(volatile uint32_t*) addr;
+        }
+        auto operator= (uint32_t v) const -> uint32_t {
+            *(volatile uint32_t*) addr = v; return v;
+        }
         
-        struct IOMask {
-            uint32_t volatile& addr;
-            uint8_t bit, width;
+        auto mask (int b, uint8_t w =1) const {
+            struct IOMask {
+                volatile uint32_t& a; uint8_t b, w;
 
-            auto get () const -> uint32_t {
-                auto mask = (1<<width)-1;
-                return (addr >> bit) & mask;
-            }
-            void set (uint32_t v) const {
-                auto mask = (1<<width)-1;
-                addr = (addr & ~(mask<<bit)) | ((v & mask)<<bit);
-            }
+                operator uint32_t () const {
+                    auto m = (1<<w)-1;
+                    return (a >> b) & m;
+                }
+                auto operator= (uint32_t v) const {
+                    auto m = (1<<w)-1;
+                    a = (a & ~(m<<b)) | ((v & m)<<b);
+                    return v & m;
+                }
+            };
 
-            // shorthand
-            operator uint32_t () const { return get(); }
-            auto operator= (uint32_t v) const { set(v); return v; }
-        };
-
-        auto mask (int b, uint8_t w =1) {
-            return IOMask {(&addr)[b>>5], (uint8_t) (b & 0x1F), w};
+            return IOMask {((volatile uint32_t*) addr)[b>>5], b & 0x1F, w};
         }
 
-        auto& at (int b) {
-#if STM32L0 || STM32F7
-            return mask(b);
-#else
-            // use bit-band, only works for specific RAM and periperhal areas
-            auto a = (uint32_t) &addr;
-            return *(uint32_t volatile*)
-                ((a & 0xF000'0000) + 0x0200'0000 + (a << 5) + (b << 2));
-#endif
+        auto& operator[] (int b) const {
+            if constexpr (FAMILY == STM::L0 || FAMILY == STM::F7)
+                return mask(b);
+            // FIXME bit-band only works for specific RAM and periperhal areas!
+            return *(volatile uint32_t*)
+                ((addr & 0xF000'0000) + 0x0200'0000 + (addr << 5) + (b << 2));
         }
-
-        // shorthand
-        auto& operator[] (int b) { return at(b); }
     };
 
     template <uint32_t ADDR>
-    auto io32 (int off =0) {
-        return IOWord {*(uint32_t volatile*) (ADDR+off)};
-    }
+    constexpr auto io32 (int off) { return IOWord {ADDR+off}; }
+
     template <uint32_t ADDR>
-    auto& io16 (int off =0) {
-        return *(uint16_t volatile*) (ADDR+off);
-    }
+    constexpr auto& io16 (int off) { return *(volatile uint16_t*) (ADDR+off); }
+
     template <uint32_t ADDR>
-    auto& io8 (int off =0) {
-        return *(uint8_t volatile*) (ADDR+off);
-    }
+    constexpr auto& io8 (int off) { return *(volatile uint8_t*) (ADDR+off); }
 
 #if STM32L4
-    constexpr auto RCC  = io32<0x4002'1000>;
-    constexpr auto GPIO = io32<0x4800'0000>;
+    constexpr auto RCC   = io32<0x4002'1000>;
+    constexpr auto GPIOA = io32<0x4800'0000>;
 #endif
+    constexpr auto NVIC  = io32<0xE000'E100>;
 
     struct Pin {
         uint8_t _port :4, _pin :4;
 
         constexpr Pin () : _port (15), _pin (0) {}
-
-#if STM32F1
-        enum { IDR=0x08, ODR=0x0C, BSRR=0x10 };
-#else
-        enum { IDR=0x10, ODR=0x14, BSRR=0x18 };
-#endif
 
         auto read () const { return (gpio32(IDR)>>_pin) & 1; }
         void write (int v) const { gpio32(BSRR) = (v ? 1 : 1<<16)<<_pin; }
@@ -96,7 +94,10 @@ namespace hall {
         // define multiple pins, return nullptr if ok, else ptr to error
         static auto define (char const*, Pin* =nullptr, int =0) -> char const*;
     private:
-        auto gpio32 (int off) const -> IOWord { return GPIO(0x400*_port+off); }
+        constexpr static auto OFF = FAMILY == STM::F1 ? 0x0 : 0x8;
+        enum { IDR=0x08+OFF, BSRR=0x10+OFF };
+
+        auto gpio32 (int off) const -> IOWord { return GPIOA(0x400*_port+off); }
         auto mode (int) const -> int;
         auto mode (char const* desc) const -> int;
     };
@@ -126,8 +127,6 @@ namespace hall {
         }
 
         static volatile uint32_t pending;
-
-        constexpr static auto NVIC = io32<0xE000'E100>;
     };
 
     void processAllPending ();
