@@ -108,6 +108,42 @@ auto Pin::define (char const* d, Pin* v, int n) -> char const* {
     return d;
 }
 
+uint8_t irqMap [irq::limit];
+Device* devMap [20];  // must be large enough to hold all device objects
+uint8_t devNext;
+volatile uint32_t Device::pending;
+
+Device::Device () {
+    //TODO ensure(devNext < sizeof devMap / sizeof *devMap);
+    _id = devNext;
+    devMap[devNext++] = this;
+}
+
+void Device::irqInstall (uint32_t irq) const {
+    //TODO ensure(irq < sizeof irqMap);
+    irqMap[irq] = _id;
+    nvicEnable(irq);
+}
+
+void Device::dispatch () {
+    uint32_t pend;
+    {
+        BlockIRQ crit;
+        pend = pending;
+        pending = 0;
+    }
+    for (int i = 0; i < devNext; ++i)
+        if (pend & (1<<i))
+            devMap[i]->process();
+}
+
+extern "C" void irqHandler () {
+    uint8_t irq = SCB(0x04); // ICSR
+    auto idx = irqMap[irq-16];
+    if (devMap[idx] != nullptr)
+        devMap[idx]->interrupt();
+}
+
 namespace hall::systick {
     constexpr auto SYSTICK = io32<0xE000'E010>;
 
@@ -209,43 +245,7 @@ namespace hall::watchdog {
     }
 }
 
-uint8_t irqMap [irq::limit];
-Device* devMap [20];  // must be large enough to hold all device objects
-uint8_t devNext;
-volatile uint32_t Device::pending;
-
-Device::Device () {
-    //TODO ensure(devNext < sizeof devMap / sizeof *devMap);
-    _id = devNext;
-    devMap[devNext++] = this;
-}
-
-void Device::irqInstall (uint32_t irq) const {
-    //TODO ensure(irq < sizeof irqMap);
-    irqMap[irq] = _id;
-    nvicEnable(irq);
-}
-
-void Device::processPending () {
-    uint32_t pend;
-    {
-        BlockIRQ crit;
-        pend = pending;
-        pending = 0;
-    }
-    for (int i = 0; i < devNext; ++i)
-        if (pend & (1<<i))
-            devMap[i]->process();
-}
-
 extern "C" {
-    void irqHandler () {
-        uint8_t irq = SCB(0x04); // ICSR
-        auto idx = irqMap[irq-16];
-        if (devMap[idx] != nullptr)
-            devMap[idx]->interrupt();
-    }
-
     //CG< irqs-h
     void         ADC1_2_IRQHandler () __attribute__ ((alias ("irqHandler")));
     void            AES_IRQHandler () __attribute__ ((alias ("irqHandler")));

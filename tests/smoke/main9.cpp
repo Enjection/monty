@@ -67,25 +67,24 @@ void Fiber::processPending () {
 }
 
 void Fiber::app () {
-    Pin led;
-    led.config("B3:P");
 
-    while (true) {
-        led = 1;
-        //msWait(100);
-        for (int i = 0; i < 100'000; ++i) asm ("");
-        led = 0;
-        //msWait(400);
-        for (int i = 0; i < 400'000; ++i) asm ("");
-        //printf("%u\n", systick::millis());
-    }
+    for (int i = 0; true; ++i)
+        printf(">>> %*u /\n",
+                75 - (i++ % 70), systick::millis());
 }
 
 int main () {
+    fastClock();
     systick::init();
     uart[1].init("A2:PU7,A15:PU3", 115200);
     printf("abc\n");
 
-    while (Fiber::runLoop())
+    Pin led;
+    led.config("B3:P");
+
+    while (Fiber::runLoop()) {
+        led = 1;
         idle();
+        led = 0;
+    }
 }

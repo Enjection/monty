@@ -95,37 +95,39 @@ namespace boss {
 
     extern Pool<> pool;
 
-    struct Queue {
-        auto isEmpty () const { return first == 0; }
-        auto length () const { return isEmpty() ? 0 : pool.items(first); }
-
-        auto pull () -> uint8_t;
-        void insert (uint8_t i);
-        void append (uint8_t i);
-
-        auto expire (uint16_t now, uint16_t& limit) -> int;
-    private:
-        uint8_t first =0, last =0;
-    };
-
     struct Fiber {
+        using Fid_t = uint8_t;
+
+        struct Queue {
+            auto isEmpty () const { return first == 0; }
+            auto length () const { return isEmpty() ? 0 : pool.items(first); }
+
+            auto pull () -> Fid_t;
+            void insert (Fid_t i);
+            void append (Fid_t i);
+
+            auto expire (uint16_t now, uint16_t& limit) -> int;
+        private:
+            Fid_t first =0, last =0;
+        };
+
         auto operator new (size_t, void* p) -> void* { return p; }
 
         auto id () const { return pool.idOf(this); }
 
-        static auto at (uint8_t i) -> Fiber& { return *(Fiber*) pool[i]; }
+        static auto at (Fid_t i) -> Fiber& { return *(Fiber*) pool[i]; }
         static auto runLoop () -> bool;
         static void app ();
-        static void processAllPending ();
+        static void processPending ();
         static void msWait (uint16_t ms) { suspend(timers, ms); }
         static auto suspend (Queue&, uint16_t ms =60'000) -> int;
 
-        static void resume (uint8_t fid, int i) {
+        static void resume (Fid_t fid, int i) {
             at(fid)._status = i;
             ready.append(fid);
         }
 
-        static uint8_t curr;
+        static Fid_t curr;
         static Queue ready;
         static Queue timers;
 
@@ -135,7 +137,7 @@ namespace boss {
         uint32_t _data [];
     };
 
-    struct Semaphore : private Queue {
+    struct Semaphore : private Fiber::Queue {
         Semaphore (int n) : count (n) {}
 
         void post () {

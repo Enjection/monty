@@ -28,7 +28,7 @@ extern "C" int printf (const char* fmt, ...) {
 
 void boss::debugf (const char*, ...) __attribute__((alias ("printf")));
 
-void Fiber::processAllPending () {
+void Fiber::processPending () {
     uint16_t limit = 100;
     timers.expire(systick::millis(), limit);
     systick::init(limit);

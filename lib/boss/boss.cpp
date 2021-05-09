@@ -76,7 +76,7 @@ void boss::failAt (void const* pc, void const* lr) {
 
 Pool<> boss::pool;
 
-auto Queue::pull () -> uint8_t {
+auto Fiber::Queue::pull () -> Fid_t {
     auto i = first;
     if (i != 0) {
         first = pool.tag(i);
@@ -87,14 +87,14 @@ auto Queue::pull () -> uint8_t {
     return i;
 }
 
-void Queue::insert (uint8_t i) {
+void Fiber::Queue::insert (Fid_t i) {
     pool.tag(i) = first;
     first = i;
     if (last == 0)
         last = first;
 }
 
-void Queue::append (uint8_t i) {
+void Fiber::Queue::append (Fid_t i) {
     pool.tag(i) = 0;
     if (last != 0)
         pool.tag(last) = i;
@@ -103,9 +103,9 @@ void Queue::append (uint8_t i) {
         first = last;
 }
 
-auto Queue::expire (uint16_t now, uint16_t& limit) -> int {
+auto Fiber::Queue::expire (uint16_t now, uint16_t& limit) -> int {
     int num = 0;
-    uint8_t* p = &first;
+    Fid_t* p = &first;
     while (*p != 0) {
         auto& next = pool.tag(*p);
         auto& f = Fiber::at(*p);
@@ -124,9 +124,9 @@ auto Queue::expire (uint16_t now, uint16_t& limit) -> int {
     return num;
 }
 
-uint8_t Fiber::curr;
-Queue Fiber::ready;
-Queue Fiber::timers;
+Fiber::Fid_t Fiber::curr;
+Fiber::Queue Fiber::ready;
+Fiber::Queue Fiber::timers;
 
 jmp_buf returner;
 uint32_t* bottom;
@@ -137,7 +137,7 @@ auto Fiber::runLoop () -> bool {
         bottom = &dummy;
         app();
     }
-    processAllPending();
+    processPending();
     curr = ready.pull();
     if (curr != 0)
         longjmp(at(curr)._context, 1);
