@@ -23,7 +23,7 @@ void outCh (void*, int ch) {
     dev::USART2(TDR) = ch;                    // send next char
 }
 
-auto printf (const char* fmt, ...) {
+extern "C" int printf (const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     auto r = veprintf(outCh, nullptr, fmt, ap);
@@ -31,19 +31,31 @@ auto printf (const char* fmt, ...) {
     return r;
 }
 
-int main () {
+void boss::debugf (const char*, ...) __attribute__((alias ("printf")));
+
+void Fiber::processAllPending () {
+    uint16_t limit = 100;
+    timers.expire(systick::millis(), limit);
+    systick::init(limit);
+}
+
+void Fiber::app () {
     Pin led;
     led.config("B3:P");
-    initUart();
 
-    systick::init(1); // set 1000 Hz tick rate, i.e. every millisecond
-    
     while (true) {
         led = 1;
-        delayLoop(100);
+        msWait(100);
         led = 0;
-        delayLoop(400);
-
+        msWait(400);
         printf("%u\n", systick::millis());
     }
+}
+
+int main () {
+    initUart();
+    systick::init();
+
+    while (Fiber::runLoop())
+        idle();
 }

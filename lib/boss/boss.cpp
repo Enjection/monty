@@ -1,4 +1,7 @@
 #include "boss.h"
+#include <cstring>
+
+using namespace boss;
 
 auto boss::veprintf(void (*fun)(void*,int), void* arg,
                     char const* fmt, va_list ap) -> int {
@@ -64,4 +67,104 @@ auto boss::veprintf(void (*fun)(void*,int), void* arg,
         }
 
     return count;
+}
+
+void boss::failAt (void const* pc, void const* lr) {
+    debugf("failAt %p %p\n", pc, lr);
+    while (true) {}
+}
+
+Pool<> boss::pool;
+
+auto Queue::pull () -> uint8_t {
+    auto i = first;
+    if (i != 0) {
+        first = pool.tag(i);
+        if (first == 0)
+            last = 0;
+        pool.tag(i) = 0;
+    }
+    return i;
+}
+
+void Queue::insert (uint8_t i) {
+    pool.tag(i) = first;
+    first = i;
+    if (last == 0)
+        last = first;
+}
+
+void Queue::append (uint8_t i) {
+    pool.tag(i) = 0;
+    if (last != 0)
+        pool.tag(last) = i;
+    last = i;
+    if (first == 0)
+        first = last;
+}
+
+auto Queue::expire (uint16_t now, uint16_t& limit) -> int {
+    int num = 0;
+    uint8_t* p = &first;
+    while (*p != 0) {
+        auto& next = pool.tag(*p);
+        auto& f = Fiber::at(*p);
+        uint16_t remain = f._timeout - now;
+        if (remain == 0 || remain > 60'000) {
+            auto c = *p;
+            if (last == c)
+                last = next;
+            *p = next;
+            Fiber::resume(c, 0);
+            ++num;
+        } else if (limit > remain)
+            limit = remain;
+        p = &next;
+    }
+    return num;
+}
+
+uint8_t Fiber::curr;
+Queue Fiber::ready;
+Queue Fiber::timers;
+
+jmp_buf returner;
+uint32_t* bottom;
+
+auto Fiber::runLoop () -> bool {
+    uint32_t dummy;
+    if (bottom == nullptr && setjmp(returner) == 0) {
+        bottom = &dummy;
+        app();
+    }
+    processAllPending();
+    curr = ready.pull();
+    if (curr != 0)
+        longjmp(at(curr)._context, 1);
+    return true;
+}
+
+static auto resumeFixer (void* top) {
+    auto fp = &Fiber::at(Fiber::curr);
+    memcpy(top, fp->_data, (uintptr_t) bottom - (uintptr_t) top);
+asm ("nop");
+    return fp->_status;
+}
+
+auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
+    auto fp = curr == 0 ? new (pool.allocate()) Fiber : &at(curr);
+    curr = 0;
+    fp->_timeout = (uint16_t) systick::millis() + ms;
+    q.append(fp->id());
+    if (setjmp(fp->_context) == 0) {
+#if 0
+        debugf("\tFS %d rdy %d top %p data %p bytes %d\n",
+                fp->id(), ready.length(), &fp, fp->_data,
+                (int) ((uintptr_t) bottom - (uintptr_t) &fp));
+#endif
+        memcpy(fp->_data, &fp, (uintptr_t) bottom - (uintptr_t) &fp);
+        curr = 0;
+        longjmp(returner, 1);
+    }
+    return resumeFixer(&fp);
 }
