@@ -1,6 +1,6 @@
-#include "hall.h"
+#include "boss.h"
 
-using namespace hall;
+using namespace boss;
 
 void delayLoop (int n) {
     for (int i = 0; i < n; ++i)
@@ -17,10 +17,18 @@ void initUart () {
     dev::USART2(CR1) |= (1<<3) | (1<<0);      // TE UE
 }
 
-void outCh (int ch) {
+void outCh (void*, int ch) {
     enum { ISR=0x1C,TDR=0x28 };               // p.1253 p.1259
     while (dev::USART2(ISR)[7] == 0) {}       // wait until TXE
     dev::USART2(TDR) = ch;                    // send next char
+}
+
+auto printf (const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    auto r = veprintf(outCh, nullptr, fmt, ap);
+    va_end(ap);
+    return r;
 }
 
 int main () {
@@ -29,12 +37,12 @@ int main () {
 
     systick::init(1); // set 1000 Hz tick rate, i.e. every millisecond
     
-    for (int i = 0; true; ++i) {
+    while (true) {
         led = 1;
         delayLoop(100);
         led = 0;
         delayLoop(400);
 
-        outCh('0' + i % 10);
+        printf("%u\n", systick::millis());
     }
 }
