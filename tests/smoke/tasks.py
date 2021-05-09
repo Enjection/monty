@@ -9,7 +9,7 @@ def generate(c):
 def test1(c):
     "native build & run, just says hello"
     c.run('pio run -e t1native')
-    c.run('.pio/build/s1native/program')
+    c.run('.pio/build/t1native/program')
 
 @task
 def test2(c):

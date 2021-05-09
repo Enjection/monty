@@ -18,7 +18,6 @@
     }
 #endif
 
-
 namespace boss {
     using namespace hall;
 
