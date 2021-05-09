@@ -1,6 +1,8 @@
 #include "boss.h"
+#include "hall.h"
 
 using namespace boss;
+using namespace hall;
 
 void delayLoop (int n) {
     for (int i = 0; i < n; ++i)

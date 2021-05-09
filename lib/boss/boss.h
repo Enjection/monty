@@ -1,6 +1,6 @@
-#include "hall.h"
 #include <cstdarg>
 #include <cstddef>
+#include <cstdint>
 #include <setjmp.h>
 
 // see https://interrupt.memfault.com/blog/asserts-in-embedded-systems
@@ -19,8 +19,6 @@
 #endif
 
 namespace boss {
-    using namespace hall;
-
     auto veprintf(void(*)(void*,int), void*, char const* fmt, va_list ap) -> int;
     void debugf (const char* fmt, ...);
     [[noreturn]] void failAt (void const*, void const*);
