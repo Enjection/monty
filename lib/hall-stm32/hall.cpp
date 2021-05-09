@@ -14,6 +14,12 @@ void hall::idle () {
     asm ("wfi");
 }
 
+void hall::systemReset () {
+    for (uint32_t i = 0; i < systemHz() >> 15; ++i) {}
+    SCB(0x0C) = (0x5FA<<16) | (1<<2); // SCB AIRCR reset
+    while (true) {}
+}
+
 auto Pin::mode (int m) const -> int {
     if constexpr (FAMILY == STM::F1) {
         RCC(0x18) |= (1<<port) | (1<<0); // enable GPIOx and AFIO clocks
@@ -117,6 +123,12 @@ namespace hall::systick {
         SYSTICK(0x0) = 0b011;                      // control, ÷8 mode
     }
 
+    void deinit () {
+        ticks = millis();
+        SYSTICK(0x0) = 0;
+        rate = 0;
+    }
+
     auto millis () -> uint32_t {
         while (true) {
             uint32_t t = ticks, n = SYSTICK(0x8);
@@ -125,7 +137,190 @@ namespace hall::systick {
         } // ticked just now, spin one more time
     }
 
+    auto micros () -> uint32_t {
+        // scaled to work with any clock rate multiple of 100 kHz
+        while (true) {
+            uint32_t t = ticks, n = SCB(0x18);
+            if (t == ticks)
+                return (t%1000 + rate)*1000 - (n*80)/(systemHz()/100'000);
+        } // ticked just now, spin one more time
+    }
+
     extern "C" void SysTick_Handler () {
         ticks += rate;
     }
+}
+
+namespace hall::cycles {
+    enum { CTRL=0x000,CYCCNT=0x004,LAR=0xFB0 };
+    enum { DEMCR=0xDFC };
+
+    void init () {
+        DWT(LAR) = 0xC5ACCE55;
+        SCB(DEMCR) = SCB(DEMCR) | (1<<24); // set TRCENA in DEMCR
+        clear();
+        DWT(CTRL) = DWT(CTRL) | 1;
+    }
+
+    void deinit () {
+        DWT(CTRL) = DWT(CTRL) & ~1;
+    }
+}
+
+namespace hall::watchdog {
+    constexpr auto IWDG = io32<0x4000'3000>;
+    enum { KR=0x00,PR=0x04,RLR=0x08,SR=0x0C };
+
+    uint8_t cause; // "semi public"
+
+    auto resetCause () -> int {
+        if (cause == 0) {
+            if constexpr (FAMILY == STM::F4 || FAMILY == STM::F7) {
+                enum { CSR=0x74, RMVF=24 };
+                cause = RCC(CSR) >> 24;
+                RCC(CSR)[RMVF] = 1; // clears all reset-cause flags
+            } else if constexpr (FAMILY == STM::L4) {
+                enum { CSR=0x94, RMVF=23 };
+                cause = RCC(CSR) >> 24;
+                RCC(CSR)[RMVF] = 1; // clears all reset-cause flags
+            } // TODO add more cases, use lambda to simplify
+        }
+        return cause & (1<<5) ? -1 :     // iwdg
+               cause & (1<<3) ? 2 :      // por/bor
+               cause & (1<<2) ? 1 : 0;   // nrst, or other
+    }
+
+    void init (int rate) {
+        while (IWDG(SR)[0]) {}  // wait until !PVU
+        IWDG(KR) = 0x5555;      // unlock PR
+        IWDG(PR) = rate;        // max timeout, 0 = 400ms, 7 = 26s
+        IWDG(KR) = 0xCCCC;      // start watchdog
+    }
+
+    void reload (int n) {
+        while (IWDG(SR)[1]) {}  // wait until !RVU
+        IWDG(KR) = 0x5555;      // unlock PR
+        IWDG(RLR) = n;
+        kick();
+    }
+
+    void kick () {
+        IWDG(KR) = 0xAAAA;      // reset the watchdog timout
+    }
+}
+
+uint8_t irqMap [irq::limit];
+Device* devMap [20];  // must be large enough to hold all device objects
+uint8_t devNext;
+volatile uint32_t Device::pending;
+
+Device::Device () {
+    //TODO ensure(devNext < sizeof devMap / sizeof *devMap);
+    _id = devNext;
+    devMap[devNext++] = this;
+}
+
+void Device::irqInstall (uint32_t irq) const {
+    //TODO ensure(irq < sizeof irqMap);
+    irqMap[irq] = _id;
+    nvicEnable(irq);
+}
+
+void Device::processPending () {
+    uint32_t pend;
+    {
+        BlockIRQ crit;
+        pend = pending;
+        pending = 0;
+    }
+    for (int i = 0; i < devNext; ++i)
+        if (pend & (1<<i))
+            devMap[i]->process();
+}
+
+extern "C" {
+    void irqHandler () {
+        uint8_t irq = SCB(0x04); // ICSR
+        auto idx = irqMap[irq-16];
+        if (devMap[idx] != nullptr)
+            devMap[idx]->interrupt();
+    }
+
+    //CG< irqs-h
+    void         ADC1_2_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void            AES_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       CAN1_RX0_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       CAN1_RX1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       CAN1_SCE_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        CAN1_TX_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void           COMP_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void            CRS_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void         DFSDM1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void    DFSDM1_FLT2_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void    DFSDM1_FLT3_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void         DFSDM2_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA1_CH1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA1_CH2_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA1_CH3_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA1_CH4_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA1_CH5_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA1_CH6_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA1_CH7_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA2_CH1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA2_CH2_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA2_CH3_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA2_CH4_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA2_CH5_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA2_CH6_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       DMA2_CH7_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void          EXTI0_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void          EXTI1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void      EXTI15_10_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void          EXTI2_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void          EXTI3_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void          EXTI4_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        EXTI9_5_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void          FLASH_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void            FPU_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        I2C1_ER_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        I2C1_EV_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        I2C2_ER_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        I2C2_EV_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        I2C3_ER_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        I2C3_EV_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        I2C4_ER_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        I2C4_EV_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void            LCD_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void         LPTIM1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void         LPTIM2_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        LPUART1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        PVD_PVM_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        QUADSPI_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void            RCC_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void            RNG_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void      RTC_ALARM_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void RTC_TAMP_STAMP_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void       RTC_WKUP_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void           SAI1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void         SDMMC1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void           SPI1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void           SPI2_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void           SPI3_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void         SWPMI1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void TIM1_BRK_TIM15_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void        TIM1_CC_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void   TIM1_TRG_COM_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void  TIM1_UP_TIM16_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void           TIM2_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void           TIM3_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void  TIM6_DACUNDER_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void           TIM7_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void            TSC_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void          UART4_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void         USART1_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void         USART2_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void         USART3_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void            USB_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    void           WWDG_IRQHandler () __attribute__ ((alias ("irqHandler")));
+    //CG>
 }

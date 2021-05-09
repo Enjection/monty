@@ -168,3 +168,8 @@ auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
     }
     return resumeFixer(&fp);
 }
+
+void Semaphore::expire (uint16_t now, uint16_t& limit) {
+    if (count < 0)
+        count += Queue::expire(now, limit);
+}

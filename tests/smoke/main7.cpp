@@ -2,11 +2,6 @@
 
 using namespace boss;
 
-void delayLoop (int n) {
-    for (int i = 0; i < n; ++i)
-        asm ("wfi"); // sleep until next interrupt
-}
-
 // USART TX on PA2 (115200 baud, 8N1), see RM0394 Rev 4
 void initUart () {
     Pin::define("A2:P7");

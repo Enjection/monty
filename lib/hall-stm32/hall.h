@@ -16,6 +16,7 @@ namespace hall {
 
     auto systemHz () -> uint32_t;
     void idle ();
+    [[noreturn]] void systemReset ();
 
     struct IOWord {
         const uint32_t addr;
@@ -229,7 +230,35 @@ namespace hall {
 
     namespace systick {
         void init (uint8_t ms =100);
+        void deinit ();
         auto millis () -> uint32_t;
+        auto micros () -> uint32_t;
+    }
+
+    namespace cycles {
+        constexpr auto DWT = io32<0xE000'1000>;
+
+        void init ();
+        void deinit ();
+        inline void clear () { DWT(0x04) = 0; }
+        inline auto count () -> uint32_t { return DWT(0x04); }
+    }
+
+    namespace watchdog {  // [1] pp.495
+        auto resetCause () -> int; // watchdog: -1, nrst: 1, power: 2, other: 0
+        void init (int rate =6);   // max timeout, 0 ≈ 500 ms, 6 ≈ 32 s
+        void reload (int n);       // 0..4095 x 125 µs (0) .. 8 ms (6)
+        void kick ();
+    }
+
+    namespace rtc {
+        struct DateTime { uint8_t yr, mo, dy, hh, mm, ss; };
+
+        void init ();
+        auto get () -> DateTime;
+        void set (DateTime dt);
+        auto getData (int reg) -> uint32_t;
+        void setData (int reg, uint32_t val);
     }
 
     struct Pin {
@@ -260,5 +289,33 @@ namespace hall {
         }
         auto mode (int) const -> int;
         auto mode (char const* desc) const -> int;
+    };
+
+    struct BlockIRQ {
+        BlockIRQ () { asm ("cpsid i"); }
+        ~BlockIRQ () { asm ("cpsie i"); }
+    };
+
+    struct Device {
+        uint8_t _id;
+
+        Device ();
+
+        void irqInstall (uint32_t irq) const;
+
+        virtual void interrupt () { pending |= 1<<_id; }
+        virtual void process () {}
+        virtual void expire (uint16_t, uint16_t&) {}
+
+        static void nvicEnable (uint8_t irq) {
+            dev::NVIC(0x00+4*(irq>>5)) = 1 << (irq&0x1F);
+        }
+
+        static void nvicDisable (uint8_t irq) {
+            dev::NVIC(0x80+4*(irq>>5)) = 1 << (irq&0x1F);
+        }
+
+        static void processPending ();
+        static volatile uint32_t pending;
     };
 }

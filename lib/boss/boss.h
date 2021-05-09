@@ -9,16 +9,13 @@
 #elif NATIVE
 #include <cassert>
 #define ensure(exp) assert(exp)
-#else
-#define ensure(exp)                                 \
-  do                                                \
-    if (!(exp)) {                                   \
-      void* pc;                                     \
-      asm volatile ("mov %0, pc" : "=r" (pc));      \
-      void const* lr = __builtin_return_address(0); \
-      boss::failAt(pc, lr);                         \
-    }                                               \
-  while (false)
+#else // ARM-specific code
+#define ensure(exp)                                  \
+    if (exp) ; else {                                \
+      void* pc;                                      \
+      asm volatile ("mov %0, pc" : "=r" (pc));       \
+      boss::failAt(pc, __builtin_return_address(0)); \
+    }
 #endif
 
 
@@ -90,7 +87,7 @@ namespace boss {
         auto operator[] (uint8_t i) -> uint8_t* { return buffers[i]; }
 
     private:
-        uint8_t buffers [N][SZ];
+        alignas(4) uint8_t buffers [N][SZ]; // TODO why is alignment needed?
 
         static_assert(N <= 256, "buffer id must fit in a uint8_t");
         static_assert(N <= SZ, "free chain must fit in buffer[0]");
@@ -136,5 +133,22 @@ namespace boss {
         int8_t _status;
         jmp_buf _context;
         uint32_t _data [];
+    };
+
+    struct Semaphore : private Queue {
+        Semaphore (int n) : count (n) {}
+
+        void post () {
+            if (++count <= 0)
+                Fiber::resume(pull(), 1);
+        }
+
+        auto pend (uint32_t ms =60'000) -> int {
+            return --count >= 0 ? 1 : Fiber::suspend(*this, ms);
+        }
+
+        void expire (uint16_t now, uint16_t& limit);
+    private:
+        int16_t count;
     };
 }
