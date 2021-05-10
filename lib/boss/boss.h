@@ -24,9 +24,9 @@ namespace boss {
     [[noreturn]] void failAt (void const*, void const*);
 
 #if NATIVE
-    template <int N =100, int SZ =1024>
+    template <int N =20, int SZ =512>
 #else
-    template <int N =10, int SZ =192>
+    template <int N =20, int SZ =192>
 #endif
     struct Pool {
         enum { NBUF=N, SZBUF=SZ };
@@ -39,10 +39,10 @@ namespace boss {
 
         auto idOf (void const* p) const -> uint8_t {
             ensure(buffers + 1 <= p && p < buffers + N);
-            return ((uint8_t const*) p - buffers[0]) / SZ;
+            return ((uint8_t const*) p - buffers[0].b) / SZ;
         }
 
-        auto tag (uint8_t i) -> uint8_t& { return buffers[0][i]; }
+        auto tag (uint8_t i) -> uint8_t& { return buffers[0].b[i]; }
         auto tagOf (void const* p) -> uint8_t& { return tag(idOf(p)); }
 
         auto hasFree () { return tag(0) != 0; }
@@ -52,7 +52,7 @@ namespace boss {
             ensure(n != 0);
             tag(0) = tag(n);
             tag(n) = 0;
-            return buffers[n];
+            return buffers[n].b;
         }
 
         void release (uint8_t i) { tag(i) = tag(0); tag(0) = i; }
@@ -81,11 +81,13 @@ namespace boss {
             }
         }
 
-        auto operator[] (uint8_t i) -> uint8_t* { return buffers[i]; }
+        auto operator[] (uint8_t i) -> uint8_t* { return buffers[i].b; }
 
     private:
-        alignas(4) uint8_t buffers [N][SZ]; // TODO why is alignment needed?
+        // make sure there's always room for a jmp_buf, even if it exceeds SZ
+        union Buffer { jmp_buf j; uint8_t b [SZ]; } buffers [N];
 
+        static_assert(SZ < 256, "buffer fill must fit in a uint8_t");
         static_assert(N <= 256, "buffer id must fit in a uint8_t");
         static_assert(N <= SZ, "free chain must fit in buffer[0]");
     };

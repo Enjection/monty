@@ -87,8 +87,8 @@ int main () {
     led.config("B3:P");
 
     while (Fiber::runLoop()) {
-        led = 1;
-        idle();
         led = 0;
+        idle();
+        led = 1;
     }
 }
