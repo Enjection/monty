@@ -70,9 +70,11 @@ void Fiber::processPending () {
 
 void Fiber::app () {
 
-    for (int i = 0; true; ++i)
-        printf(">>> %*u /\n",
-                75 - (i++ % 70), systick::millis());
+    for (int i = 0; true; ++i) {
+        msWait(8);
+        printf("> %*u /\n",
+                76 - (i % 70), systick::millis());
+    }
 }
 
 int main () {
