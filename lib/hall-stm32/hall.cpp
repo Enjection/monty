@@ -182,8 +182,21 @@ namespace hall::systick {
         } // ticked just now, spin one more time
     }
 
+    struct Ticker : Device {
+        void process () override {
+            auto now = (uint16_t) millis();
+            uint16_t limit = 100;
+            for (int i = 0; i < devNext; ++i)
+                devMap[i]->expire(now, limit);
+            init(limit);
+        }
+    };
+
+    Ticker ticker;
+
     extern "C" void SysTick_Handler () {
         ticks += rate;
+        ticker.interrupt();
     }
 }
 

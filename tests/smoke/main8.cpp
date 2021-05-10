@@ -74,12 +74,10 @@ void Fiber::app () {
 
     while (true) {
         led = 1;
-        //msWait(100);
-        for (int i = 0; i < 100'000; ++i) asm ("");
+        msWait(100);
         led = 0;
-        //msWait(400);
-        for (int i = 0; i < 400'000; ++i) asm ("");
-        //printf("%u\n", systick::millis());
+        msWait(400);
+        printf("%u\n", systick::millis());
     }
 }
 
