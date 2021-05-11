@@ -1,6 +1,1 @@
-{
-    "platforms": "ststm32",
-    "dependencies": {
-        "boss": "*"
-    }
-}
+{ "platforms": "ststm32" }

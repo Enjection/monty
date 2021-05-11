@@ -114,13 +114,13 @@ uint8_t devNext;
 volatile uint32_t Device::pending;
 
 Device::Device () {
-    //TODO ensure(devNext < sizeof devMap / sizeof *devMap);
+    //assert(devNext < sizeof devMap / sizeof *devMap);
     _id = devNext;
     devMap[devNext++] = this;
 }
 
 void Device::irqInstall (uint32_t irq) const {
-    //TODO ensure(irq < sizeof irqMap);
+    //assert(irq < sizeof irqMap);
     irqMap[irq] = _id;
     nvicEnable(irq);
 }
