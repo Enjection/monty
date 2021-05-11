@@ -192,7 +192,7 @@ asm ("nop");
 }
 
 auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
-    auto fp = curr == 0 ? new (pool.allocate()) Fiber : &at(curr);
+    auto fp = curr == 0 ? (Fiber*) pool.allocate() : &at(curr);
     curr = 0;
     fp->timeout = (uint16_t) systick::millis() + ms;
     q.append(fp->id());

@@ -73,8 +73,6 @@ namespace boss {
             Fid_t first =0, last =0;
         };
 
-        auto operator new (size_t, void* p) -> void* { return p; }
-
         auto id () const { return pool.idOf(this); }
 
         static auto at (Fid_t i) -> Fiber& { return *(Fiber*) pool[i]; }
