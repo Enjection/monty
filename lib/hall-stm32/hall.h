@@ -320,4 +320,11 @@ namespace hall {
         auto getData (int reg) -> uint32_t;
         void setData (int reg, uint32_t val);
     }
+
+    namespace uart {
+        void init (int n, char const* desc, int baud =115200);
+        void deinit (int n);
+        auto getc (int n) -> int;
+        void putc (int n, int c);
+    }
 }
