@@ -76,7 +76,45 @@ void boss::failAt (void const* pc, void const* lr) {
     while (true) {}
 }
 
-Pool<> boss::pool;
+alignas(4) static uint8_t bufferSpace [20 * 192];
+Pool boss::pool (bufferSpace, sizeof bufferSpace);
+
+Pool::Pool (void* ptr, size_t len)
+        : nBuf (len / sizeof (Buffer)), bufs ((Buffer*) ptr) {
+    //ensure(nBuf <= 256);    //buffer id must fit in a uint8_t
+    //ensure(nBuf <= BUFLEN);  //free chain must fit in buffer[0]
+    //ensure(((uintptr_t) ptr % 4) == 0);
+    for (int i = 0; i < nBuf-1; ++i)
+        tag(i) = i+1;
+    tag(nBuf-1) = 0;
+}
+
+auto Pool::allocate () -> uint8_t* {
+    auto n = tag(0);
+    ensure(n != 0);
+    tag(0) = tag(n);
+    tag(n) = 0;
+    return bufs[n].b;
+}
+
+auto Pool::items (uint8_t i) const -> int {
+    int n = 0;
+    do {
+        ++n;
+        i = tag(i);
+    } while (i != 0);
+    return n;
+}
+
+void Pool::check () const {
+    bool inUse [nBuf];
+    for (int i = 0; i < nBuf; ++i)
+        inUse[i] = 0;
+    for (int i = tag(0); i != 0; i = tag(i)) {
+        ensure(!inUse[i]);
+        inUse[i] = true;
+    }
+}
 
 auto Fiber::Queue::pull () -> Fid_t {
     auto i = first;
@@ -111,7 +149,7 @@ auto Fiber::Queue::expire (uint16_t now, uint16_t& limit) -> int {
     while (*p != 0) {
         auto& next = pool.tag(*p);
         auto& f = Fiber::at(*p);
-        uint16_t remain = f._timeout - now;
+        uint16_t remain = f.timeout - now;
         if (remain == 0 || remain > 60'000) {
             auto c = *p;
             if (last == c)
@@ -142,33 +180,49 @@ auto Fiber::runLoop () -> bool {
     processPending();
     curr = ready.pull();
     if (curr != 0)
-        longjmp(at(curr)._context, 1);
+        longjmp(at(curr).context, 1);
     return true;
 }
 
 static auto resumeFixer (void* top) {
     auto fp = &Fiber::at(Fiber::curr);
-    memcpy(top, fp->_data, (uintptr_t) bottom - (uintptr_t) top);
+    memcpy(top, fp->data, (uintptr_t) bottom - (uintptr_t) top);
 asm ("nop");
-    return fp->_status;
+    return fp->stat;
 }
 
 auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
     auto fp = curr == 0 ? new (pool.allocate()) Fiber : &at(curr);
     curr = 0;
-    fp->_timeout = (uint16_t) systick::millis() + ms;
+    fp->timeout = (uint16_t) systick::millis() + ms;
     q.append(fp->id());
-    if (setjmp(fp->_context) == 0) {
+    if (setjmp(fp->context) == 0) {
 #if 0
         debugf("\tFS %d rdy %d top %p data %p bytes %d\n",
-                fp->id(), ready.length(), &fp, fp->_data,
+                fp->id(), ready.length(), &fp, fp->data,
                 (int) ((uintptr_t) bottom - (uintptr_t) &fp));
 #endif
-        memcpy(fp->_data, &fp, (uintptr_t) bottom - (uintptr_t) &fp);
+        memcpy(fp->data, &fp, (uintptr_t) bottom - (uintptr_t) &fp);
         curr = 0;
         longjmp(returner, 1);
     }
     return resumeFixer(&fp);
+}
+
+void Fiber::duff (uint32_t* dst, uint32_t const* src, uint32_t cnt) {
+    // see https://en.wikipedia.org/wiki/Duff%27s_device
+    auto n = (cnt + 7) / 8;
+    switch (cnt % 8) {
+        case 0: do { *dst++ = *src++; [[fallthrough]];
+        case 7:      *dst++ = *src++; [[fallthrough]];
+        case 6:      *dst++ = *src++; [[fallthrough]];
+        case 5:      *dst++ = *src++; [[fallthrough]];
+        case 4:      *dst++ = *src++; [[fallthrough]];
+        case 3:      *dst++ = *src++; [[fallthrough]];
+        case 2:      *dst++ = *src++; [[fallthrough]];
+        case 1:      *dst++ = *src++;
+                } while (--n > 0);
+    }
 }
 
 void Semaphore::expire (uint16_t now, uint16_t& limit) {

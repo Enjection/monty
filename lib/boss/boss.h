@@ -23,76 +23,39 @@ namespace boss {
     void debugf (const char* fmt, ...);
     [[noreturn]] void failAt (void const*, void const*);
 
-#if NATIVE
-    template <int N =20, int SZ =512>
-#else
-    template <int N =20, int SZ =192>
-#endif
     struct Pool {
-        enum { NBUF=N, SZBUF=SZ };
+        constexpr static auto BUFLEN = 192;
 
-        Pool () {
-            for (int i = 0; i < N-1; ++i)
-                tag(i) = i+1;
-            tag(N-1) = 0;
-        }
+        Pool (void* ptr, size_t len);
 
         auto idOf (void const* p) const -> uint8_t {
-            ensure(buffers + 1 <= p && p < buffers + N);
-            return ((uint8_t const*) p - buffers[0].b) / SZ;
+            ensure(bufs + 1 <= p && p < bufs + nBuf);
+            return ((uint8_t const*) p - bufs[0].b) / BUFLEN;
         }
 
-        auto tag (uint8_t i) -> uint8_t& { return buffers[0].b[i]; }
+        auto tag (uint8_t i) -> uint8_t& { return bufs[0].b[i]; }
+        auto tag (uint8_t i) const -> uint8_t { return bufs[0].b[i]; }
         auto tagOf (void const* p) -> uint8_t& { return tag(idOf(p)); }
 
         auto hasFree () { return tag(0) != 0; }
 
-        auto allocate () {
-            auto n = tag(0);
-            ensure(n != 0);
-            tag(0) = tag(n);
-            tag(n) = 0;
-            return buffers[n].b;
-        }
-
+        auto allocate () -> uint8_t*;
         void release (uint8_t i) { tag(i) = tag(0); tag(0) = i; }
         void releasePtr (uint8_t* p) { release(idOf(p)); }
 
-        auto items (uint8_t i) {
-            int n = 0;
-            do {
-                ++n;
-                i = tag(i);
-            } while (i != 0);
-            return n;
-        }
+        auto items (uint8_t i =0) const -> int;
+        void check () const;
 
-        auto numFree () const {
-            return items(0);
-        }
-
-        void check () {
-            bool inUse [N];
-            for (int i = 0; i < N; ++i)
-                inUse[i] = 0;
-            for (int i = tag(0); i != 0; i = tag(i)) {
-                ensure(!inUse[i]);
-                inUse[i] = true;
-            }
-        }
-
-        auto operator[] (uint8_t i) -> uint8_t* { return buffers[i].b; }
-
+        auto operator[] (uint8_t i) -> uint8_t* { return bufs[i].b; }
     private:
-        // make sure there's always room for a jmp_buf, even if it exceeds SZ
-        union Buffer { jmp_buf j; uint8_t b [SZ]; } buffers [N];
+        uint8_t nBuf;
+        // make sure there's always room for jmp_buf, even if it exceeds BUFLEN
+        union Buffer { jmp_buf j; uint8_t b [BUFLEN]; } *bufs;
 
-        static_assert(SZ < 256, "buffer fill must fit in a uint8_t");
-        static_assert(N <= 256, "buffer id must fit in a uint8_t");
-        static_assert(N <= SZ, "free chain must fit in buffer[0]");
+        static_assert(BUFLEN < 256, "buffer fill must fit in a uint8_t");
     };
 
-    extern Pool<> pool;
+    extern Pool pool;
 
     struct Fiber {
         using Fid_t = uint8_t;
@@ -120,20 +83,17 @@ namespace boss {
         static void processPending ();
         static void msWait (uint16_t ms) { suspend(timers, ms); }
         static auto suspend (Queue&, uint16_t ms =60'000) -> int;
-
-        static void resume (Fid_t fid, int i) {
-            at(fid)._status = i;
-            ready.append(fid);
-        }
+        static void resume (Fid_t f, int i) { at(f).stat = i; ready.append(f); }
+        static void duff (uint32_t* dst, uint32_t const* src, uint32_t cnt);
 
         static Fid_t curr;
         static Queue ready;
         static Queue timers;
 
-        uint16_t _timeout;
-        int8_t _status;
-        jmp_buf _context;
-        uint32_t _data [];
+        uint16_t timeout;
+        int8_t stat;
+        jmp_buf context;
+        uint32_t data [];
     };
 
     struct Semaphore : private Fiber::Queue {

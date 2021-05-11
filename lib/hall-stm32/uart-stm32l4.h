@@ -80,7 +80,7 @@ struct Uart : Device {
 
     UartInfo dev;
 protected:
-    constexpr static auto RXSIZE = pool.SZBUF;
+    constexpr static auto RXSIZE = pool.BUFLEN;
     Semaphore writers {1}, readers {0};
     uint8_t* rxBuf;
 private:

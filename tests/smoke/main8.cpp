@@ -41,7 +41,7 @@ static void uartPutc (void* o, int c) {
         fill = 0;
     };
 
-    if (fill >= pool.SZBUF)
+    if (fill >= pool.BUFLEN)
         flush();
     if (fill == 0)
         buf = pool.allocate();
