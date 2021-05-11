@@ -72,8 +72,7 @@ void Fiber::app () {
 
     for (int i = 0; true; ++i) {
         msWait(8);
-        printf("> %*u /\n",
-                76 - (i % 70), systick::millis());
+        printf("> %*u /\n", 76 - (i % 70), systick::millis());
     }
 }
 

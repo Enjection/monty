@@ -3,19 +3,22 @@
 #include <cstdint>
 #include <setjmp.h>
 
-// see https://interrupt.memfault.com/blog/asserts-in-embedded-systems
-#ifdef NDEBUG
-#define ensure(exp) ((void)0)
-#elif NATIVE
+#if NATIVE
 #include <cassert>
-#define ensure(exp) assert(exp)
+#endif
+
+// see https://interrupt.memfault.com/blog/asserts-in-embedded-systems
+#ifndef assert
+#ifdef NDEBUG
+#define assert(exp) ((void)0)
 #else // ARM-specific code
-#define ensure(exp)                                  \
+#define assert(exp)                                  \
     if (exp) ; else {                                \
       void* pc;                                      \
       asm volatile ("mov %0, pc" : "=r" (pc));       \
       boss::failAt(pc, __builtin_return_address(0)); \
     }
+#endif
 #endif
 
 namespace boss {
@@ -29,7 +32,7 @@ namespace boss {
         Pool (void* ptr, size_t len);
 
         auto idOf (void const* p) const -> uint8_t {
-            ensure(bufs + 1 <= p && p < bufs + nBuf);
+            assert(bufs + 1 <= p && p < bufs + nBuf);
             return ((uint8_t const*) p - bufs[0].b) / BUFLEN;
         }
 
@@ -50,7 +53,10 @@ namespace boss {
     private:
         uint8_t nBuf;
         // make sure there's always room for jmp_buf, even if it exceeds BUFLEN
-        union Buffer { jmp_buf j; uint8_t b [BUFLEN]; } *bufs;
+        alignas(4) union Buffer {
+            uint8_t f [sizeof (jmp_buf) + 100]; // TODO slack until segmented
+            uint8_t b [BUFLEN];
+        } *bufs;
 
         static_assert(BUFLEN < 256, "buffer fill must fit in a uint8_t");
     };
@@ -62,8 +68,6 @@ namespace boss {
 
         struct Queue {
             auto isEmpty () const { return first == 0; }
-            auto length () const { return isEmpty() ? 0 : pool.items(first); }
-
             auto pull () -> Fid_t;
             void insert (Fid_t i);
             void append (Fid_t i);
@@ -72,8 +76,6 @@ namespace boss {
         private:
             Fid_t first =0, last =0;
         };
-
-        auto id () const { return pool.idOf(this); }
 
         static auto at (Fid_t i) -> Fiber& { return *(Fiber*) pool[i]; }
         static auto runLoop () -> bool;
@@ -88,8 +90,8 @@ namespace boss {
         static Queue ready;
         static Queue timers;
 
-        uint16_t timeout;
         int8_t stat;
+        uint16_t timeout;
         jmp_buf context;
         uint32_t data [];
     };

@@ -76,14 +76,14 @@ void boss::failAt (void const* pc, void const* lr) {
     while (true) {}
 }
 
-alignas(4) static uint8_t bufferSpace [20 * 192];
+static uint32_t bufferSpace [20 * 192 / 4];
 Pool boss::pool (bufferSpace, sizeof bufferSpace);
 
 Pool::Pool (void* ptr, size_t len)
         : nBuf (len / sizeof (Buffer)), bufs ((Buffer*) ptr) {
-    //ensure(nBuf <= 256);    //buffer id must fit in a uint8_t
-    //ensure(nBuf <= BUFLEN);  //free chain must fit in buffer[0]
-    //ensure(((uintptr_t) ptr % 4) == 0);
+    assert(nBuf <= 256);    //buffer id must fit in a uint8_t
+    assert(nBuf <= BUFLEN);  //free chain must fit in buffer[0]
+    assert(((uintptr_t) ptr % 4) == 0);
     for (int i = 0; i < nBuf-1; ++i)
         tag(i) = i+1;
     tag(nBuf-1) = 0;
@@ -91,7 +91,7 @@ Pool::Pool (void* ptr, size_t len)
 
 auto Pool::allocate () -> uint8_t* {
     auto n = tag(0);
-    ensure(n != 0);
+    assert(n != 0);
     tag(0) = tag(n);
     tag(n) = 0;
     return bufs[n].b;
@@ -111,7 +111,7 @@ void Pool::check () const {
     for (int i = 0; i < nBuf; ++i)
         inUse[i] = 0;
     for (int i = tag(0); i != 0; i = tag(i)) {
-        ensure(!inUse[i]);
+        assert(!inUse[i]);
         inUse[i] = true;
     }
 }
@@ -195,11 +195,11 @@ auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
     auto fp = curr == 0 ? (Fiber*) pool.allocate() : &at(curr);
     curr = 0;
     fp->timeout = (uint16_t) systick::millis() + ms;
-    q.append(fp->id());
+    q.append(pool.idOf(fp));
     if (setjmp(fp->context) == 0) {
 #if 0
-        debugf("\tFS %d rdy %d top %p data %p bytes %d\n",
-                fp->id(), ready.length(), &fp, fp->data,
+        debugf("\tFS %d emp %d top %p data %p bytes %d\n",
+                pool.idOf(fp), ready.isEmpty(), &fp, fp->data,
                 (int) ((uintptr_t) bottom - (uintptr_t) &fp));
 #endif
         memcpy(fp->data, &fp, (uintptr_t) bottom - (uintptr_t) &fp);

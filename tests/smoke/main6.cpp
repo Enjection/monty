@@ -25,13 +25,15 @@ void outCh (void*, int ch) {
     dev::USART2(TDR) = ch;                    // send next char
 }
 
-auto printf (const char* fmt, ...) {
+extern "C" int printf (const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     auto r = veprintf(outCh, nullptr, fmt, ap);
     va_end(ap);
     return r;
 }
+
+void boss::debugf (const char*, ...) __attribute__((alias ("printf")));
 
 int main () {
     Pin led;

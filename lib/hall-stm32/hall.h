@@ -292,7 +292,7 @@ namespace hall {
         void init (uint8_t ms =100);
         void deinit ();
         auto millis () -> uint32_t;
-        auto micros () -> uint32_t;
+        auto micros () -> uint16_t;
     }
 
     namespace cycles {
