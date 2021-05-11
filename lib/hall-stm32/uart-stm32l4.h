@@ -69,7 +69,7 @@ struct Uart : Device {
         if (dmaTX(CCR)[0]) { // EN
             dmaTX(CCR)[0] = 0; // ~EN
             pool.releasePtr((uint8_t*)(uint32_t) dmaTX(CMAR));
-            //TODO tx queue post
+            writers.post();
         }
     }
 
@@ -79,9 +79,9 @@ struct Uart : Device {
     }
 
     UartInfo dev;
+    Semaphore writers {1}, readers {0};
 protected:
     constexpr static auto RXSIZE = pool.BUFLEN;
-    Semaphore writers {1}, readers {0};
     uint8_t* rxBuf;
 private:
     auto devReg (int off) const -> IOWord {

@@ -37,7 +37,9 @@ static void uartPutc (void* o, int c) {
     auto flush = [&]() {
         auto i = pool.idOf(buf);
         pool.tag(i) = fill - 1;
-        ((Uart*) o)->txStart(i);
+        auto uart = (Uart*) o;
+        uart->writers.pend();
+        uart->txStart(i);
         fill = 0;
     };
 
@@ -71,7 +73,7 @@ void Fiber::processPending () {
 void Fiber::app () {
 
     for (int i = 0; true; ++i) {
-        msWait(8);
+        //msWait(8);
         printf("> %*u /\n", 76 - (i % 70), systick::millis());
     }
 }
