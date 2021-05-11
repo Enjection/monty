@@ -284,7 +284,7 @@ namespace hall {
             dev::NVIC(0x80+4*(irq>>5)) = 1 << (irq&0x1F);
         }
 
-        static void dispatch ();
+        static auto dispatch () -> bool;
         static volatile uint32_t pending;
     };
 

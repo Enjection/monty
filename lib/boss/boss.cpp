@@ -191,6 +191,14 @@ asm ("nop");
     return fp->stat;
 }
 
+void Fiber::processPending () {
+    if (Device::dispatch()) {
+        uint16_t limit = 100; // TODO arbitrary? also: 24-bit limit on ARM
+        timers.expire(systick::millis(), limit);
+        systick::init(limit);
+    }
+}
+
 auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
     auto fp = curr == 0 ? (Fiber*) pool.allocate() : &at(curr);
     curr = 0;

@@ -16,15 +16,8 @@ extern "C" int printf (const char* fmt, ...) {
 
 void boss::debugf (const char*, ...) __attribute__((alias ("printf")));
 
-void Fiber::processPending () {
-    Device::dispatch();
-
-    uint16_t limit = 100;
-    timers.expire(systick::millis(), limit);
-    systick::init(limit);
-}
-
 void Fiber::app () {
+    printf("%d Hz\n", systemHz());
     for (int i = 0; true; ++i)
         printf("> %*u /\n", 76 - (i % 70), systick::millis());
 }
@@ -33,8 +26,6 @@ int main () {
     fastClock();
     systick::init();
     uart::init(2, "A2:PU7,A15:PU3", 115200);
-    printf("abc %d\n", systemHz());
-    for (int i = 0; i < 1000000; ++i) asm("");
 
     Pin led;
     led.config("B3:P");

@@ -16,14 +16,6 @@ extern "C" int printf (const char* fmt, ...) {
 
 void boss::debugf (const char*, ...) __attribute__((alias ("printf")));
 
-void Fiber::processPending () {
-    Device::dispatch();
-
-    uint16_t limit = 100;
-    timers.expire(systick::millis(), limit);
-    systick::init(limit);
-}
-
 void Fiber::app () {
     Pin led;
     led.config("B3:P");

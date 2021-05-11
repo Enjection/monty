@@ -125,16 +125,19 @@ void Device::irqInstall (uint32_t irq) const {
     nvicEnable(irq);
 }
 
-void Device::dispatch () {
+auto Device::dispatch () -> bool {
     uint32_t pend;
     {
         BlockIRQ crit;
         pend = pending;
         pending = 0;
     }
+    if (pend == 0)
+        return false;
     for (int i = 0; i < devNext; ++i)
         if (pend & (1<<i))
             devMap[i]->process();
+    return true;
 }
 
 extern "C" void irqHandler () {
