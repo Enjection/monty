@@ -1,7 +1,5 @@
-#include "boss.h"
 #include "hall.h"
 
-using namespace boss;
 using namespace hall;
 
 // USART TX on PA2 (115200 baud, 8N1), see RM0394 Rev 4

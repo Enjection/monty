@@ -1,7 +1,5 @@
-#include "boss.h"
 #include "hall.h"
 
-using namespace boss;
 using namespace hall;
 
 extern "C" int printf (const char* fmt, ...) {

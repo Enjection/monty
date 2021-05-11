@@ -1,6 +1,8 @@
-#include <cstdint>
+#include "boss.h"
 
 namespace hall {
+    using namespace boss;
+
     enum struct STM { F1, F3, F4, F7, G0, H7, L0, L4 };
 #if STM32F1
     constexpr auto FAMILY = STM::F1;

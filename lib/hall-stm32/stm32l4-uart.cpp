@@ -1,9 +1,7 @@
-#include "boss.h"
 #include "hall.h"
 
 using namespace hall;
 using namespace hall::dev;
-using namespace boss;
 
 struct DmaInfo { uint32_t base; uint8_t streams [8]; };
 

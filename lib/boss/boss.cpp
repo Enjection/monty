@@ -1,8 +1,6 @@
-#include "boss.h"
 #include "hall.h"
 #include <cstring>
 
-using namespace boss;
 using namespace hall;
 
 auto boss::veprintf(void (*fun)(void*,int), void* arg,
