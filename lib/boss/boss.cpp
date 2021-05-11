@@ -171,21 +171,33 @@ uint32_t* bottom;
 
 auto Fiber::runLoop () -> bool {
     uint32_t dummy;
-    if (bottom == nullptr && setjmp(returner) == 0) {
+    if (bottom == nullptr && setjmp(returner) == 0)
         bottom = &dummy;
-        app();
-    }
     processPending();
     curr = ready.pull();
-    if (curr != 0)
-        longjmp(at(curr).context, 1);
+    if (curr != 0) {
+        auto& fp = at(curr);
+        if (fp.stat != -128)
+            longjmp(fp.context, 1);
+        fp.fun(fp.arg);
+    }
     return true;
 }
 
-static auto resumeFixer (void* top) {
+auto Fiber::create (void (*fun)(void*), void* arg) -> Fid_t {
+    auto fp = (Fiber*) pool.allocate();
+    fp->timeout = (uint16_t) systick::millis(); // TODO needed?
+    fp->stat = -128; // mark as not-started
+    fp->fun = fun;
+    fp->arg = arg;
+    auto id = pool.idOf(fp);
+    ready.append(id);
+    return id;
+}
+
+auto resumeFixer (void* top) {
     auto fp = &Fiber::at(Fiber::curr);
     memcpy(top, fp->data, (uintptr_t) bottom - (uintptr_t) top);
-asm ("nop");
     return fp->stat;
 }
 
@@ -201,6 +213,7 @@ auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
     auto fp = curr == 0 ? (Fiber*) pool.allocate() : &at(curr);
     curr = 0;
     fp->timeout = (uint16_t) systick::millis() + ms;
+    fp->stat = 0;
     q.append(pool.idOf(fp));
     if (setjmp(fp->context) == 0) {
 #if 0

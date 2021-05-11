@@ -28,22 +28,22 @@ extern "C" int printf (const char* fmt, ...) {
 
 void boss::debugf (const char*, ...) __attribute__((alias ("printf")));
 
-void Fiber::app () {
-    Pin led;
-    led.config("B3:P");
-
-    while (true) {
-        led = 1;
-        msWait(100);
-        led = 0;
-        msWait(400);
-        printf("%u\n", systick::millis());
-    }
-}
-
 int main () {
     initUart();
     systick::init();
+
+    Fiber::create([](void*) {
+        Pin led;
+        led.config("B3:P");
+
+        while (true) {
+            led = 1;
+            Fiber::msWait(100);
+            led = 0;
+            Fiber::msWait(400);
+            printf("%u\n", systick::millis());
+        }
+    });
 
     while (Fiber::runLoop())
         idle();

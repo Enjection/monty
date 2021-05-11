@@ -79,7 +79,7 @@ namespace boss {
 
         static auto at (Fid_t i) -> Fiber& { return *(Fiber*) pool[i]; }
         static auto runLoop () -> bool;
-        static void app ();
+        static auto create (void (*)(void*), void* =nullptr) -> Fid_t;
         static void processPending ();
         static void msWait (uint16_t ms) { suspend(timers, ms); }
         static auto suspend (Queue&, uint16_t ms =60'000) -> int;
@@ -92,7 +92,10 @@ namespace boss {
 
         int8_t stat;
         uint16_t timeout;
-        jmp_buf context;
+        union {
+            jmp_buf context;
+            struct { void (*fun)(void*); void* arg; };
+        };
         uint32_t data [];
     };
 
