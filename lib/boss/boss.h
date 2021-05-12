@@ -53,7 +53,7 @@ namespace boss {
     private:
         uint8_t nBuf;
         // make sure there's always room for jmp_buf, even if it exceeds BUFLEN
-        alignas(4) union Buffer {
+        alignas(8) union Buffer {
             uint8_t f [sizeof (jmp_buf) + 100]; // TODO slack until segmented
             uint8_t b [BUFLEN];
         } *bufs;

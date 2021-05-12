@@ -2,6 +2,7 @@
 #include <cstring>
 
 using namespace hall;
+using namespace boss;
 
 auto boss::veprintf(void (*fun)(void*,int), void* arg,
                     char const* fmt, va_list ap) -> int {
