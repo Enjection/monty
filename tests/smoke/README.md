@@ -6,18 +6,20 @@ Things to try:
 
 ```text
 inv -l
-inv test01
-inv test02
-inv test03
-[etc]
+inv t0
+inv t1
+inv t2
+...
+inv t9
 ```
 
-For `test02` and up, a Nucleo-L432KC board needs to be plugged into USB.
+For tests `t1` and up, a Nucleo-L432KC board needs to be plugged into USB.
 
-## Test 10
+## Test `t9`
 
-This test uses 6 additional LEDs, connected to the Nucleo's A0..A5:
+This last test uses 6 additional LEDs, connected to the Nucleo's A0..A5 pins:
 
 ![](image.jpg)
 
-A6 is tied to GND, and each LED has a current-limiting resistor in series.
+A6 is tied to GND, and each LED has a current-limiting resistor in series.  
+_Note that A0..A6 ≠ PA0..PA6, the Nucleo's pin mapping & naming is irregular._

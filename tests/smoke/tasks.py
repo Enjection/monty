@@ -6,68 +6,68 @@ def generate(c):
     # TODO call hallgen.py
 
 @task
-def test01(c):
+def t0(c):
     "native build & run, just says hello"
-    c.run('pio run -e t1native')
-    c.run('.pio/build/t01native/program')
+    c.run('pio run -e t0native')
+    c.run('.pio/build/e0native/program')
 
 @task
-def test02(c):
-    "upload, blinks the on-board LED"
-    c.run('pio run -e t02blink')
+def t1(c):
+    "embedded, blinks the on-board LED"
+    c.run('pio run -e t1blink')
 
 @task
-def test03(c):
-    "upload, blinks using CMSIS & SysTick"
-    c.run('pio run -e t03cmsis')
+def t2(c):
+    "embedded, blinks using CMSIS & SysTick"
+    c.run('pio run -e t2cmsis')
 
 @task
-def test04(c):
-    "upload, blinks & sends to polled UART port"
-    c.run('pio run -e t04uart', pty=True)
+def t3(c):
+    "embedded, blinks & sends to polled UART port"
+    c.run('pio run -e t3uart', pty=True)
 
 @task(generate)
-def test05(c):
-    "upload, blinks & sends to UART via Hall defs"
-    c.run('pio run -e t05hall', pty=True)
+def t4(c):
+    "embedded, blinks & sends to UART via Hall defs"
+    c.run('pio run -e t4hall', pty=True)
 
 @task(generate)
-def test06(c):
-    "upload, blinks & sends, adding printf from Boss"
-    c.run('pio run -e t06printf', pty=True)
+def t5(c):
+    "embedded, blinks & sends, adding printf from Boss"
+    c.run('pio run -e t5printf', pty=True)
 
 @task(generate)
-def test07(c):
-    "upload, blinks & sends using fibers to wait/suspend"
-    c.run('pio run -e t07fiber', pty=True)
+def t6(c):
+    "embedded, blinks & sends using fibers to wait/suspend"
+    c.run('pio run -e t6fiber', pty=True)
 
 @task(generate)
-def test08(c):
-    "upload, blinks & sends using the DMA-based UART driver"
-    c.run('pio run -e t08dma', pty=True)
+def t7(c):
+    "embedded, blinks & sends using the DMA-based UART driver"
+    c.run('pio run -e t7dma', pty=True)
 
 @task(generate)
-def test09(c):
-    "upload, LED on when not idle, fast clock, continuous output"
-    c.run('pio run -e t09idle', pty=True)
+def t8(c):
+    "embedded, LED on when not idle, fast clock, continuous output"
+    c.run('pio run -e t8idle', pty=True)
 
 @task(generate)
-def test10(c):
-    "upload, blink multiple LEDs, one per fiber"
-    c.run('pio run -e t10multi', pty=True)
+def t9(c):
+    "embedded, blink multiple LEDs, one per fiber"
+    c.run('pio run -e t9multi', pty=True)
 
 @task(generate)
 def builds(c):
     "compile all embedded tests and show their sizes"
-    c.run("pio run -e t02blink  -t size | tail -8 | head -2")
-    c.run("pio run -e t03cmsis  -t size | tail -7 | head -1")
-    c.run("pio run -e t04uart   -t size | tail -7 | head -1")
-    c.run("pio run -e t05hall   -t size | tail -7 | head -1")
-    c.run("pio run -e t06printf -t size | tail -7 | head -1")
-    c.run("pio run -e t07fiber  -t size | tail -7 | head -1")
-    c.run("pio run -e t08dma    -t size | tail -7 | head -1")
-    c.run("pio run -e t09idle   -t size | tail -7 | head -1")
-    c.run("pio run -e t10multi  -t size | tail -7 | head -1")
+    c.run("pio run -e t1blink  -t size | tail -8 | head -2")
+    c.run("pio run -e t2cmsis  -t size | tail -7 | head -1")
+    c.run("pio run -e t3uart   -t size | tail -7 | head -1")
+    c.run("pio run -e t4hall   -t size | tail -7 | head -1")
+    c.run("pio run -e t5printf -t size | tail -7 | head -1")
+    c.run("pio run -e t6fiber  -t size | tail -7 | head -1")
+    c.run("pio run -e t7dma    -t size | tail -7 | head -1")
+    c.run("pio run -e t8idle   -t size | tail -7 | head -1")
+    c.run("pio run -e t9multi  -t size | tail -7 | head -1")
 
 @task(generate, default=True)
 def help(c):
