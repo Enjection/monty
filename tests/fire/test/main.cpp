@@ -2,6 +2,14 @@
 #include <unity.h>
 
 using namespace hall;
+using namespace boss;
+
+void boss::debugf (const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
+}
 
 void setUp () {
     systick::init();
@@ -37,13 +45,40 @@ void microsChanged () {
     TEST_ASSERT_NOT_EQUAL(t, systick::micros());
 }
 
+void noFibers () {
+    TEST_IGNORE();
+    while (Fiber::runLoop()) {}
+}
+
+void oneFiber () {
+    //TEST_IGNORE();
+    Fiber::create([](void*) {
+        while (true) {
+puts("11!");
+            Fiber::msWait(1000);
+puts("22!");
+            printf("%u\n", systick::millis());
+        }
+    });
+
+    auto busy = true;
+    for (int i = 0; busy && i < 100; ++i)
+        busy = Fiber::runLoop();
+
+    //TEST_ASSERT_FALSE(busy);
+    //while (Fiber::runLoop()) {}
+}
+
 int main () {
+    setbuf(stdout, nullptr);
     UNITY_BEGIN();
 
     RUN_TEST(smokeTest);
     RUN_TEST(ticking);
     RUN_TEST(microsSame);
     RUN_TEST(microsChanged);
+    RUN_TEST(noFibers);
+    RUN_TEST(oneFiber);
 
     UNITY_END();
 }

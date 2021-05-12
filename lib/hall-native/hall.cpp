@@ -23,6 +23,21 @@ Device::Device () {
     _id = devNext++;
 }
 
+auto Device::dispatch () -> bool {
+    uint32_t pend;
+    {
+        //TODO BlockIRQ crit;
+        pend = pending;
+        pending = 0;
+    }
+    if (pend == 0)
+        return false;
+    for (int i = 0; i < devNext; ++i)
+        if (pend & (1<<i))
+            ;//TODO devMap[i]->process();
+    return true;
+}
+
 namespace hall::systick {
     volatile uint32_t ticks;
     volatile uint8_t counter;
