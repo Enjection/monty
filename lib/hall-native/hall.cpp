@@ -12,14 +12,6 @@ void hall::idle () {
     }
 }
 
-#if 0 // not used
-auto hall::micros () -> uint64_t {
-    struct timespec tv;
-    clock_gettime(CLOCK_MONOTONIC, &tv);
-    return tv.tv_sec * 1000000LL + tv.tv_nsec / 1000; // µs resolution
-}
-#endif
-
 void hall::systemReset () {
     exit(1);
 }
@@ -68,5 +60,11 @@ namespace hall::systick {
 
     auto millis () -> uint32_t {
         return ticks;
+    }
+
+    auto micros () -> uint16_t {
+        struct timespec tv;
+        clock_gettime(CLOCK_MONOTONIC, &tv);
+        return tv.tv_nsec / 1000; // µs resolution
     }
 }
