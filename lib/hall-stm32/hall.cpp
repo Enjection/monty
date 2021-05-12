@@ -25,28 +25,28 @@ auto Pin::mode (int m) const -> int {
         RCC(0x18) |= (1<<port) | (1<<0); // enable GPIOx and AFIO clocks
         // FIXME wrong, mode bits have changed, and it changes return value
         if (m == 0b1000 || m == 0b1100) {
-            gpio32(ODR)[pin] = m & 0b0100;
+            gpio32(ODR, pin) = m & 0b0100;
             m = 0b1000;
         }
-        gpio32(0x00).mask(4*pin, 4) = m; // CRL/CRH
+        gpio32(0x00, 4*pin, 4) = m; // CRL/CRH
     } else {
         // enable GPIOx clock
         switch (FAMILY) {
             case STM::F1: break;
-            case STM::F3: RCC(0x14)[port] = 1; break;
+            case STM::F3: RCC(0x14, port) = 1; break;
             case STM::F4:
-            case STM::F7: RCC(0x30)[port] = 1; asm ("dsb"); break;
-            case STM::G0: RCC(0x34)[port] = 1; break;
-            case STM::H7: RCC(0xE0)[port] = 1; asm ("dsb"); break;
-            case STM::L0: RCC(0x2C)[port] = 1; break;
-            case STM::L4: RCC(0x4C)[port] = 1; break;
+            case STM::F7: RCC(0x30, port) = 1; asm ("dsb"); break;
+            case STM::G0: RCC(0x34, port) = 1; break;
+            case STM::H7: RCC(0xE0, port) = 1; asm ("dsb"); break;
+            case STM::L0: RCC(0x2C, port) = 1; break;
+            case STM::L4: RCC(0x4C, port) = 1; break;
         }
 
-        gpio32(0x00).mask(2*pin, 2) = m;      // MODER
-        gpio32(0x04).mask(  pin, 1) = m >> 2; // TYPER
-        gpio32(0x08).mask(2*pin, 2) = m >> 3; // OSPEEDR
-        gpio32(0x0C).mask(2*pin, 2) = m >> 5; // PUPDR
-        gpio32(0x20).mask(4*pin, 4) = m >> 8; // AFRL/AFRH
+        gpio32(0x00, 2*pin, 2) = m;      // MODER
+        gpio32(0x04,   pin, 1) = m >> 2; // TYPER
+        gpio32(0x08, 2*pin, 2) = m >> 3; // OSPEEDR
+        gpio32(0x0C, 2*pin, 2) = m >> 5; // PUPDR
+        gpio32(0x20, 4*pin, 4) = m >> 8; // AFRL/AFRH
     }
     return m;
 }
@@ -148,7 +148,7 @@ extern "C" void irqHandler () {
 }
 
 namespace hall::systick {
-    constexpr auto SYSTICK = io32<0xE000'E010>;
+    constexpr Io32<0xE000'E010> SYSTICK;
 
     volatile uint32_t ticks;
     uint8_t rate;
@@ -220,7 +220,7 @@ namespace hall::cycles {
 }
 
 namespace hall::watchdog {
-    constexpr auto IWDG = io32<0x4000'3000>;
+    constexpr Io32<0x4000'3000> IWDG;
     enum { KR=0x00,PR=0x04,RLR=0x08,SR=0x0C };
 
     uint8_t cause; // "semi public"
@@ -230,11 +230,11 @@ namespace hall::watchdog {
             if constexpr (FAMILY == STM::F4 || FAMILY == STM::F7) {
                 enum { CSR=0x74, RMVF=24 };
                 cause = RCC(CSR) >> 24;
-                RCC(CSR)[RMVF] = 1; // clears all reset-cause flags
+                RCC(CSR, RMVF) = 1; // clears all reset-cause flags
             } else if constexpr (FAMILY == STM::L4) {
                 enum { CSR=0x94, RMVF=23 };
                 cause = RCC(CSR) >> 24;
-                RCC(CSR)[RMVF] = 1; // clears all reset-cause flags
+                RCC(CSR, RMVF) = 1; // clears all reset-cause flags
             } // TODO add more cases, use lambda to simplify
         }
         return cause & (1<<5) ? -1 :     // iwdg
@@ -243,14 +243,14 @@ namespace hall::watchdog {
     }
 
     void init (int rate) {
-        while (IWDG(SR)[0]) {}  // wait until !PVU
+        while (IWDG(SR, 0)) {}  // wait until !PVU
         IWDG(KR) = 0x5555;      // unlock PR
         IWDG(PR) = rate;        // max timeout, 0 = 400ms, 7 = 26s
         IWDG(KR) = 0xCCCC;      // start watchdog
     }
 
     void reload (int n) {
-        while (IWDG(SR)[1]) {}  // wait until !RVU
+        while (IWDG(SR, 1)) {}  // wait until !RVU
         IWDG(KR) = 0x5555;      // unlock PR
         IWDG(RLR) = n;
         kick();

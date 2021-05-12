@@ -22,128 +22,125 @@ namespace hall {
     void idle ();
     [[noreturn]] void systemReset ();
 
-    struct IOWord {
-        const uint32_t addr;
+    template <typename TYPE, uint32_t ADDR>
+    struct IoBase {
+        constexpr static auto addr = ADDR;
 
-        operator uint32_t () const {
-            return *(volatile uint32_t*) addr;
+        auto& operator() (int off) const {
+            return *(volatile TYPE*) (ADDR+off);
         }
-        auto operator= (uint32_t v) const -> uint32_t {
-            *(volatile uint32_t*) addr = v; return v;
-        }
-        void operator&= (uint32_t v) const {
-            *(volatile uint32_t*) addr &= v;
-        }
-        void operator|= (uint32_t v) const {
-            *(volatile uint32_t*) addr |= v;
-        }
-        
-        auto mask (int b, uint8_t w =1) const {
+    };
+
+    template <uint32_t ADDR> using Io8 = IoBase<uint8_t,ADDR>;
+    template <uint32_t ADDR> using Io16 = IoBase<uint16_t,ADDR>;
+
+    template <uint32_t ADDR>
+    struct Io32 : IoBase<uint32_t,ADDR> {
+        using IoBase<uint32_t,ADDR>::operator();
+
+        auto operator() (int off, int bit, uint8_t num =1) const {
             struct IOMask {
-                volatile uint32_t& a; uint8_t b, w;
+                int o; uint8_t b, w;
 
                 operator uint32_t () const {
+                    auto& a = *(volatile uint32_t*) (ADDR+o);
                     auto m = (1<<w)-1;
                     return (a >> b) & m;
                 }
                 auto operator= (uint32_t v) const {
+                    auto& a = *(volatile uint32_t*) (ADDR+o);
                     auto m = (1<<w)-1;
                     a = (a & ~(m<<b)) | ((v & m)<<b);
                     return v & m;
                 }
             };
 
-            return IOMask {((volatile uint32_t*) addr)[b>>5],
-                            (uint8_t) (b & 0x1F), w};
-        }
-
-        auto& operator[] (int b) const {
-            if constexpr (FAMILY == STM::L0 || FAMILY == STM::F7)
-                return mask(b);
-            // FIXME bit-band only works for specific RAM and periperhal areas!
-            return *(volatile uint32_t*)
-                ((addr & 0xF000'0000) + 0x0200'0000 + (addr << 5) + (b << 2));
+            return IOMask {off + (bit >> 5), (uint8_t) (bit & 0x1F), num};
         }
     };
 
     template <uint32_t ADDR>
-    constexpr auto io32 (int off) { return IOWord {ADDR+off}; }
+    struct Io32b : Io32<ADDR> {
+        using Io32<ADDR>::operator();
 
-    template <uint32_t ADDR>
-    constexpr auto& io16 (int off) { return *(volatile uint16_t*) (ADDR+off); }
+        auto& operator() (int off, int bit) const {
+            uint32_t a = ADDR + off + (bit>>5);
+            return *(volatile uint32_t*)
+                ((a & 0xF000'0000) + 0x0200'0000 + (a<<5) + ((bit&0x1F)<<2));
+        }
+    };
 
-    template <uint32_t ADDR>
-    constexpr auto& io8 (int off) { return *(volatile uint8_t*) (ADDR+off); }
+    constexpr Io32<0> anyIo32;
 
     namespace dev {
         //CG< devs
-        constexpr auto ADC1       = io32<0x50040000>;
-        constexpr auto ADC2       = io32<0x50040100>;
-        constexpr auto ADC_Common = io32<0x50040300>;
-        constexpr auto AES        = io32<0x50060000>;
-        constexpr auto CAN1       = io32<0x40006400>;
-        constexpr auto COMP       = io32<0x40010200>;
-        constexpr auto CRC        = io32<0x40023000>;
-        constexpr auto CRS        = io32<0x40006000>;
-        constexpr auto DAC1       = io32<0x40007400>;
-        constexpr auto DBGMCU     = io32<0xE0042000>;
-        constexpr auto DFSDM      = io32<0x40016000>;
-        constexpr auto DMA1       = io32<0x40020000>;
-        constexpr auto DMA2       = io32<0x40020400>;
-        constexpr auto EXTI       = io32<0x40010400>;
-        constexpr auto FIREWALL   = io32<0x40011C00>;
-        constexpr auto FLASH      = io32<0x40022000>;
-        constexpr auto FPU        = io32<0xE000EF34>;
-        constexpr auto FPU_CPACR  = io32<0xE000ED88>;
-        constexpr auto GPIOA      = io32<0x48000000>;
-        constexpr auto GPIOB      = io32<0x48000400>;
-        constexpr auto GPIOC      = io32<0x48000800>;
-        constexpr auto GPIOD      = io32<0x48000C00>;
-        constexpr auto GPIOE      = io32<0x48001000>;
-        constexpr auto GPIOH      = io32<0x48001C00>;
-        constexpr auto I2C1       = io32<0x40005400>;
-        constexpr auto I2C2       = io32<0x40005800>;
-        constexpr auto I2C3       = io32<0x40005C00>;
-        constexpr auto I2C4       = io32<0x40008400>;
-        constexpr auto IWDG       = io32<0x40003000>;
-        constexpr auto LCD        = io32<0x40002400>;
-        constexpr auto LPTIM1     = io32<0x40007C00>;
-        constexpr auto LPTIM2     = io32<0x40009400>;
-        constexpr auto LPUART1    = io32<0x40008000>;
-        constexpr auto MPU        = io32<0xE000ED90>;
-        constexpr auto NVIC       = io32<0xE000E100>;
-        constexpr auto NVIC_STIR  = io32<0xE000EF00>;
-        constexpr auto OPAMP      = io32<0x40007800>;
-        constexpr auto PWR        = io32<0x40007000>;
-        constexpr auto QUADSPI    = io32<0xA0001000>;
-        constexpr auto RCC        = io32<0x40021000>;
-        constexpr auto RNG        = io32<0x50060800>;
-        constexpr auto RTC        = io32<0x40002800>;
-        constexpr auto SAI1       = io32<0x40015400>;
-        constexpr auto SCB        = io32<0xE000ED00>;
-        constexpr auto SCB_ACTRL  = io32<0xE000E008>;
-        constexpr auto SDMMC      = io32<0x40012800>;
-        constexpr auto SPI1       = io32<0x40013000>;
-        constexpr auto SPI2       = io32<0x40003800>;
-        constexpr auto SPI3       = io32<0x40003C00>;
-        constexpr auto STK        = io32<0xE000E010>;
-        constexpr auto SWPMI1     = io32<0x40008800>;
-        constexpr auto SYSCFG     = io32<0x40010000>;
-        constexpr auto TIM1       = io32<0x40012C00>;
-        constexpr auto TIM15      = io32<0x40014000>;
-        constexpr auto TIM16      = io32<0x40014400>;
-        constexpr auto TIM2       = io32<0x40000000>;
-        constexpr auto TIM3       = io32<0x40000400>;
-        constexpr auto TIM6       = io32<0x40001000>;
-        constexpr auto TIM7       = io32<0x40001400>;
-        constexpr auto TSC        = io32<0x40024000>;
-        constexpr auto UART4      = io32<0x40004C00>;
-        constexpr auto USART1     = io32<0x40013800>;
-        constexpr auto USART2     = io32<0x40004400>;
-        constexpr auto USART3     = io32<0x40004800>;
-        constexpr auto USB        = io32<0x40006800>;
-        constexpr auto VREFBUF    = io32<0x40010030>;
-        constexpr auto WWDG       = io32<0x40002C00>;
+        constexpr Io32  <0x50040000> ADC1;
+        constexpr Io32  <0x50040100> ADC2;
+        constexpr Io32  <0x50040300> ADC_Common;
+        constexpr Io32  <0x50060000> AES;
+        constexpr Io32b <0x40006400> CAN1;
+        constexpr Io32b <0x40010200> COMP;
+        constexpr Io32b <0x40023000> CRC;
+        constexpr Io32b <0x40006000> CRS;
+        constexpr Io32b <0x40007400> DAC1;
+        constexpr Io32  <0xE0042000> DBGMCU;
+        constexpr Io32b <0x40016000> DFSDM;
+        constexpr Io32b <0x40020000> DMA1;
+        constexpr Io32b <0x40020400> DMA2;
+        constexpr Io32b <0x40010400> EXTI;
+        constexpr Io32b <0x40011C00> FIREWALL;
+        constexpr Io32b <0x40022000> FLASH;
+        constexpr Io32  <0xE000EF34> FPU;
+        constexpr Io32  <0xE000ED88> FPU_CPACR;
+        constexpr Io32b <0x48000000> GPIOA;
+        constexpr Io32b <0x48000400> GPIOB;
+        constexpr Io32b <0x48000800> GPIOC;
+        constexpr Io32b <0x48000C00> GPIOD;
+        constexpr Io32b <0x48001000> GPIOE;
+        constexpr Io32b <0x48001C00> GPIOH;
+        constexpr Io32b <0x40005400> I2C1;
+        constexpr Io32b <0x40005800> I2C2;
+        constexpr Io32b <0x40005C00> I2C3;
+        constexpr Io32b <0x40008400> I2C4;
+        constexpr Io32b <0x40003000> IWDG;
+        constexpr Io32b <0x40002400> LCD;
+        constexpr Io32b <0x40007C00> LPTIM1;
+        constexpr Io32b <0x40009400> LPTIM2;
+        constexpr Io32b <0x40008000> LPUART1;
+        constexpr Io32  <0xE000ED90> MPU;
+        constexpr Io32  <0xE000E100> NVIC;
+        constexpr Io32  <0xE000EF00> NVIC_STIR;
+        constexpr Io32b <0x40007800> OPAMP;
+        constexpr Io32b <0x40007000> PWR;
+        constexpr Io32  <0xA0001000> QUADSPI;
+        constexpr Io32b <0x40021000> RCC;
+        constexpr Io32  <0x50060800> RNG;
+        constexpr Io32b <0x40002800> RTC;
+        constexpr Io32b <0x40015400> SAI1;
+        constexpr Io32  <0xE000ED00> SCB;
+        constexpr Io32  <0xE000E008> SCB_ACTRL;
+        constexpr Io32b <0x40012800> SDMMC;
+        constexpr Io32b <0x40013000> SPI1;
+        constexpr Io32b <0x40003800> SPI2;
+        constexpr Io32b <0x40003C00> SPI3;
+        constexpr Io32  <0xE000E010> STK;
+        constexpr Io32b <0x40008800> SWPMI1;
+        constexpr Io32b <0x40010000> SYSCFG;
+        constexpr Io32b <0x40012C00> TIM1;
+        constexpr Io32b <0x40014000> TIM15;
+        constexpr Io32b <0x40014400> TIM16;
+        constexpr Io32b <0x40000000> TIM2;
+        constexpr Io32b <0x40000400> TIM3;
+        constexpr Io32b <0x40001000> TIM6;
+        constexpr Io32b <0x40001400> TIM7;
+        constexpr Io32b <0x40024000> TSC;
+        constexpr Io32b <0x40004C00> UART4;
+        constexpr Io32b <0x40013800> USART1;
+        constexpr Io32b <0x40004400> USART2;
+        constexpr Io32b <0x40004800> USART3;
+        constexpr Io32b <0x40006800> USB;
+        constexpr Io32b <0x40010030> VREFBUF;
+        constexpr Io32b <0x40002C00> WWDG;
         //CG>
     }
 
@@ -255,9 +252,13 @@ namespace hall {
         constexpr static auto OFF = FAMILY == STM::F1 ? 0x0 : 0x8;
         enum { IDR=0x08+OFF, ODR=0x0C+OFF, BSRR=0x10+OFF };
 
-        auto gpio32 (int off) const -> IOWord {
+        auto gpio32 (int off) const -> volatile uint32_t& {
             return dev::GPIOA(0x400*port+off);
         }
+        auto gpio32 (int off, int bit, uint8_t num =1) const {
+            return dev::GPIOA(0x400*port+off, bit, num);
+        }
+
         auto mode (int) const -> int;
         auto mode (char const* desc) const -> int;
     };
@@ -298,7 +299,7 @@ namespace hall {
     }
 
     namespace cycles {
-        constexpr auto DWT = io32<0xE000'1000>;
+        constexpr Io32<0xE000'1000> DWT;
 
         void init ();
         void deinit ();

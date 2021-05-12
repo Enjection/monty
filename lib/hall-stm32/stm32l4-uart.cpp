@@ -6,8 +6,8 @@ using namespace hall::dev;
 struct DmaInfo { uint32_t base; uint8_t streams [8]; };
 
 DmaInfo const dmaInfo [] = {
-    { DMA1(0).addr, { 0, 11, 12, 13, 14, 15, 16, 17 }},
-    { DMA2(0).addr, { 0, 56, 57, 58, 59, 60, 68, 69 }},
+    { DMA1.addr, { 0, 11, 12, 13, 14, 15, 16, 17 }},
+    { DMA2.addr, { 0, 56, 57, 58, 59, 60, 68, 69 }},
 };
 
 struct UartInfo {
@@ -21,12 +21,34 @@ struct UartInfo {
 struct Uart : Device {
     Uart (UartInfo const& d) : dev (d) {}
 
+    auto& devReg (int off) const {
+        return anyIo32(dev.base+off);
+    }
+    auto devReg (int off, int bit, uint8_t num =1) const {
+        return anyIo32(dev.base+off, bit, num);
+    }
+    auto& dmaReg (int off) const {
+        return anyIo32(dev.dmaBase()+off);
+    }
+    auto& dmaRX (int off) const {
+        return anyIo32(dev.dmaBase()+off+0x14*(dev.rxStream-1));
+    }
+    auto dmaRX (int off, int bit, uint8_t num =1) const {
+        return anyIo32(dev.dmaBase()+off+0x14*(dev.rxStream-1), bit, num);
+    }
+    auto& dmaTX (int off) const {
+        return anyIo32(dev.dmaBase()+off+0x14*(dev.txStream-1));
+    }
+    auto dmaTX (int off, int bit, uint8_t num =1) const {
+        return anyIo32(dev.dmaBase()+off+0x14*(dev.txStream-1), bit, num);
+    }
+
     void init (char const* desc, uint32_t rate) {
         Pin::define(desc);
         rxBuf = pool.allocate();
 
-        RCC(APB1ENR)[dev.ena] = 1; // uart on
-        RCC(AHB1ENR)[dev.dma] = 1; // dma on
+        RCC(APB1ENR, dev.ena) = 1; // uart on
+        RCC(AHB1ENR, dev.dma) = 1; // dma on
 
         dmaRX(CNDTR) = RXSIZE;
         dmaRX(CPAR) = dev.base + RDR;
@@ -50,8 +72,8 @@ struct Uart : Device {
     }
 
     void deinit () {
-        RCC(APB1ENR)[dev.ena] = 0; // uart off
-        RCC(AHB1ENR)[dev.dma] = 0; // dma off
+        RCC(APB1ENR, dev.ena) = 0; // uart off
+        RCC(AHB1ENR, dev.dma) = 0; // dma off
         pool.releasePtr(rxBuf); // TODO what about a TX in progress?
     }
 
@@ -65,7 +87,7 @@ struct Uart : Device {
         dmaTX(CNDTR) = pool.tag(i);
         dmaTX(CMAR) = (uint32_t) pool[i];
         devReg(CR) = (1<<6); // clear TC
-        dmaTX(CCR)[0] = 1; // EN
+        dmaTX(CCR, 0) = 1; // EN
     }
 
     // the actual interrupt handler, with access to the uart object
@@ -85,8 +107,8 @@ struct Uart : Device {
     }
 
     void process () override {
-        if (dmaTX(CCR)[0] && dmaTX(CNDTR) == 0) { // EN
-            dmaTX(CCR)[0] = 0; // ~EN
+        if (dmaTX(CCR, 0) && dmaTX(CNDTR) == 0) { // EN
+            dmaTX(CCR, 0) = 0; // ~EN
             pool.releasePtr((uint8_t*)(uint32_t) dmaTX(CMAR));
             writers.post();
         }
@@ -103,29 +125,16 @@ protected:
     constexpr static auto RXSIZE = pool.BUFLEN;
     uint8_t* rxBuf;
 private:
-    auto devReg (int off) const -> IOWord {
-        return IOWord {dev.base+off};
-    }
-    auto dmaReg (int off) const -> IOWord {
-        return IOWord {dev.dmaBase()+off};
-    }
-    auto dmaRX (int off) const -> IOWord {
-        return dmaReg(off+0x14*(dev.rxStream-1));
-    }
-    auto dmaTX (int off) const -> IOWord {
-        return dmaReg(off+0x14*(dev.txStream-1));
-    }
-
     enum { AHB1ENR=0x48, APB1ENR=0x58 };
     enum { CR1=0x00,CR3=0x08,BRR=0x0C,SR=0x1C,CR=0x20,RDR=0x24,TDR=0x28 };
     enum { ISR=0x00,IFCR=0x04,CCR=0x08,CNDTR=0x0C,CPAR=0x10,CMAR=0x14,CSELR=0xA8 };
 };
 
 Uart uarts [] = {
-    UartInfo { 1, 78, 37, 0, 2, 5, 2, 4, USART1(0).addr },
-    UartInfo { 2, 17, 38, 0, 2, 6, 2, 7, USART2(0).addr },
-    UartInfo { 3, 18, 38, 0, 2, 3, 2, 2, USART3(0).addr },
-    UartInfo { 4, 19, 52, 1, 2, 5, 2, 3, UART4(0).addr  },
+    UartInfo { 1, 78, 37, 0, 2, 5, 2, 4, USART1.addr },
+    UartInfo { 2, 17, 38, 0, 2, 6, 2, 7, USART2.addr },
+    UartInfo { 3, 18, 38, 0, 2, 3, 2, 2, USART3.addr },
+    UartInfo { 4, 19, 52, 1, 2, 5, 2, 3, UART4.addr  },
 };
 
 namespace hall::uart {
