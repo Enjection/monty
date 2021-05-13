@@ -16,11 +16,13 @@ void hall::systemReset () {
     exit(1);
 }
 
+Device* devMap [20];  // must be large enough to hold all device objects
 uint8_t devNext;
 volatile uint32_t Device::pending;
 
 Device::Device () {
-    _id = devNext++;
+    _id = devNext;
+    devMap[devNext++] = this;
 }
 
 auto Device::dispatch () -> bool {
@@ -34,7 +36,7 @@ auto Device::dispatch () -> bool {
         return false;
     for (int i = 0; i < devNext; ++i)
         if (pend & (1<<i))
-            ;//TODO devMap[i]->process();
+            devMap[i]->process();
     return true;
 }
 
@@ -45,6 +47,13 @@ namespace hall::systick {
     pthread_t tickId;
 
     struct Ticker : Device {
+        void process () override {
+            auto now = (uint16_t) millis();
+            uint16_t limit = 100;
+            for (int i = 0; i < devNext; ++i)
+                devMap[i]->expire(now, limit);
+            init(limit);
+        }
     };
 
     Ticker ticker;

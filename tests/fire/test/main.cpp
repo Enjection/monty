@@ -4,6 +4,14 @@
 using namespace hall;
 using namespace boss;
 
+#if 0
+#define idle MOCK_idle
+namespace hall {
+    namespace systick { extern volatile uint32_t ticks; }
+    void idle () { ++systick::ticks; }
+}
+#endif
+
 void boss::debugf (const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -12,7 +20,7 @@ void boss::debugf (const char* fmt, ...) {
 }
 
 void setUp () {
-    systick::init();
+    systick::init(1);
 }
 
 void tearDown () {
@@ -61,12 +69,15 @@ puts("22!");
         }
     });
 
+#if 0
     auto busy = true;
     for (int i = 0; busy && i < 100; ++i)
         busy = Fiber::runLoop();
 
     //TEST_ASSERT_FALSE(busy);
-    //while (Fiber::runLoop()) {}
+#else
+    while (Fiber::runLoop()) {}
+#endif
 }
 
 int main () {
