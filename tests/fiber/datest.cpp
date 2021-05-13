@@ -1,5 +1,5 @@
 #include "monty.h"
-#include <doctest/doctest.h>
+#include "doctest.h"
 
 using namespace monty;
 

@@ -1,24 +1,34 @@
-L = ../../lib
+LIBS = ../../lib
+DIRS = hall-native boss monty extend arch-native pyvm
 
 CXXFLAGS += -std=c++17 -DNATIVE -Wall -Wextra
-CXXFLAGS += -I$L/hall-native -I$L/boss
-CXXFLAGS += -I$L/monty -I$L/extend -I$L/arch-native -I$L/pyvm
+CXXFLAGS += $(patsubst %,-I$(LIBS)/%,$(DIRS))
 
-S = $(wildcard *.cpp) \
-    $(wildcard $L/hall-native/*.cpp) \
-    $(wildcard $L/boss/*.cpp) \
-    $(wildcard $L/monty/*.cpp) \
-    $(wildcard $L/extend/*.cpp) \
-    $(wildcard $L/arch-native/*.cpp) \
-    $(wildcard $L/pyvm/*.cpp) \
+VPATH = $(patsubst %,$(LIBS)/%,$(DIRS))
 
-O = $(patsubst %.cpp,%.o,$S)
+SRCS = \
+	$(wildcard *.cpp) \
+	$(wildcard $(LIBS)/hall-native/*.cpp) \
+	$(wildcard $(LIBS)/boss/*.cpp) \
+	$(wildcard $(LIBS)/monty/*.cpp) \
+	$(wildcard $(LIBS)/extend/*.cpp) \
+	$(wildcard $(LIBS)/arch-native/*.cpp) \
+	$(wildcard $(LIBS)/pyvm/*.cpp) \
 
-all: main
-	@ clear && ./main -nv
+OBJS = $(patsubst %.cpp,%.o,$(notdir $(SRCS)))
 
-main: $O
-	$(CXX) $(CXXFLAGS) $^ -o $@
+all: cls main
+	@ ./main -nv || true
+
+cls:
+	@ clear && date
+
+main: $(OBJS)
+	@ $(CXX) $(LDFLAGS) $(^F) $(LDLIBS) -o $@
+
+%.o: %.cpp
+	@ echo $(CXX) $<
+	@ $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
 
 clean:
-	rm -f $O main
+	rm -f *.o main
