@@ -7,5 +7,6 @@ __pycache__/
 
 *.mpy
 *.out
+*.o
 
 t.py
