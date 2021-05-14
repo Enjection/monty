@@ -131,3 +131,4 @@ try:
     main()
 except KeyboardInterrupt:
     print()
+    sys.exit(2)
