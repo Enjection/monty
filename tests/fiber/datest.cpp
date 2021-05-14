@@ -13,7 +13,7 @@ TEST_CASE("monty") {
     }
 
     SUBCASE("dataSizes") {
-        //CHECK(sizeof (ByteVec) == sizeof (VaryVec));
+        CHECK(sizeof (ByteVec) == sizeof (VaryVec));
         CHECK(sizeof (void*) == sizeof (Value));
         CHECK(sizeof (void*) == sizeof (Object));
         CHECK(sizeof (void*) == sizeof (None));
@@ -31,8 +31,8 @@ TEST_CASE("monty") {
         struct Normal { void* p; int64_t i; };
         CHECK((sizeof (Packed) < sizeof (Normal) || 8 * sizeof (void*) == 64));
 
-        //CHECK(sizeof (Packed) >= sizeof (Int));
-        //CHECK(sizeof (Normal) <= sizeof (Int));
+        CHECK(sizeof (Packed) >= sizeof (Int));
+        CHECK(sizeof (Normal) <= sizeof (Int));
 
         // TODO incorrect formulas (size rounded up), but it works on 32b & 64b ...
         CHECK(2 * sizeof (void*) + 8 == sizeof (Range));
@@ -59,6 +59,7 @@ TEST_CASE("monty") {
         }
     }
 
+#define CHECK_STR_EQ(x,y) CHECK(strcmp((char const*)(x), (char const*)(y)) == 0)
     SUBCASE("varyVecTests") {
         VaryVec v;
         CHECK(0 == v.size());
@@ -70,61 +71,61 @@ TEST_CASE("monty") {
         v.atSet(0, "abc", 4);
         CHECK(1 == v.size());
         CHECK(4 == v.atLen(0));
-        CHECK(0 == strcmp("abc", (char const*) v.atGet(0)));
+        CHECK_STR_EQ("abc", v.atGet(0));
 
         v.insert(0);
         CHECK(2 == v.size());
         CHECK(0 == v.atLen(0));
         CHECK(4 == v.atLen(1));
-        CHECK(0 == strcmp("abc", (char const*) v.atGet(1)));
+        CHECK_STR_EQ("abc", v.atGet(1));
 
         v.atSet(0, "defg", 5);
         CHECK(5 == v.atLen(0));
         CHECK(4 == v.atLen(1));
-        CHECK(0 == strcmp("defg", (char const*) v.atGet(0)));
-        CHECK(0 == strcmp("abc", (char const*) v.atGet(1)));
+        CHECK_STR_EQ("defg", v.atGet(0));
+        CHECK_STR_EQ("abc", v.atGet(1));
 
         v.atSet(0, "hi", 3);
         CHECK(3 == v.atLen(0));
         CHECK(4 == v.atLen(1));
-        CHECK(0 == strcmp("hi", (char const*) v.atGet(0)));
-        CHECK(0 == strcmp("abc", (char const*) v.atGet(1)));
+        CHECK_STR_EQ("hi", v.atGet(0));
+        CHECK_STR_EQ("abc", v.atGet(1));
 
         v.atSet(0, nullptr, 0);
         CHECK(0 == v.atLen(0));
         CHECK(4 == v.atLen(1));
-        CHECK(0 == strcmp("abc", (char const*) v.atGet(1)));
+        CHECK_STR_EQ("abc", v.atGet(1));
 
         v.remove(0);
         CHECK(1 == v.size());
         CHECK(4 == v.atLen(0));
-        CHECK(0 == strcmp("abc", (char const*) v.atGet(0)));
+        CHECK_STR_EQ("abc", v.atGet(0));
 
         v.insert(1, 3);
         CHECK(4 == v.size());
         CHECK(4 == v.atLen(0));
-        CHECK(0 == strcmp("abc", (char const*) v.atGet(0)));
+        CHECK_STR_EQ("abc", v.atGet(0));
         CHECK(0 == v.atLen(1));
         CHECK(0 == v.atLen(2));
         CHECK(0 == v.atLen(3));
         v.atSet(3, "four", 5);
-        CHECK(0 == strcmp("four", (char const*) v.atGet(3)));
+        CHECK_STR_EQ("four", v.atGet(3));
         v.atSet(2, "three", 6);
-        CHECK(0 == strcmp("three", (char const*) v.atGet(2)));
+        CHECK_STR_EQ("three", v.atGet(2));
         v.atSet(1, "two", 4);
-        CHECK(0 == strcmp("two", (char const*) v.atGet(1)));
+        CHECK_STR_EQ("two", v.atGet(1));
         v.atSet(0, "one", 4);
-        CHECK(0 == strcmp("one", (char const*) v.atGet(0)));
-        CHECK(0 == strcmp("two", (char const*) v.atGet(1)));
-        CHECK(0 == strcmp("three", (char const*) v.atGet(2)));
-        CHECK(0 == strcmp("four", (char const*) v.atGet(3)));
+        CHECK_STR_EQ("one", v.atGet(0));
+        CHECK_STR_EQ("two", v.atGet(1));
+        CHECK_STR_EQ("three", v.atGet(2));
+        CHECK_STR_EQ("four", v.atGet(3));
 
         v.remove(1, 2);
         CHECK(2 == v.size());
         CHECK(4 == v.atLen(0));
         CHECK(5 == v.atLen(1));
-        CHECK(0 == strcmp("one", (char const*) v.atGet(0)));
-        CHECK(0 == strcmp("four", (char const*) v.atGet(1)));
+        CHECK_STR_EQ("one", v.atGet(0));
+        CHECK_STR_EQ("four", v.atGet(1));
     }
 
     Object::sweep();
