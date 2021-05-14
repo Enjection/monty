@@ -1,15 +1,14 @@
+# this makefile is for use by tdd.py
+
 LIBS = ../../lib
 DIRS = hall-native boss monty extend arch-native pyvm
+CXXFLAGS = -std=c++17 -DNATIVE -Wall -Wextra
 
-CXXFLAGS += -std=c++17 -DNATIVE -Wall -Wextra
+# everything below is essentially automatic
+
 CXXFLAGS += $(patsubst %,-I$(LIBS)/%,$(DIRS))
-
-# everything below is essentially automatic ...
-
 VPATH = $(patsubst %,$(LIBS)/%,$(DIRS))
-
 SRCS = $(wildcard *.cpp) $(foreach D,$(DIRS),$(wildcard $(LIBS)/$D/*.cpp))
-
 OBJS = $(patsubst %.cpp,%.o,$(notdir $(SRCS)))
 
 all: cls main
