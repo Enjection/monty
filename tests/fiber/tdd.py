@@ -5,10 +5,10 @@ verbose = False
 import os, subprocess, sys, time
 
 cmd = "fswatch -l 0.1 . ../../lib"
-proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, text=True)
 print("<<< %s >>>" % cmd)
+proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, text=True)
 
-incMap, useMap, hdrMap, srcs = {}, {}, {}, set()
+incMap, revMap, hdrMap, srcSet = {}, {}, {}, set()
 
 # scan source files and update the include and reverse-include maps
 def updateMaps(fn):
@@ -29,29 +29,30 @@ def updateMaps(fn):
 
     if verbose:
         print(fn)
-        print("(U)  NEW:  ", incs)
-        print("(U)  OLD:  ", prevIncs)
-        print("(U)    DEL:", prevIncs - incs)
-        print("(U)    ADD:", incs - prevIncs)
+        print("(U) NEW:  ", incs)
+        print("(U) OLD:  ", prevIncs)
+        print("(U)   DEL:", prevIncs - incs)
+        print("(U)   ADD:", incs - prevIncs)
+
     for h in prevIncs - incs:
-        useMap[h].remove(fn)
+        revMap[h].remove(fn)
     for h in incs - prevIncs:
-        useMap[h] = useMap.get(h, set())
-        useMap[h].add(fn)
+        revMap[h] = revMap.get(h, set())
+        revMap[h].add(fn)
         if h in hdrMap and hdrMap[h] not in incMap:
             updateMaps(hdrMap[h]) # scan header if not done earlier
 
 # remove object files which include this header (transitively)
 def removeBuild(bn):
-    if bn in useMap:
-        for u in useMap[bn]:
+    if bn in revMap:
+        for u in revMap[bn]:
             if u[-2:] == ".h":
                 removeBuild(os.path.basename(u))
             elif u[-4:] == ".cpp":
                 o = os.path.basename(u)[:-4] + '.o'
                 if os.path.isfile(o):
                     if verbose:
-                        print("(R)  GONE:", o)
+                        print("(R) GONE:", o)
                     os.remove(o)
 
 # locate headers in all include directories
@@ -69,18 +70,24 @@ def findHeaders():
 def scanSources():
     files = set(subprocess.getoutput("make srcs").split())
     if verbose:
-        print("(S)  NEW:  ", files)
-        print("(S)  OLD:  ", srcs)
-        print("(S)    DEL:", srcs - files)
-        print("(S)    ADD:", files - srcs)
-    for s in srcs - files:
-        del incMap[s]
-    for s in files - srcs:
-        updateMaps(s)
-    srcs.clear()
-    srcs.update(files)
+        print("(S) NEW:  ", files)
+        print("(S) OLD:  ", srcSet)
+        print("(S)   DEL:", srcSet - files)
+        print("(S)   ADD:", files - srcSet)
 
+    for s in srcSet - files:
+        del incMap[s]
+    for s in files - srcSet:
+        updateMaps(s)
+    srcSet.clear()
+    srcSet.update(files)
+
+# process changes in Makefile, *.h, *.cpp, and this script
 def main():
+    findHeaders()
+    scanSources()
+    print("<<<", len(hdrMap), "headers,", len(srcSet), "sources", ">>>")
+
     last = 0
     for line in proc.stdout:
         fn = line.strip()
@@ -108,9 +115,6 @@ def main():
             last = time.monotonic()
 
 try:
-    findHeaders()
-    scanSources()
-    print("<<<", len(hdrMap), "headers,", len(srcs), "sources", ">>>")
     main()
 except KeyboardInterrupt:
     print()
