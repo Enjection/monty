@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 
-verbose = False
+# Simple TDD watcher/runner - needs a matching makefile to work properly.
+# Everything is configured via the makefile, launch this as: ./tdd.py
+# This code relies on "python3", "make", "fswatch", and "doctest.h".
+# -jcw, May 2021
 
 import os, subprocess, sys, time
 
-cmd = "fswatch -l 0.1 . ../../lib"
-print("<<< %s >>>" % cmd)
-proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, text=True)
+if len(sys.argv) < 2:
+    print("<<< re-starting as: make tdd >>>")
+    os.execlp('make', 'make', 'tdd')
+    assert False
 
 incMap, revMap, hdrMap, srcSet = {}, {}, {}, set()
 
@@ -113,6 +117,15 @@ def main():
                 scanSources()
 
             last = time.monotonic()
+
+verbose = False
+if sys.argv[1] == "-v":
+    verbose = True
+    del sys.argv[1]
+
+cmd = ['fswatch', '-l', '0.1'] + sys.argv[1:]
+print("<<< %s >>>" % ' '.join(cmd))
+proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
 
 try:
     main()

@@ -11,6 +11,8 @@ VPATH = $(patsubst %,$(LIBS)/%,$(DIRS))
 SRCS = $(wildcard *.cpp) $(foreach D,$(DIRS),$(wildcard $(LIBS)/$D/*.cpp))
 OBJS = $(patsubst %.cpp,%.o,$(notdir $(SRCS)))
 
+tdd: ; @ ./tdd.py . $(LIBS)
+
 all: cls main
 	@ ./main -nv -ne
 
