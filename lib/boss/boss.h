@@ -33,32 +33,33 @@ namespace boss {
 
         auto idOf (void const* p) const -> uint8_t {
             assert(bufs + 1 <= p && p < bufs + nBuf);
-            return ((uint8_t const*) p - bufs[0].b) / BUFLEN;
+            return ((uint8_t const*) p - bufs[0].b) / sizeof (Buffer);
         }
 
         auto tag (uint8_t i) -> uint8_t& { return bufs[0].b[i]; }
         auto tag (uint8_t i) const -> uint8_t { return bufs[0].b[i]; }
-        auto tagOf (void const* p) -> uint8_t& { return tag(idOf(p)); }
 
         auto hasFree () { return tag(0) != 0; }
 
+        void init ();
         auto allocate () -> uint8_t*;
         void release (uint8_t i) { tag(i) = tag(0); tag(0) = i; }
         void releasePtr (uint8_t* p) { release(idOf(p)); }
 
-        auto items (uint8_t i =0) const -> int;
+        auto items (uint8_t i) const -> int;
         void check () const;
 
         auto operator[] (uint8_t i) -> uint8_t* { return bufs[i].b; }
     private:
-        uint8_t nBuf;
+        uint8_t const nBuf;
         // make sure there's always room for jmp_buf, even if it exceeds BUFLEN
         alignas(8) union Buffer {
-            uint8_t f [sizeof (jmp_buf) + 100]; // TODO slack until segmented
+            uint8_t f [sizeof (jmp_buf) + 120]; // TODO slack until segmented
             uint8_t b [BUFLEN];
         } *bufs;
 
         static_assert(BUFLEN < 256, "buffer fill must fit in a uint8_t");
+        static_assert(sizeof (Buffer) % 8 == 0);
     };
 
     extern Pool pool;

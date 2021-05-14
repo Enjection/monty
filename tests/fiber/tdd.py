@@ -39,31 +39,33 @@ def updateMaps(fn):
 def removeBuild(bn):
     if bn in useMap:
         for u in useMap[bn]:
-            if u[-4:] == ".cpp":
+            if u[-2:] == ".h":
+                removeBuild(os.path.basename(u))
+            elif u[-4:] == ".cpp":
                 o = os.path.basename(u)[:-4] + '.o'
-                if verbose:
+                if os.path.isfile(o):
                     print("REMOVE", o)
-                try:
                     os.remove(o)
-                except FileNotFoundError:
-                    pass
 
-last = 0
-for line in proc.stdout:
-    fn = line.strip()
-    bn = os.path.basename(fn)
-    ext = os.path.splitext(fn)[1]
-    if bn == 'tdd.py':
-        print(bn, "changed")
-        sys.exit()
-    if ext in ['','.h','.cpp']:
-        if time.monotonic() > last + 0.3:
-            if ext == '.cpp':
-                updateMaps(fn)
-            elif ext == '.h':
-                removeBuild(bn)
-            cmd = ['make', 'all']
-            if bn == 'Makefile':
-                cmd.insert(1, 'clean')
-            subprocess.run(cmd)
-        last = time.monotonic()
+try:
+    last = 0
+    for line in proc.stdout:
+        fn = line.strip()
+        bn = os.path.basename(fn)
+        ext = os.path.splitext(fn)[1]
+        if bn == 'tdd.py':
+            print(bn, "changed")
+            sys.exit()
+        if ext in ['','.h','.cpp']:
+            if time.monotonic() > last + 0.3:
+                if ext:
+                    updateMaps(fn)
+                if ext == '.h':
+                    removeBuild(bn)
+                cmd = ['make', 'all']
+                if bn == 'Makefile':
+                    cmd.insert(1, 'clean')
+                subprocess.run(cmd)
+            last = time.monotonic()
+except KeyboardInterrupt:
+    print()

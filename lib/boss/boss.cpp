@@ -83,6 +83,10 @@ Pool::Pool (void* ptr, size_t len)
     assert(len / sizeof (Buffer) <= 256);    //buffer id must fit in a uint8_t
     assert(nBuf <= BUFLEN);  //free chain must fit in buffer[0]
     assert(((uintptr_t) ptr % 4) == 0);
+    init();
+}
+
+void Pool::init () {
     for (int i = 0; i < nBuf-1; ++i)
         tag(i) = i+1;
     tag(nBuf-1) = 0;
