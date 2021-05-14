@@ -96,24 +96,24 @@ def main():
     for line in proc.stdout:
         fn = line.strip()
         bn = os.path.basename(fn)
-        ext = os.path.splitext(fn)[1]
+        ext = os.path.splitext(bn)[1]
         if bn == 'tdd.py':
             print(bn, "changed")
             sys.exit()
 
         if ext in ['','.h','.cpp']:
-            if time.monotonic() > last + 0.3:
-                if ext:
-                    updateMaps(fn)
+            if bn == 'Makefile':
+                findHeaders()
+            elif ext:
+                updateMaps(fn)
                 if ext == '.h':
                     removeBuild(bn)
 
+            if time.monotonic() > last + 0.5:
                 cmd = ['make', 'all']
                 if bn == 'Makefile':
-                    findHeaders()
                     cmd.insert(1, 'clean')
                 subprocess.run(cmd)
-
                 scanSources()
 
             last = time.monotonic()
