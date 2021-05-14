@@ -115,7 +115,7 @@ static void* defaultOutOfMemoryHandler () { assert(false); return nullptr; }
 namespace monty {
     void* (*panicOutOfMemory)() = defaultOutOfMemoryHandler;
 
-    auto Obj::isInPool (void const* p) -> bool {
+    auto Obj::inPool (void const* p) -> bool {
         return objLow < p && p < limit;
     }
 
@@ -205,7 +205,7 @@ namespace monty {
         }
     }
 
-    auto Vec::isInPool (void const* p) -> bool {
+    auto Vec::inPool (void const* p) -> bool {
         return start < p && p < vecHigh;
     }
 
@@ -237,8 +237,8 @@ namespace monty {
 
     // many tricky cases, to merge/reuse free slots as much as possible
     auto Vec::adj (uint32_t sz) -> bool {
-        if (!isResizable())
-            return false;
+        if (_data != nullptr && !inPool(_data))
+            return false; // not resizable
         auto capas = slots();
         auto needs = sz > 0 ? multipleOf<VecSlot>(sz + PTR_SZ) : 0U;
         if (capas != needs) {

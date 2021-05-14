@@ -18,7 +18,7 @@ SRCS = \
 OBJS = $(patsubst %.cpp,%.o,$(notdir $(SRCS)))
 
 all: cls main
-	@ ./main -nv || true
+	@ ./main -nv -ne
 
 cls:
 	@ clear && date

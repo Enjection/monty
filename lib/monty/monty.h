@@ -19,8 +19,8 @@ namespace monty {
 
         virtual void marker () const {} // called to mark all ref'd objects
 
-        static auto isInPool (void const* p) -> bool;
-        auto isCollectable () const { return isInPool(this); }
+        static auto inPool (void const* p) -> bool;
+        auto isCollectable () const { return inPool(this); }
 
         auto operator new (size_t bytes) -> void*;
         auto operator new (size_t bytes, uint32_t extra) -> void* {
@@ -47,9 +47,7 @@ namespace monty {
                     : _data ((uint8_t*) data), _capa (capa) {}
         ~Vec () { (void) adj(0); }
 
-        static auto isInPool (void const* p) -> bool;
-        auto isResizable () const { return _data == nullptr || isInPool(_data); }
-
+        static auto inPool (void const* p) -> bool;
         static void compact (); // reclaim and compact unused vector space
         static void dumpAll (); // like compact, but only to print all vec+free
 

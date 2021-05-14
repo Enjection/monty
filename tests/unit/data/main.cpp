@@ -27,7 +27,7 @@ void smokeTest () {
 }
 
 void dataSizes () {
-    //TEST_ASSERT_EQUAL(sizeof (ByteVec), sizeof (VaryVec));
+    TEST_ASSERT_EQUAL(sizeof (ByteVec), sizeof (VaryVec));
     TEST_ASSERT_EQUAL(sizeof (void*), sizeof (Value));
     TEST_ASSERT_EQUAL(sizeof (void*), sizeof (Object));
     TEST_ASSERT_EQUAL(sizeof (void*), sizeof (None));
@@ -45,8 +45,8 @@ void dataSizes () {
     struct Normal { void* p; int64_t i; };
     TEST_ASSERT(sizeof (Packed) < sizeof (Normal) || 8 * sizeof (void*) == 64);
 
-    //TEST_ASSERT_GREATER_OR_EQUAL(sizeof (Packed), sizeof (Int));
-    //TEST_ASSERT_LESS_OR_EQUAL(sizeof (Normal), sizeof (Int));
+    TEST_ASSERT_GREATER_OR_EQUAL(sizeof (Packed), sizeof (Int));
+    TEST_ASSERT_LESS_OR_EQUAL(sizeof (Normal), sizeof (Int));
 
     // TODO incorrect formulas (size rounded up), but it works on 32b & 64b ...
     TEST_ASSERT_EQUAL(2 * sizeof (void*) + 8, sizeof (Range));

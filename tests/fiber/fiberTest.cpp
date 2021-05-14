@@ -44,9 +44,9 @@ TEST_CASE("fiber") {
     SUBCASE("one fiber") {
         Fiber::create([](void*) {
             while (true) {
-puts("11!");
+//puts("11!");
                 Fiber::msWait(1000);
-puts("22!");
+//puts("22!");
                 printf("%u\n", systick::millis());
             }
         });

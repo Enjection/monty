@@ -6,13 +6,13 @@ using namespace monty;
 TEST_CASE("monty") {
     uint8_t memory [3*1024];
     gcSetup(memory, sizeof memory);
-    uint32_t memAvail = gcMax();
+    [[maybe_unused]] uint32_t memAvail = gcMax();
 
-    SUBCASE("smokeTest") {
+    SUBCASE("smoke test") {
         CHECK(42 == 40 + 2);
     }
 
-    SUBCASE("dataSizes") {
+    SUBCASE("struct sizes") {
         CHECK(sizeof (ByteVec) == sizeof (VaryVec));
         CHECK(sizeof (void*) == sizeof (Value));
         CHECK(sizeof (void*) == sizeof (Object));
@@ -39,7 +39,7 @@ TEST_CASE("monty") {
         CHECK(4 * sizeof (void*) == sizeof (Slice));
     }
 
-    SUBCASE("bigIntTests") {
+    SUBCASE("Int object tests") {
         // check that ints over ± 30 bits properly switch to Int objects
         static int64_t tests [] = { 29, 30, 31, 32, 63 };
 
@@ -49,18 +49,18 @@ TEST_CASE("monty") {
             CHECK(pos > 0); // make sure there was no overflow
             CHECK(neg < 0); // make sure there was no underflow
 
-            Value v = Int::make(pos);
+            [[maybe_unused]] Value v = Int::make(pos);
             CHECK(pos == v.asInt());
             CHECK((e <= 30 ? v.isInt() : !v.isInt()));
 
-            Value w = Int::make(neg);
+            [[maybe_unused]] Value w = Int::make(neg);
             CHECK(neg == w.asInt());
             CHECK((e <= 30 ? w.isInt() : !w.isInt()));
         }
     }
 
 #define CHECK_STR_EQ(x,y) CHECK(strcmp((char const*)(x), (char const*)(y)) == 0)
-    SUBCASE("varyVecTests") {
+    SUBCASE("varyVec tests") {
         VaryVec v;
         CHECK(0 == v.size());
 
