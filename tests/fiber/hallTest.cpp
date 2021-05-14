@@ -4,6 +4,13 @@
 using namespace hall;
 using namespace boss;
 
+void boss::debugf (const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
+}
+
 TEST_CASE("systick") {
     systick::init();
 

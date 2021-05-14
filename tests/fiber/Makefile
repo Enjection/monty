@@ -4,24 +4,18 @@ DIRS = hall-native boss monty extend arch-native pyvm
 CXXFLAGS += -std=c++17 -DNATIVE -Wall -Wextra
 CXXFLAGS += $(patsubst %,-I$(LIBS)/%,$(DIRS))
 
+# everything below is essentially automatic ...
+
 VPATH = $(patsubst %,$(LIBS)/%,$(DIRS))
 
-SRCS = \
-	$(wildcard *.cpp) \
-	$(wildcard $(LIBS)/hall-native/*.cpp) \
-	$(wildcard $(LIBS)/boss/*.cpp) \
-	$(wildcard $(LIBS)/monty/*.cpp) \
-	$(wildcard $(LIBS)/extend/*.cpp) \
-	$(wildcard $(LIBS)/arch-native/*.cpp) \
-	$(wildcard $(LIBS)/pyvm/*.cpp) \
+SRCS = $(wildcard *.cpp) $(foreach D,$(DIRS),$(wildcard $(LIBS)/$D/*.cpp))
 
 OBJS = $(patsubst %.cpp,%.o,$(notdir $(SRCS)))
 
 all: cls main
 	@ ./main -nv -ne
 
-cls:
-	@ clear && date
+cls: ; @ clear && date
 
 main: $(OBJS)
 	@ $(CXX) $(LDFLAGS) $(^F) $(LDLIBS) -o $@
@@ -30,5 +24,7 @@ main: $(OBJS)
 	@ echo $(CXX) $<
 	@ $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
 
-clean:
-	rm -f *.o main
+dirs: ; @ echo $(patsubst %,$(LIBS)/%,$(DIRS))
+srcs: ; @ echo $(SRCS)
+
+clean: ; rm -f *.o main
