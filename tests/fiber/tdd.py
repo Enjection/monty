@@ -2,7 +2,7 @@
 
 # Simple TDD watcher/runner - needs a matching makefile to work properly.
 # Everything is configured via the makefile, launch this as: ./tdd.py
-# This code relies on "python3", "make", "fswatch", and "doctest.h".
+# Runs on MacOS + Linux and requires "python3", "make", and "fswatch".
 # -jcw, May 2021
 
 import os, subprocess, sys, time
