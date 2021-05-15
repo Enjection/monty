@@ -57,7 +57,6 @@ namespace hall::systick {
             for (int i = 0; i < devNext; ++i)
                 devMap[i]->expire(now, limit);
             expirer(now, limit);
-//debugf("Tp n %d l %d\n", now, limit);
             init(limit);
         }
     };
@@ -71,7 +70,6 @@ namespace hall::systick {
             ++ticks;
             if (--counter == 0) {
                 counter = rate-1;
-//debugf("tT t %d c %d\n", ticks, counter);
                 ticker.interrupt();
             }
         }

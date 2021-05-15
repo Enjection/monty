@@ -54,7 +54,7 @@ namespace boss {
         uint8_t const nBuf;
         // make sure there's always room for jmp_buf, even if it exceeds BUFLEN
         alignas(8) union Buffer {
-            uint8_t f [(sizeof (jmp_buf) + 120) & ~7]; // TODO
+            uint8_t f [(sizeof (jmp_buf) + 256) & ~7]; // TODO
             uint8_t b [BUFLEN];
         } *bufs;
 
