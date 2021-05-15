@@ -146,6 +146,8 @@ void Fiber::Queue::append (Fid_t i) {
         first = last;
 }
 
+// resume all fibers whose time has come and return that count
+// also reduce the time limit to the earliest timeout coming up
 auto Fiber::Queue::expire (uint16_t now, uint16_t& limit) -> int {
     int num = 0;
     Fid_t* p = &first;
@@ -153,14 +155,14 @@ auto Fiber::Queue::expire (uint16_t now, uint16_t& limit) -> int {
         auto& next = pool.tag(*p);
         auto& f = Fiber::at(*p);
         uint16_t remain = f.timeout - now;
-debugf("FQe n %d r %d t %d n %d\n", *p, remain, f.timeout, now);
+//debugf("FQe n %d r %d t %d n %d\n", *p, remain, f.timeout, now);
         if (remain == 0 || remain > 60'000) {
-            auto c = *p;
-            if (last == c)
+            f.timeout = now + 60'000;
+            if (last == *p)
                 last = next;
             *p = next;
             ++num;
-            Fiber::resume(c, 0);
+            f.resume(0);
         } else if (limit > remain)
             limit = remain;
         p = &next;
@@ -183,23 +185,23 @@ auto Fiber::runLoop () -> bool {
     curr = ready.pull();
     if (curr != 0) {
         auto& fp = at(curr);
-        if (fp.stat != -128)
+        if (fp.result != -128)
             longjmp(fp.context, 1);
         fp.fun(fp.arg);
     }
-    return true;
+    return !timers.isEmpty();
 }
 
 auto Fiber::create (void (*fun)(void*), void* arg) -> Fid_t {
     systick::expirer = [](uint16_t now, uint16_t& limit) {
-debugf("se+ n %d l %d\n", now, limit);
+//debugf("se+ n %d l %d\n", now, limit);
         timers.expire(now, limit);
-debugf("se- n %d l %d\n", now, limit);
+//debugf("se- n %d l %d\n", now, limit);
     };
 
     auto fp = (Fiber*) pool.allocate();
     fp->timeout = (uint16_t) systick::millis(); // TODO needed?
-    fp->stat = -128; // mark as not-started
+    fp->result = -128; // mark as not-started
     fp->fun = fun;
     fp->arg = arg;
     auto id = pool.idOf(fp);
@@ -210,14 +212,14 @@ debugf("se- n %d l %d\n", now, limit);
 auto resumeFixer (void* top) {
     auto fp = &Fiber::at(Fiber::curr);
     memcpy(top, fp->data, (uintptr_t) bottom - (uintptr_t) top);
-    return fp->stat;
+    return fp->result;
 }
 
 void Fiber::processPending () {
     if (Device::dispatch()) {
         uint16_t limit = 100; // TODO arbitrary? also: 24-bit limit on ARM
         timers.expire(systick::millis(), limit);
-        systick::init(limit);
+        systick::init(1);
     }
 }
 
@@ -225,7 +227,7 @@ auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
     auto fp = curr == 0 ? (Fiber*) pool.allocate() : &at(curr);
     curr = 0;
     fp->timeout = (uint16_t) systick::millis() + ms;
-    fp->stat = 0;
+    fp->result = 0;
     q.append(pool.idOf(fp));
     if (setjmp(fp->context) == 0) {
 #if 0

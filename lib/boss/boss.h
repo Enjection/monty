@@ -78,20 +78,22 @@ namespace boss {
             Fid_t first =0, last =0;
         };
 
+        auto id () const { return pool.idOf(this); }
+        void resume (int i) { result = i; ready.append(id()); }
+
         static auto at (Fid_t i) -> Fiber& { return *(Fiber*) pool[i]; }
         static auto runLoop () -> bool;
         static auto create (void (*)(void*), void* =nullptr) -> Fid_t;
         static void processPending ();
         static void msWait (uint16_t ms) { suspend(timers, ms); }
         static auto suspend (Queue&, uint16_t ms =60'000) -> int;
-        static void resume (Fid_t f, int i) { at(f).stat = i; ready.append(f); }
         static void duff (uint32_t* dst, uint32_t const* src, uint32_t cnt);
 
         static Fid_t curr;
         static Queue ready;
         static Queue timers;
 
-        int8_t stat;
+        int8_t result;
         uint16_t timeout;
         union {
             jmp_buf context;
@@ -105,7 +107,7 @@ namespace boss {
 
         void post () {
             if (++count <= 0)
-                Fiber::resume(pull(), 1);
+                Fiber::at(pull()).resume(1);
         }
 
         auto pend (uint32_t ms =60'000) -> int {

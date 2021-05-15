@@ -90,9 +90,9 @@ TEST_CASE("pool") {
     }
 
     SUBCASE("re-init") {
-        auto nFree = pool.items(0);
+        auto nItems = pool.items(0);
         pool.init();
-        CHECK(pool.items(0) == nFree + 3);
+        CHECK(pool.items(0) == nItems + 3);
     }
 
     pool.check();
@@ -103,37 +103,72 @@ TEST_CASE("fiber") {
     pool.init();
 
     SUBCASE("no fibers") {
-        //while (Fiber::runLoop()) {}
+        auto nItems = pool.items(0);
+        while (Fiber::runLoop()) {}
+        CHECK(pool.items(0) == nItems);
     }
 
-    SUBCASE("simgle timer") {
+    SUBCASE("single timer") {
+        auto t = systick::millis();
         auto nItems = pool.items(0);
         CHECK(Fiber::ready.isEmpty());
 
         Fiber::create([](void*) {
-            while (true) {
-puts("FC 1");
+            for (int i = 0; i < 3; ++i)
                 Fiber::msWait(10);
-puts("FC 2");
-                printf("%u\n", systick::millis());
-            }
         });
 
         CHECK(pool.items(0) == nItems - 1);
         CHECK(Fiber::ready.isEmpty() == false);
 
         auto busy = true;
-        for (int i = 0; busy && i < 200; ++i) {
+        for (int i = 0; busy && i < 50; ++i) {
             busy = Fiber::runLoop();
             CHECK(Fiber::ready.isEmpty());
             CHECK(pool.items(0) == nItems - 1);
-            CHECK(Fiber::timers.isEmpty() == false);
-            //MESSAGE("run: ", i, " ms: ", systick::millis());
+            CHECK(Fiber::timers.isEmpty() == !busy);
             idle();
         }
 
-        //TEST_ASSERT_FALSE(busy);
-        //while (Fiber::runLoop()) {}
+        CHECK(!busy);
+        CHECK(systick::millis() - t > 30);
+        CHECK(systick::millis() - t < 40);
+    }
+
+    SUBCASE("multiple timers") {
+        auto t = systick::millis();
+        auto nItems = pool.items(0);
+        CHECK(Fiber::ready.isEmpty());
+
+        constexpr auto N = 1; // FIXME fails with N set to 2 or 3
+        constexpr auto S = "987";
+        for (int i = 0; i < N; ++i)
+            Fiber::create([](void* p) {
+                uint8_t ms = (uintptr_t) p;
+                printf("ms+ %d now %d\n", ms, systick::millis());
+                for (int i = 0; i < 3; ++i) {
+                    Fiber::msWait(ms);
+                    printf("ms- %d now %d\n", ms, systick::millis());
+                }
+            }, (void*)(uintptr_t) (S[i]-'0'));
+
+        CHECK(pool.items(0) == nItems - N);
+        CHECK(Fiber::ready.isEmpty() == false);
+
+        auto busy = true;
+        for (int i = 0; busy && i < 100; ++i) {
+puts("11");
+            busy = Fiber::runLoop();
+puts("22");
+            CHECK(Fiber::ready.isEmpty());
+            CHECK(pool.items(0) == nItems - N);
+            CHECK(Fiber::timers.isEmpty() == !busy);
+            idle();
+        }
+
+        CHECK(!busy);
+        CHECK(systick::millis() - t > 20);
+        CHECK(systick::millis() - t < 40);
     }
 
     systick::deinit();

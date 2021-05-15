@@ -81,7 +81,7 @@ TEST_CASE("monty") {
         v.atSet(0, "defg", 5);
         CHECK(5 == v.atLen(0));
         CHECK(4 == v.atLen(1));
-        CHECK("defg" == (const char*) v.atGet(0));
+        CHECK("defg" == (char const*) v.atGet(0));
         CHECK("abc" == (char const*) v.atGet(1));
 
         v.atSet(0, "hi", 3);
