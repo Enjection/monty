@@ -3,6 +3,7 @@
 
 using namespace hall;
 using namespace boss;
+using systick::millis;
 
 void boss::debugf (const char* fmt, ...) {
     va_list ap;
@@ -15,11 +16,11 @@ TEST_CASE("systick") {
     systick::init();
 
     SUBCASE("ticking") {
-        auto t = systick::millis();
+        auto t = millis();
         idle();
-        CHECK(t+1 == systick::millis());
+        CHECK(t+1 == millis());
         idle();
-        CHECK(t+2 == systick::millis());
+        CHECK(t+2 == millis());
     }
 
     SUBCASE("micros same") {
@@ -109,7 +110,7 @@ TEST_CASE("fiber") {
     }
 
     SUBCASE("single timer") {
-        auto t = systick::millis();
+        auto t = millis();
         auto nItems = pool.items(0);
         CHECK(Fiber::ready.isEmpty());
 
@@ -131,12 +132,12 @@ TEST_CASE("fiber") {
         }
 
         CHECK(!busy);
-        CHECK(systick::millis() - t > 30);
-        CHECK(systick::millis() - t < 40);
+        CHECK(millis() - t > 30);
+        CHECK(millis() - t < 40);
     }
 
     SUBCASE("multiple timers") {
-        auto t = systick::millis();
+        auto t = millis();
         auto nItems = pool.items(0);
         CHECK(Fiber::ready.isEmpty());
 
@@ -145,10 +146,10 @@ TEST_CASE("fiber") {
         for (int i = 0; i < N; ++i)
             Fiber::create([](void* p) {
                 uint8_t ms = (uintptr_t) p;
-                printf("ms+ %d now %d\n", ms, systick::millis());
+                printf("ms+ %d now %d\n", ms, millis());
                 for (int i = 0; i < 3; ++i) {
                     Fiber::msWait(ms);
-                    printf("ms- %d now %d\n", ms, systick::millis());
+                    printf("ms- %d now %d\n", ms, millis());
                 }
             }, (void*)(uintptr_t) (S[i]-'0'));
 
@@ -167,8 +168,8 @@ puts("22");
         }
 
         CHECK(!busy);
-        CHECK(systick::millis() - t > 20);
-        CHECK(systick::millis() - t < 40);
+        CHECK(millis() - t > 20);
+        CHECK(millis() - t < 40);
     }
 
     systick::deinit();
