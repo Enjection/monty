@@ -127,6 +127,8 @@ cmd = ['fswatch', '-l', '0.1'] + sys.argv[1:]
 print("<<< %s >>>" % ' '.join(cmd))
 proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
 
+os.environ.pop('MAKELEVEL', None) # don't generate sub-make output in gmake
+
 try:
     main()
 except KeyboardInterrupt:

@@ -70,7 +70,7 @@ TEST_CASE("pool") {
     SUBCASE("allocate all") {
         auto nFree = pool.items(0) - 1; // the free list is not a queue!
         CAPTURE(nFree);
-        CHECK(nFree > 5);
+        CHECK(nFree >= 3);
         CHECK(pool.hasFree() == true);
 
         for (int i = 0; i < nFree-1; ++i)
