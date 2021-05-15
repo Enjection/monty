@@ -80,8 +80,8 @@ Pool boss::pool (bufferSpace, sizeof bufferSpace);
 
 Pool::Pool (void* ptr, size_t len)
         : nBuf (len / sizeof (Buffer)), bufs ((Buffer*) ptr) {
-    assert(len / sizeof (Buffer) <= 256);    //buffer id must fit in a uint8_t
-    assert(nBuf <= BUFLEN);  //free chain must fit in buffer[0]
+    assert(len / sizeof (Buffer) <= 256); // buffer id must fit in a uint8_t
+    assert(nBuf <= BUFLEN); // free chain must fit in buffer[0]
     assert(((uintptr_t) ptr % 4) == 0);
     init();
 }
@@ -120,7 +120,6 @@ void Pool::check () const {
 }
 
 auto Fiber::Queue::pull () -> Fid_t {
-//check(10);
     auto i = first;
     if (i != 0) {
         first = pool.tag(i);
@@ -128,36 +127,29 @@ auto Fiber::Queue::pull () -> Fid_t {
             last = 0;
         pool.tag(i) = 0;
     }
-//check(11);
     return i;
 }
 
 void Fiber::Queue::insert (Fid_t i) {
-//check(12);
     pool.tag(i) = first;
     first = i;
     if (last == 0)
         last = first;
-//check(13);
 }
 
 void Fiber::Queue::append (Fid_t i) {
-//check(14);
     pool.tag(i) = 0;
     if (last != 0)
         pool.tag(last) = i;
     last = i;
     if (first == 0)
         first = last;
-//check(15);
 }
 
 // resume all fibers whose time has come and return that count
 // also reduce the time limit to the earliest timeout coming up
 auto Fiber::Queue::expire (uint16_t now, uint16_t& limit) -> int {
     int num = 0;
-//timers.check(60);
-//timers.dump("timers");
     auto p = &first;
     while (*p != 0) {
         auto& next = pool.tag(*p);
@@ -165,19 +157,15 @@ auto Fiber::Queue::expire (uint16_t now, uint16_t& limit) -> int {
         uint16_t remain = f.timeout - now;
         if (remain == 0 || remain > 60'000) {
             f.timeout = now + 60'000;
-//debugf("exp *p %d f %d l %d n %d\n", *p, first, last, next);
             if (last == *p)
                 last = p == &first ? 0 : p - pool[0]; // TODO hack!
             *p = next;
             ++num;
-//timers.check(61);
             f.resume(0);
-//timers.check(62);
         } else if (limit > remain)
             limit = remain;
         p = &next;
     }
-//timers.check(63);
     return num;
 }
 
@@ -189,7 +177,6 @@ void Fiber::Queue::check (int n) const {
             auto next = pool.tag(i);
             if ((i == last && next != 0) || (i != last && next == 0)) {
                 debugf("BROKEN %d! i %d last %d next %d\n", n, i, last, next);
-                //throw "abc";
                 return;
             }
         }
@@ -201,11 +188,6 @@ void Fiber::Queue::dump (char const* msg) const {
     for (auto i = first; i != 0; i = pool.tag(i)) {
         auto& f = Fiber::at(i);
         debugf("  f %d t %d r %d\n", i, f.timeout - now, f.result);
-if (i == last) {
-    if (pool.tag(i) != 0)
-        debugf("bad last %d -> %d\n", i, pool.tag(i));
-    break;
-}
     }
     debugf("  (%d %d) %d\n", first, last, pool.tag(last));
 }
@@ -228,7 +210,6 @@ auto Fiber::runLoop () -> bool {
         if (f.result != -128)
             longjmp(f.context, 1);
         f.fun(f.arg);
-//debugf("Frel %04x %d\n", (uint16_t)(uintptr_t) &f, f.id());
         pool.release(f.id());
     }
     return !timers.isEmpty();
@@ -246,10 +227,7 @@ auto Fiber::create (void (*fun)(void*), void* arg) -> Fid_t {
     fp->fun = fun;
     fp->arg = arg;
     auto id = pool.idOf(fp);
-//debugf("Fc %04x %d\n", (uint16_t)(uintptr_t) fp, id);
-//ready.dump("FC1");
     ready.append(id);
-//ready.dump("FC2");
     return id;
 }
 
@@ -272,9 +250,7 @@ auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
     curr = 0;
     fp->timeout = (uint16_t) systick::millis() + ms;
     fp->result = 0;
-q.check(20);
     q.append(pool.idOf(fp));
-q.check(21);
     if (setjmp(fp->context) == 0) {
 #if 0
         debugf("\tFS %d emp %d top %p data %p bytes %d\n",

@@ -109,7 +109,6 @@ TEST_CASE("fiber") {
         CHECK(pool.items(0) == nItems);
     }
 
-if (0)
     SUBCASE("single timer") {
         auto t = millis();
         auto nItems = pool.items(0);
@@ -141,47 +140,45 @@ if (0)
     }
 
     SUBCASE("multiple timers") {
-        auto t = millis();
+        static uint32_t t, n; // static so fiber lambda can use it w/o capture
+        t = millis();
+
         auto nItems = pool.items(0);
         CHECK(Fiber::ready.isEmpty());
-
-//Fiber::ready.dump("ready 1");
 
         constexpr auto N = 3;
         constexpr auto S = "987";
         for (int i = 0; i < N; ++i)
             Fiber::create([](void* p) {
                 uint8_t ms = (uintptr_t) p;
-                printf("ms+ %d now %d\n", ms, millis());
                 for (int i = 0; i < 5; ++i) {
-Fiber::timers.check(50);
                     Fiber::msWait(ms);
-Fiber::timers.check(51);
-                    printf("ms  %d now %d\n", ms, millis());
+                    //printf("ms  %d now %d\n", ms, millis() - t);
+                    if ((millis() - t) % ms == 0)
+                        ++n;
                 }
             }, (void*)(uintptr_t) (S[i]-'0'));
 
         CHECK(pool.items(0) == nItems - N);
         CHECK(Fiber::ready.isEmpty() == false);
 
-//Fiber::ready.dump("ready 2");
-if (1)
         SUBCASE("run") {
             auto busy = true;
-            for (int i = 0; busy && i < 100; ++i) {
+            for (int i = 0; i < 100; ++i) {
                 busy = Fiber::runLoop();
                 CHECK(Fiber::ready.isEmpty());
                 if (!busy)
                     break;
-                //CHECK(pool.items(0) == nItems - N);
                 CHECK(Fiber::timers.isEmpty() == !busy);
                 idle();
             }
 
             CHECK(!busy);
+            CHECK(pool.items(0) == nItems);
 
             CHECK(millis() - t > 40);
             CHECK(millis() - t < 50);
+            CHECK(n == 3 * 5);
         }
 
         SUBCASE("dump") {
