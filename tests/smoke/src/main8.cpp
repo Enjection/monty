@@ -24,8 +24,10 @@ int main () {
 
     Fiber::create([](void*) {
         printf("%d Hz\n", systemHz());
-        for (int i = 0; true; ++i)
+        for (int i = 0; true; ++i) {
+            Fiber::msWait(20);
             printf("> %*u /\n", 76 - (i % 70), systick::millis());
+        }
     });
 
     while (Fiber::runLoop()) {

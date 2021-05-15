@@ -17,7 +17,7 @@ int main () {
                 leds[i] = 1;
                 Fiber::msWait(100);
                 leds[i] = 0;
-                Fiber::msWait(100*(i+2));
+                Fiber::msWait(100*(i+5));
             }
         }, (void*) i);
 
