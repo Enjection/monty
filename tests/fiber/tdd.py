@@ -90,7 +90,7 @@ def scanSources():
 def setupWatcher():
     cmd = ['fswatch', '-l', '0.1']
     if sys.platform == 'linux':
-        cmd += '--event Created --event Removed --event Updated'.split()
+        cmd += '-r --event Created --event Removed --event Updated'.split()
     cmd += sys.argv[1:]
     print("<<< %s >>>" % ' '.join(cmd))
     return subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True).stdout
