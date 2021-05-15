@@ -158,7 +158,7 @@ auto Fiber::Queue::expire (uint16_t now, uint16_t& limit) -> int {
         if (remain == 0 || remain > 60'000) {
             f.timeout = now + 60'000;
             if (last == *p)
-                last = p == &first ? 0 : p - pool[0]; // TODO hack!
+                last = p == &first ? 0 : p - &pool.tag(0); // TODO hack!
             *p = next;
             ++num;
             f.resume(0);
