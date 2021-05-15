@@ -44,7 +44,7 @@ auto Device::dispatch () -> bool {
 }
 
 namespace hall::systick {
-    void (*expirer)(uint16_t,uint16_t&) = [](uint16_t, uint16_t&) {};
+    void (*expirer)(uint16_t,uint16_t&);
     volatile uint32_t ticks;
     volatile uint8_t counter;
     uint8_t rate;

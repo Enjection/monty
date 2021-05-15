@@ -99,6 +99,8 @@ TEST_CASE("pool") {
     pool.check();
 }
 
+constexpr auto operator""_s (char const*, size_t) { return "789"; }
+
 TEST_CASE("fiber") {
     systick::init(1);
     pool.init();
@@ -109,6 +111,7 @@ TEST_CASE("fiber") {
         CHECK(pool.items(0) == nItems);
     }
 
+#if 0
     SUBCASE("single timer") {
         auto t = millis();
         auto nItems = pool.items(0);
@@ -135,20 +138,26 @@ TEST_CASE("fiber") {
         CHECK(millis() - t > 30);
         CHECK(millis() - t < 40);
     }
+#endif
 
+#if 1
     SUBCASE("multiple timers") {
+debugf("*** MT ***\n");
         auto t = millis();
         auto nItems = pool.items(0);
         CHECK(Fiber::ready.isEmpty());
 
-        constexpr auto N = 1; // FIXME fails with N set to 2 or 3
-        constexpr auto S = "987";
+        constexpr auto N = 3; // FIXME fails with N set to 2 or 3
+        constexpr auto S = "987"_s;
         for (int i = 0; i < N; ++i)
             Fiber::create([](void* p) {
+puts("33");
                 uint8_t ms = (uintptr_t) p;
                 printf("ms+ %d now %d\n", ms, millis());
                 for (int i = 0; i < 3; ++i) {
+puts("44");
                     Fiber::msWait(ms);
+puts("55");
                     printf("ms- %d now %d\n", ms, millis());
                 }
             }, (void*)(uintptr_t) (S[i]-'0'));
@@ -171,6 +180,7 @@ puts("22");
         CHECK(millis() - t > 20);
         CHECK(millis() - t < 40);
     }
+#endif
 
     systick::deinit();
 }

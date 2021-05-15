@@ -181,26 +181,33 @@ auto Fiber::runLoop () -> bool {
     uint32_t dummy;
     if (bottom == nullptr && setjmp(returner) == 0)
         bottom = &dummy;
+debugf("Fr pp\n");
     processPending();
     curr = ready.pull();
+debugf("Fr c %d\n", curr);
     if (curr != 0) {
         auto& fp = at(curr);
+debugf("Fr fp %p\n", &fp);
+debugf("Fr r %d\n", fp.result);
         if (fp.result != -128)
             longjmp(fp.context, 1);
+debugf("Fr a %p\n", fp.arg);
         fp.fun(fp.arg);
     }
     return !timers.isEmpty();
 }
 
 auto Fiber::create (void (*fun)(void*), void* arg) -> Fid_t {
-    systick::expirer = [](uint16_t now, uint16_t& limit) {
-//debugf("se+ n %d l %d\n", now, limit);
-        timers.expire(now, limit);
-//debugf("se- n %d l %d\n", now, limit);
-    };
+    if (systick::expirer == nullptr)
+        systick::expirer = [](uint16_t now, uint16_t& limit) {
+debugf("se+ n %d l %d\n", now, limit);
+            timers.expire(now, limit);
+debugf("se- n %d l %d\n", now, limit);
+        };
 
     auto fp = (Fiber*) pool.allocate();
-    fp->timeout = (uint16_t) systick::millis(); // TODO needed?
+debugf("Fc %p id %d a %p\n", fp, fp->id(), arg);
+    fp->timeout = (uint16_t) systick::millis() + 60'000; // TODO needed?
     fp->result = -128; // mark as not-started
     fp->fun = fun;
     fp->arg = arg;
@@ -212,6 +219,7 @@ auto Fiber::create (void (*fun)(void*), void* arg) -> Fid_t {
 auto resumeFixer (void* top) {
     auto fp = &Fiber::at(Fiber::curr);
     memcpy(top, fp->data, (uintptr_t) bottom - (uintptr_t) top);
+//debugf("rF %p\n", fp);
     return fp->result;
 }
 
@@ -224,6 +232,7 @@ void Fiber::processPending () {
 }
 
 auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
+//debugf("Fs ms %d\n", ms);
     auto fp = curr == 0 ? (Fiber*) pool.allocate() : &at(curr);
     curr = 0;
     fp->timeout = (uint16_t) systick::millis() + ms;
