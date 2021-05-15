@@ -7,7 +7,7 @@ CXXFLAGS = -std=c++17 -DNATIVE -Wall -Wextra
 # everything below is essentially automatic
 
 CXXFLAGS += $(patsubst %,-I$(LIBS)/%,$(DIRS))
-LDFLAGS += -lpthread
+LDFLAGS += -pthread
 VPATH = $(patsubst %,$(LIBS)/%,$(DIRS))
 SRCS = $(wildcard *.cpp) $(foreach D,$(DIRS),$(wildcard $(LIBS)/$D/*.cpp))
 OBJS = $(patsubst %.cpp,%.o,$(notdir $(SRCS)))
