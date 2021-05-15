@@ -74,6 +74,8 @@ namespace boss {
             void append (Fid_t i);
 
             auto expire (uint16_t now, uint16_t& limit) -> int;
+            void check (int =0) const;
+            void dump (char const* ="") const;
         private:
             Fid_t first =0, last =0;
         };
