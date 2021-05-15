@@ -86,6 +86,16 @@ def scanSources():
     srcSet.clear()
     srcSet.update(files)
 
+# set up fswatch-based file-change watcher (MacOS & Linux), returns io stream
+def setupWatcher():
+    cmd = ['fswatch', '-l', '0.1']
+    if sys.platform == 'linux':
+        cmd += '--event Created --event Removed --event Updated'.split()
+    cmd += sys.argv[1:]
+    print("<<< %s >>>" % ' '.join(cmd))
+    return subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True).stdout
+
+
 # process changes in Makefile, *.h, *.cpp, and this script
 def main():
     findHeaders()
@@ -93,7 +103,7 @@ def main():
     print("<<<", len(hdrMap), "headers,", len(srcSet), "sources", ">>>")
 
     last = 0
-    for line in proc.stdout:
+    for line in setupWatcher():
         fn = line.strip()
         bn = os.path.basename(fn)
         ext = os.path.splitext(bn)[1]
@@ -118,16 +128,12 @@ def main():
 
             last = time.monotonic()
 
+os.environ.pop('MAKELEVEL', None) # don't generate sub-make output in gmake
+
 verbose = False
 if sys.argv[1] == "-v":
     verbose = True
     del sys.argv[1]
-
-cmd = ['fswatch', '-l', '0.1'] + sys.argv[1:]
-print("<<< %s >>>" % ' '.join(cmd))
-proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
-
-os.environ.pop('MAKELEVEL', None) # don't generate sub-make output in gmake
 
 try:
     main()
