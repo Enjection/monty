@@ -153,13 +153,14 @@ auto Fiber::Queue::expire (uint16_t now, uint16_t& limit) -> int {
         auto& next = pool.tag(*p);
         auto& f = Fiber::at(*p);
         uint16_t remain = f.timeout - now;
+debugf("FQe n %d r %d t %d n %d\n", *p, remain, f.timeout, now);
         if (remain == 0 || remain > 60'000) {
             auto c = *p;
             if (last == c)
                 last = next;
             *p = next;
-            Fiber::resume(c, 0);
             ++num;
+            Fiber::resume(c, 0);
         } else if (limit > remain)
             limit = remain;
         p = &next;
@@ -190,6 +191,12 @@ auto Fiber::runLoop () -> bool {
 }
 
 auto Fiber::create (void (*fun)(void*), void* arg) -> Fid_t {
+    systick::expirer = [](uint16_t now, uint16_t& limit) {
+debugf("se+ n %d l %d\n", now, limit);
+        timers.expire(now, limit);
+debugf("se- n %d l %d\n", now, limit);
+    };
+
     auto fp = (Fiber*) pool.allocate();
     fp->timeout = (uint16_t) systick::millis(); // TODO needed?
     fp->stat = -128; // mark as not-started

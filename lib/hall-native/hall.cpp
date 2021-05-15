@@ -4,6 +4,9 @@
 
 using namespace hall;
 
+namespace boss { void debugf (const char* fmt, ...); }
+using boss::debugf;
+
 void hall::idle () {
     auto t = systick::millis();
     while (t == systick::millis()) {
@@ -41,6 +44,7 @@ auto Device::dispatch () -> bool {
 }
 
 namespace hall::systick {
+    void (*expirer)(uint16_t,uint16_t&) = [](uint16_t, uint16_t&) {};
     volatile uint32_t ticks;
     volatile uint8_t counter;
     uint8_t rate;
@@ -52,6 +56,8 @@ namespace hall::systick {
             uint16_t limit = 100;
             for (int i = 0; i < devNext; ++i)
                 devMap[i]->expire(now, limit);
+            expirer(now, limit);
+debugf("Tp n %d l %d\n", now, limit);
             init(limit);
         }
     };
@@ -65,6 +71,7 @@ namespace hall::systick {
             ++ticks;
             if (--counter == 0) {
                 counter = rate-1;
+debugf("tT t %d c %d\n", ticks, counter);
                 ticker.interrupt();
             }
         }

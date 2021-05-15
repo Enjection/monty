@@ -6,6 +6,7 @@ CXXFLAGS = -std=c++17 -DNATIVE -Wall -Wextra
 
 # everything below is essentially automatic
 
+CXXFLAGS += -DDOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING
 CXXFLAGS += $(patsubst %,-I$(LIBS)/%,$(DIRS))
 LDFLAGS += -pthread
 VPATH = $(patsubst %,$(LIBS)/%,$(DIRS))

@@ -78,15 +78,15 @@ TEST_CASE("pool") {
         CHECK(pool.hasFree());
 
         CHECK(pool.allocate() != nullptr);
-        CHECK(!pool.hasFree());
+        CHECK(pool.hasFree() == false);
     }
 
     SUBCASE("release") {
-        auto nFree = pool.items(0);
+        auto nItems = pool.items(0);
         pool.releasePtr(p);
         pool.releasePtr(q);
         pool.releasePtr(r);
-        CHECK(pool.items(0) == nFree + 3);
+        CHECK(pool.items(0) == nItems + 3);
     }
 
     SUBCASE("re-init") {
@@ -99,26 +99,38 @@ TEST_CASE("pool") {
 }
 
 TEST_CASE("fiber") {
-    systick::init();
+    systick::init(1);
     pool.init();
 
     SUBCASE("no fibers") {
         //while (Fiber::runLoop()) {}
     }
 
-    SUBCASE("one fiber") {
+    SUBCASE("simgle timer") {
+        auto nItems = pool.items(0);
+        CHECK(Fiber::ready.isEmpty());
+
         Fiber::create([](void*) {
             while (true) {
-puts("11!");
-                Fiber::msWait(1000);
-puts("22!");
+puts("FC 1");
+                Fiber::msWait(10);
+puts("FC 2");
                 printf("%u\n", systick::millis());
             }
         });
 
+        CHECK(pool.items(0) == nItems - 1);
+        CHECK(Fiber::ready.isEmpty() == false);
+
         auto busy = true;
-        for (int i = 0; busy && i < 10'000'000; ++i)
+        for (int i = 0; busy && i < 200; ++i) {
             busy = Fiber::runLoop();
+            CHECK(Fiber::ready.isEmpty());
+            CHECK(pool.items(0) == nItems - 1);
+            CHECK(Fiber::timers.isEmpty() == false);
+            //MESSAGE("run: ", i, " ms: ", systick::millis());
+            idle();
+        }
 
         //TEST_ASSERT_FALSE(busy);
         //while (Fiber::runLoop()) {}

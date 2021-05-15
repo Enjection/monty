@@ -150,6 +150,7 @@ extern "C" void irqHandler () {
 namespace hall::systick {
     constexpr Io32<0xE000'E010> SYSTICK;
 
+    void (*expirer)(uint16_t,uint16_t&) = [](uint16_t, uint16_t&) {};
     volatile uint32_t ticks;
     uint8_t rate;
 
@@ -191,6 +192,7 @@ namespace hall::systick {
             uint16_t limit = 100;
             for (int i = 0; i < devNext; ++i)
                 devMap[i]->expire(now, limit);
+            expirer(now, limit);
             init(limit);
         }
     };
