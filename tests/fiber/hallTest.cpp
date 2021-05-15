@@ -135,8 +135,7 @@ TEST_CASE("fiber") {
 
         CHECK(!busy);
         CHECK(pool.items(0) == nItems);
-        CHECK(millis() - t >= 30);
-        CHECK(millis() - t < 35);
+        CHECK(millis() - t == 30);
     }
 
     SUBCASE("multiple timers") {
@@ -169,16 +168,16 @@ TEST_CASE("fiber") {
                 CHECK(Fiber::ready.isEmpty());
                 if (!busy)
                     break;
-                CHECK(Fiber::timers.isEmpty() == !busy);
+                CHECK(!Fiber::timers.isEmpty());
                 idle();
             }
 
+            CHECK(n == 3 * 5);
             CHECK(!busy);
             CHECK(pool.items(0) == nItems);
-
-            CHECK(millis() - t > 40);
-            CHECK(millis() - t < 50);
-            CHECK(n == 3 * 5);
+            CHECK(millis() - t == 45);
+            CHECK(Fiber::ready.isEmpty());
+            CHECK(Fiber::timers.isEmpty());
         }
 
         SUBCASE("dump") {
