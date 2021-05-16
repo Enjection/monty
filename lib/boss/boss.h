@@ -62,7 +62,7 @@ namespace boss {
         static_assert(sizeof (Buffer) % 8 == 0);
     };
 
-    extern Pool pool;
+    extern Pool buffers;
 
     struct Fiber {
         using Fid_t = uint8_t;
@@ -80,10 +80,10 @@ namespace boss {
             Fid_t first =0, last =0;
         };
 
-        auto id () const { return pool.idOf(this); }
+        auto id () const { return buffers.idOf(this); }
         void resume (int i) { result = i; ready.append(id()); }
 
-        static auto at (Fid_t i) -> Fiber& { return *(Fiber*) pool[i]; }
+        static auto at (Fid_t i) -> Fiber& { return *(Fiber*) buffers[i]; }
         static auto runLoop () -> bool;
         static auto create (void (*)(void*), void* =nullptr) -> Fid_t;
         static void processPending ();

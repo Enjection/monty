@@ -43,75 +43,75 @@ TEST_CASE("systick") {
 }
 
 TEST_CASE("pool") {
-    pool.init();
+    buffers.init();
 
-    auto p = pool.allocate(), q = pool.allocate(), r = pool.allocate();
+    auto p = buffers.allocate(), q = buffers.allocate(), r = buffers.allocate();
 
     SUBCASE("allocate") {
-        CHECK(pool.idOf(p) == 1);
-        CHECK(pool.idOf(q) == 2);
-        CHECK(pool.idOf(r) == 3);
+        CHECK(buffers.idOf(p) == 1);
+        CHECK(buffers.idOf(q) == 2);
+        CHECK(buffers.idOf(r) == 3);
 
         CHECK(q >= p + Pool::BUFLEN);
         CHECK(r >= q + Pool::BUFLEN);
 
-        CHECK(p == pool[1]);
-        CHECK(q == pool[2]);
-        CHECK(r == pool[3]);
+        CHECK(p == buffers[1]);
+        CHECK(q == buffers[2]);
+        CHECK(r == buffers[3]);
     }
 
     SUBCASE("lifo reuse") {
-        pool.release(3);
-        pool.releasePtr(q);
-        CHECK(pool.allocate() == q);
-        CHECK(pool.allocate() == r);
-        CHECK(pool.allocate() > r);
+        buffers.release(3);
+        buffers.releasePtr(q);
+        CHECK(buffers.allocate() == q);
+        CHECK(buffers.allocate() == r);
+        CHECK(buffers.allocate() > r);
     }
 
     SUBCASE("allocate all") {
-        auto nFree = pool.items(0) - 1; // the free list is not a queue!
+        auto nFree = buffers.items(0) - 1; // the free list is not a queue!
         CAPTURE(nFree);
         CHECK(nFree >= 3);
-        CHECK(pool.hasFree() == true);
+        CHECK(buffers.hasFree() == true);
 
         for (int i = 0; i < nFree-1; ++i)
-            CHECK(pool.allocate() != nullptr);
-        CHECK(pool.hasFree());
+            CHECK(buffers.allocate() != nullptr);
+        CHECK(buffers.hasFree());
 
-        CHECK(pool.allocate() != nullptr);
-        CHECK(pool.hasFree() == false);
+        CHECK(buffers.allocate() != nullptr);
+        CHECK(buffers.hasFree() == false);
     }
 
     SUBCASE("release") {
-        auto nItems = pool.items(0);
-        pool.releasePtr(p);
-        pool.releasePtr(q);
-        pool.releasePtr(r);
-        CHECK(pool.items(0) == nItems + 3);
+        auto nItems = buffers.items(0);
+        buffers.releasePtr(p);
+        buffers.releasePtr(q);
+        buffers.releasePtr(r);
+        CHECK(buffers.items(0) == nItems + 3);
     }
 
     SUBCASE("re-init") {
-        auto nItems = pool.items(0);
-        pool.init();
-        CHECK(pool.items(0) == nItems + 3);
+        auto nItems = buffers.items(0);
+        buffers.init();
+        CHECK(buffers.items(0) == nItems + 3);
     }
 
-    pool.check();
+    buffers.check();
 }
 
 TEST_CASE("fiber") {
     systick::init(1);
-    pool.init();
+    buffers.init();
 
     SUBCASE("no fibers") {
-        auto nItems = pool.items(0);
+        auto nItems = buffers.items(0);
         while (Fiber::runLoop()) {}
-        CHECK(pool.items(0) == nItems);
+        CHECK(buffers.items(0) == nItems);
     }
 
     SUBCASE("single timer") {
         auto t = millis();
-        auto nItems = pool.items(0);
+        auto nItems = buffers.items(0);
         CHECK(Fiber::ready.isEmpty());
 
         Fiber::create([](void*) {
@@ -119,7 +119,7 @@ TEST_CASE("fiber") {
                 Fiber::msWait(10);
         });
 
-        CHECK(pool.items(0) == nItems - 1);
+        CHECK(buffers.items(0) == nItems - 1);
         CHECK(Fiber::ready.isEmpty() == false);
 
         auto busy = true;
@@ -128,13 +128,13 @@ TEST_CASE("fiber") {
             CHECK(Fiber::ready.isEmpty());
             if (!busy)
                 break;
-            CHECK(pool.items(0) == nItems - 1);
+            CHECK(buffers.items(0) == nItems - 1);
             CHECK(!Fiber::timers.isEmpty());
             idle();
         }
 
         CHECK(!busy);
-        CHECK(pool.items(0) == nItems);
+        CHECK(buffers.items(0) == nItems);
         CHECK(millis() - t == 30);
     }
 
@@ -142,7 +142,7 @@ TEST_CASE("fiber") {
         static uint32_t t, n; // static so fiber lambda can use it w/o capture
         t = millis();
 
-        auto nItems = pool.items(0);
+        auto nItems = buffers.items(0);
         CHECK(Fiber::ready.isEmpty());
 
         constexpr auto N = 3;
@@ -158,7 +158,7 @@ TEST_CASE("fiber") {
                 }
             }, (void*)(uintptr_t) (S[i]-'0'));
 
-        CHECK(pool.items(0) == nItems - N);
+        CHECK(buffers.items(0) == nItems - N);
         CHECK(Fiber::ready.isEmpty() == false);
 
         SUBCASE("run") {
@@ -174,7 +174,7 @@ TEST_CASE("fiber") {
 
             CHECK(n == 3 * 5);
             CHECK(!busy);
-            CHECK(pool.items(0) == nItems);
+            CHECK(buffers.items(0) == nItems);
             CHECK(millis() - t == 45);
             CHECK(Fiber::ready.isEmpty());
             CHECK(Fiber::timers.isEmpty());

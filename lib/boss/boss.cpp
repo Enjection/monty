@@ -76,7 +76,7 @@ void boss::failAt (void const* pc, void const* lr) {
 }
 
 static uint32_t bufferSpace [25 * 192 / 4];
-Pool boss::pool (bufferSpace, sizeof bufferSpace);
+Pool boss::buffers (bufferSpace, sizeof bufferSpace);
 
 Pool::Pool (void* ptr, size_t len)
         : nBuf (len / sizeof (Buffer)), bufs ((Buffer*) ptr) {
@@ -122,25 +122,25 @@ void Pool::check () const {
 auto Fiber::Queue::pull () -> Fid_t {
     auto i = first;
     if (i != 0) {
-        first = pool.tag(i);
+        first = buffers.tag(i);
         if (first == 0)
             last = 0;
-        pool.tag(i) = 0;
+        buffers.tag(i) = 0;
     }
     return i;
 }
 
 void Fiber::Queue::insert (Fid_t i) {
-    pool.tag(i) = first;
+    buffers.tag(i) = first;
     first = i;
     if (last == 0)
         last = first;
 }
 
 void Fiber::Queue::append (Fid_t i) {
-    pool.tag(i) = 0;
+    buffers.tag(i) = 0;
     if (last != 0)
-        pool.tag(last) = i;
+        buffers.tag(last) = i;
     last = i;
     if (first == 0)
         first = last;
@@ -152,13 +152,13 @@ auto Fiber::Queue::expire (uint16_t now, uint16_t& limit) -> int {
     int num = 0;
     auto p = &first;
     while (*p != 0) {
-        auto& next = pool.tag(*p);
+        auto& next = buffers.tag(*p);
         auto& f = Fiber::at(*p);
         uint16_t remain = f.timeout - now;
         if (remain == 0 || remain > 60'000) {
             f.timeout = now + 60'000;
             if (last == *p)
-                last = p == &first ? 0 : p - &pool.tag(0); // TODO hack!
+                last = p == &first ? 0 : p - &buffers.tag(0); // TODO hack!
             *p = next;
             ++num;
             f.resume(0);
@@ -173,8 +173,8 @@ void Fiber::Queue::check (int n) const {
     if ((first == 0 && last != 0) || (first != 0 && last == 0))
         debugf("QUEUE %d? %d %d\n", n, first, last);
     else
-        for (auto i = first; i != 0; i = pool.tag(i)) {
-            auto next = pool.tag(i);
+        for (auto i = first; i != 0; i = buffers.tag(i)) {
+            auto next = buffers.tag(i);
             if ((i == last && next != 0) || (i != last && next == 0)) {
                 debugf("BROKEN %d! i %d last %d next %d\n", n, i, last, next);
                 return;
@@ -184,12 +184,12 @@ void Fiber::Queue::check (int n) const {
 
 void Fiber::Queue::dump (char const* msg) const {
     auto now = systick::millis();
-    debugf("%s @ %d ms #%d:\n", msg, now, first == 0 ? 0 : pool.items(first)+1);
-    for (auto i = first; i != 0; i = pool.tag(i)) {
+    debugf("%s @ %d ms #%d:\n", msg, now, first == 0 ? 0 : buffers.items(first)+1);
+    for (auto i = first; i != 0; i = buffers.tag(i)) {
         auto& f = Fiber::at(i);
         debugf("  f %d t %d r %d\n", i, f.timeout - now, f.result);
     }
-    debugf("  (%d %d) %d\n", first, last, pool.tag(last));
+    debugf("  (%d %d) %d\n", first, last, buffers.tag(last));
 }
 
 Fiber::Fid_t Fiber::curr;
@@ -210,7 +210,7 @@ auto Fiber::runLoop () -> bool {
         if (f.result != -128)
             longjmp(f.context, 1);
         f.fun(f.arg);
-        pool.release(f.id());
+        buffers.release(f.id());
     }
     return !timers.isEmpty();
 }
@@ -221,12 +221,12 @@ auto Fiber::create (void (*fun)(void*), void* arg) -> Fid_t {
             timers.expire(now, limit);
         };
 
-    auto fp = (Fiber*) pool.allocate();
+    auto fp = (Fiber*) buffers.allocate();
     fp->timeout = (uint16_t) systick::millis() + 60'000; // TODO needed?
     fp->result = -128; // mark as not-started
     fp->fun = fun;
     fp->arg = arg;
-    auto id = pool.idOf(fp);
+    auto id = buffers.idOf(fp);
     ready.append(id);
     return id;
 }
@@ -246,15 +246,15 @@ void Fiber::processPending () {
 }
 
 auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
-    auto fp = curr == 0 ? (Fiber*) pool.allocate() : &at(curr);
+    auto fp = curr == 0 ? (Fiber*) buffers.allocate() : &at(curr);
     curr = 0;
     fp->timeout = (uint16_t) systick::millis() + ms;
     fp->result = 0;
-    q.append(pool.idOf(fp));
+    q.append(buffers.idOf(fp));
     if (setjmp(fp->context) == 0) {
 #if 0
         debugf("\tFS %d emp %d top %p data %p bytes %d\n",
-                pool.idOf(fp), ready.isEmpty(), &fp, fp->data,
+                buffers.idOf(fp), ready.isEmpty(), &fp, fp->data,
                 (int) ((uintptr_t) bottom - (uintptr_t) &fp));
 #endif
         memcpy(fp->data, &fp, (uintptr_t) bottom - (uintptr_t) &fp);
