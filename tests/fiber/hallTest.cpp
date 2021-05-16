@@ -42,64 +42,10 @@ TEST_CASE("systick") {
     systick::deinit();
 }
 
-TEST_CASE("pool") {
-    buffers.init();
-
-    auto p = buffers.allocate(), q = buffers.allocate(), r = buffers.allocate();
-
-    SUBCASE("allocate") {
-        CHECK(buffers.idOf(p) == 1);
-        CHECK(buffers.idOf(q) == 2);
-        CHECK(buffers.idOf(r) == 3);
-
-        CHECK(q >= p + Pool::BUFLEN);
-        CHECK(r >= q + Pool::BUFLEN);
-
-        CHECK(p == buffers[1]);
-        CHECK(q == buffers[2]);
-        CHECK(r == buffers[3]);
-    }
-
-    SUBCASE("lifo reuse") {
-        buffers.release(3);
-        buffers.releasePtr(q);
-        CHECK(buffers.allocate() == q);
-        CHECK(buffers.allocate() == r);
-        CHECK(buffers.allocate() > r);
-    }
-
-    SUBCASE("allocate all") {
-        auto nFree = buffers.items(0) - 1; // the free list is not a queue!
-        CAPTURE(nFree);
-        CHECK(nFree >= 3);
-        CHECK(buffers.hasFree() == true);
-
-        for (int i = 0; i < nFree-1; ++i)
-            CHECK(buffers.allocate() != nullptr);
-        CHECK(buffers.hasFree());
-
-        CHECK(buffers.allocate() != nullptr);
-        CHECK(buffers.hasFree() == false);
-    }
-
-    SUBCASE("release") {
-        auto nItems = buffers.items(0);
-        buffers.releasePtr(p);
-        buffers.releasePtr(q);
-        buffers.releasePtr(r);
-        CHECK(buffers.items(0) == nItems + 3);
-    }
-
-    SUBCASE("re-init") {
-        auto nItems = buffers.items(0);
-        buffers.init();
-        CHECK(buffers.items(0) == nItems + 3);
-    }
-
-    buffers.check();
-}
-
 TEST_CASE("fiber") {
+    uint8_t mem [5000];
+    pool::init(mem, sizeof mem);
+
     systick::init(1);
     buffers.init();
 

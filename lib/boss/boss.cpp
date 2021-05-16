@@ -109,92 +109,31 @@ auto Pool::items (uint8_t i) const -> int {
     return n;
 }
 
-void Pool::check () const {
-    bool inUse [nBuf];
-    for (int i = 0; i < nBuf; ++i)
-        inUse[i] = 0;
-    for (int i = tag(0); i != 0; i = tag(i)) {
-        assert(!inUse[i]);
-        inUse[i] = true;
-    }
-}
-
-auto Fiber::Queue::pull () -> Fid_t {
-    auto i = first;
-    if (i != 0) {
-        first = buffers.tag(i);
-        if (first == 0)
-            last = 0;
-        buffers.tag(i) = 0;
-    }
-    return i;
-}
-
-void Fiber::Queue::insert (Fid_t i) {
-    buffers.tag(i) = first;
-    first = i;
-    if (last == 0)
-        last = first;
-}
-
-void Fiber::Queue::append (Fid_t i) {
-    buffers.tag(i) = 0;
-    if (last != 0)
-        buffers.tag(last) = i;
-    last = i;
-    if (first == 0)
-        first = last;
-}
-
 // resume all fibers whose time has come and return that count
 // also reduce the time limit to the earliest timeout coming up
-auto Fiber::Queue::expire (uint16_t now, uint16_t& limit) -> int {
-    int num = 0;
-    auto p = &first;
-    while (*p != 0) {
-        auto& next = buffers.tag(*p);
-        auto& f = Fiber::at(*p);
+auto Fiber::expire (pool::Queue& q, uint16_t now, uint16_t& limit) -> int {
+    auto expired = q.remove([&](int id) {
+        auto& f = Fiber::at(id);
         uint16_t remain = f.timeout - now;
-        if (remain == 0 || remain > 60'000) {
-            f.timeout = now + 60'000;
-            if (last == *p)
-                last = p == &first ? 0 : p - &buffers.tag(0); // TODO hack!
-            *p = next;
-            ++num;
-            f.resume(0);
-        } else if (limit > remain)
+        if (remain == 0 || remain > 60'000)
+            return true;
+        if (limit > remain)
             limit = remain;
-        p = &next;
+        return false;
+    });
+    for (int num = 0; true; ++num) {
+        auto id = expired.pull();
+        if (id == 0)
+            return num;
+        auto& f = Fiber::at(id);
+        f.timeout = now + 60'000;
+        f.resume(0);
     }
-    return num;
 }
 
-void Fiber::Queue::check (int n) const {
-    if ((first == 0 && last != 0) || (first != 0 && last == 0))
-        debugf("QUEUE %d? %d %d\n", n, first, last);
-    else
-        for (auto i = first; i != 0; i = buffers.tag(i)) {
-            auto next = buffers.tag(i);
-            if ((i == last && next != 0) || (i != last && next == 0)) {
-                debugf("BROKEN %d! i %d last %d next %d\n", n, i, last, next);
-                return;
-            }
-        }
-}
-
-void Fiber::Queue::dump (char const* msg) const {
-    auto now = systick::millis();
-    debugf("%s @ %d ms #%d:\n", msg, now, first == 0 ? 0 : buffers.items(first)+1);
-    for (auto i = first; i != 0; i = buffers.tag(i)) {
-        auto& f = Fiber::at(i);
-        debugf("  f %d t %d r %d\n", i, f.timeout - now, f.result);
-    }
-    debugf("  (%d %d) %d\n", first, last, buffers.tag(last));
-}
-
-Fiber::Fid_t Fiber::curr;
-Fiber::Queue Fiber::ready;
-Fiber::Queue Fiber::timers;
+Fid_t Fiber::curr;
+pool::Queue Fiber::ready;
+pool::Queue Fiber::timers;
 
 jmp_buf returner;
 uint32_t* bottom;
@@ -218,7 +157,7 @@ auto Fiber::runLoop () -> bool {
 auto Fiber::create (void (*fun)(void*), void* arg) -> Fid_t {
     if (systick::expirer == nullptr)
         systick::expirer = [](uint16_t now, uint16_t& limit) {
-            timers.expire(now, limit);
+            expire(timers, now, limit);
         };
 
     auto fp = (Fiber*) buffers.allocate();
@@ -240,12 +179,12 @@ auto resumeFixer (void* top) {
 void Fiber::processPending () {
     if (Device::dispatch()) {
         uint16_t limit = 100; // TODO arbitrary? also: 24-bit limit on ARM
-        timers.expire(systick::millis(), limit);
+        expire(timers, systick::millis(), limit);
         systick::init(1);
     }
 }
 
-auto Fiber::suspend (Queue& q, uint16_t ms) -> int {
+auto Fiber::suspend (pool::Queue& q, uint16_t ms) -> int {
     auto fp = curr == 0 ? (Fiber*) buffers.allocate() : &at(curr);
     curr = 0;
     fp->timeout = (uint16_t) systick::millis() + ms;
@@ -282,5 +221,5 @@ void Fiber::duff (uint32_t* dst, uint32_t const* src, uint32_t cnt) {
 
 void Semaphore::expire (uint16_t now, uint16_t& limit) {
     if (count < 0)
-        count += Queue::expire(now, limit);
+        count += Fiber::expire(*this, now, limit);
 }

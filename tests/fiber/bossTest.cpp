@@ -1,57 +1,4 @@
-#include <cstdarg>
-#include <cstddef>
-#include <cstdint>
-#include <setjmp.h>
-
-namespace boss::pool {
-    using Id_t = uint8_t;
-
-    void init (void* ptr, size_t len);
-    void deinit ();
-
-    struct Buf {
-        auto operator new (size_t bytes) -> void*;
-        void operator delete (void*);
-
-        auto id () const { return asId(this); }
-        auto tag () -> uint8_t&;
-
-        static auto asId (void const*) -> Id_t;
-        static auto at (Id_t) -> Buf&;
-
-        uint8_t data [512];
-    };
-
-    struct Queue {
-        bool isEmpty () const { return head == 0; }
-
-        auto pull () -> Id_t;
-        void insert (Id_t id);
-        void insert (void* p) { insert(Buf::asId(p)); }
-        void append (Id_t id);
-        void append (void* p) { append(Buf::asId(p)); }
-
-        template <typename F>
-        void remove (F f) {
-            auto p = &head;
-            while (*p != 0) {
-                auto& next = tag(*p);
-                if (f(*p)) {
-                    if (tail == *p)
-                        tail = p == &head ? 0 : p - &tag(0); // TODO yuck
-                    *p = next;
-                } else
-                    p = &next;
-            }
-        }
-
-        void verify () const;
-    private:
-        auto tag (Id_t id) const -> uint8_t& { return Buf::at(id).tag(); }
-
-        Id_t head {0}, tail {0};
-    };
-}
+#include "boss.h"
 
 namespace boss::pool {
     Buf* buffers;
@@ -71,6 +18,8 @@ namespace boss::pool {
         freeBufs = {};
     }
 
+    auto hasFree () -> bool { return !freeBufs.isEmpty(); }
+
     auto Buf::operator new (size_t bytes) -> void* {
         (void) bytes; // TODO check that it fits
         auto id = freeBufs.pull();
@@ -82,7 +31,7 @@ namespace boss::pool {
         freeBufs.insert((Buf*) p);
     }
 
-    auto Buf::tag () -> uint8_t& {
+    auto Buf::tag () -> Id_t& {
         return buffers->data[this - buffers];
     }
 
