@@ -283,6 +283,7 @@ namespace boss::pool {
 using namespace boss;
 using namespace pool;
 
+// only implemented in test builds
 void Queue::verify () const {
     if (head == 0 && tail == 0)
         return;
@@ -414,18 +415,29 @@ TEST_CASE("queue") {
 
         SUBCASE("none") {
             q.remove([](int) { return false; });
+            q.verify();
             for (int i = 0; i < 5; ++i)
                 CHECK(q.pull() == i + 1);
             CHECK(q.isEmpty());
         }
 
-        SUBCASE("one") {
-            q.remove([](int id) { return id == 3; });
+        SUBCASE("first") {
+            q.remove([](int id) { return id == 1; });
+            q.verify();
+            CHECK(q.pull() == 2);
+            CHECK(q.pull() == 3);
+            CHECK(q.pull() == 4);
+            CHECK(q.pull() == 5);
+            CHECK(q.isEmpty());
+        }
+
+        SUBCASE("last") {
+            q.remove([](int id) { return id == 5; });
             q.verify();
             CHECK(q.pull() == 1);
             CHECK(q.pull() == 2);
+            CHECK(q.pull() == 3);
             CHECK(q.pull() == 4);
-            CHECK(q.pull() == 5);
             CHECK(q.isEmpty());
         }
 
