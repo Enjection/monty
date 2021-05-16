@@ -17,6 +17,8 @@ void boss::debugf (const char*, ...) __attribute__((alias ("printf")));
 int main () {
     fastClock();
     systick::init();
+    uint8_t mem [5000];
+    pool::init(mem, sizeof mem);
     uart::init(2, "A2:PU7,A15:PU3", 115200);
 
     Pin led;

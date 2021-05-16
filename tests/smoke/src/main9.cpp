@@ -8,6 +8,8 @@ Pin leds [7];
 
 int main () {
     systick::init();
+    uint8_t mem [5000];
+    pool::init(mem, sizeof mem);
     Pin::define("A6:P,A5,A4,A3,A1,A0,B3", leds, 7);
 
     for (int i = 0; i < 6; ++i)
