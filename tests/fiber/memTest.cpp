@@ -1,3 +1,6 @@
+// TODO a first attempt to re-do the Vec & Obj classes with GC from scratch
+// this code is not useful yet, and not used anywhere - just doodlin' ...
+
 #include <cstdint>
 #include <cstring>
 
@@ -25,14 +28,12 @@ namespace mem {
     };
 }
 
-//#define DOCTEST_CONFIG_DISABLE
-#include "doctest.h"
+#if DOCTEST
+#include <doctest.h>
 
 using namespace mem;
 
-TEST_CASE("smoke") {
-    CHECK(42 == 40 + 2);
-
+TEST_CASE("Vec type") {
     Vec v;
     CHECK(v.cap() == 0);
     CHECK(v.ptr() == nullptr);
@@ -93,3 +94,5 @@ TEST_CASE("allocate") {
         CHECK(storage[0] == 33);
     }
 }
+
+#endif // DOCTEST

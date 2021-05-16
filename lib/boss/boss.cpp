@@ -263,9 +263,14 @@ void Semaphore::expire (uint16_t now, uint16_t& limit) {
 }
 
 #if DOCTEST
-#include "../doctest/doctest.h"
-#include <cstdio>
-#include <cstring>
+#include <doctest.h>
+
+void boss::debugf (const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
+}
 
 namespace boss::pool {
     doctest::String toString(Buf* p) {
@@ -565,4 +570,5 @@ TEST_CASE("fiber") {
 
     systick::deinit();
 }
+
 #endif // DOCTEST

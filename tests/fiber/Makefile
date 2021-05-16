@@ -1,7 +1,7 @@
 # this makefile is for use by tdd.py
 
 LIBS = ../../lib
-DIRS = hall-native boss monty extend arch-native pyvm
+DIRS = doctest hall-native boss monty extend arch-native pyvm
 CXXFLAGS = -std=c++17 -Wall -Wextra
 
 # everything below is essentially automatic
@@ -21,7 +21,7 @@ all: cls main
 cls: ; @ clear && date
 
 main: $(OBJS)
-	@ $(CXX) $(LDFLAGS) $(^F) $(LDLIBS) -o $@
+	@ $(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 %.o: %.cpp
 	@ echo $(CXX) $<

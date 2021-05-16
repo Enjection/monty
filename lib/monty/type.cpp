@@ -721,3 +721,86 @@ auto Inst::create (ArgVec const& args, Type const* t) -> Value {
 void Inst::repr (Buffer& buf) const {
     buf.print("<%s object at %p>", (char const*) type()._name, this);
 }
+
+#if DOCTEST
+#include <doctest.h>
+
+TEST_CASE("type") {
+    uint8_t memory [3*1024];
+    gcSetup(memory, sizeof memory);
+    uint32_t memAvail = gcMax();
+
+    SUBCASE("varyVec tests") {
+        VaryVec v;
+        CHECK(0 == v.size());
+
+        v.insert(0);
+        CHECK(1 == v.size());
+        CHECK(0 == v.atLen(0));
+
+        v.atSet(0, "abc", 4);
+        CHECK(1 == v.size());
+        CHECK(4 == v.atLen(0));
+        CHECK("abc" == (char const*) v.atGet(0));
+
+        v.insert(0);
+        CHECK(2 == v.size());
+        CHECK(0 == v.atLen(0));
+        CHECK(4 == v.atLen(1));
+        CHECK("abc" == (char const*) v.atGet(1));
+
+        v.atSet(0, "defg", 5);
+        CHECK(5 == v.atLen(0));
+        CHECK(4 == v.atLen(1));
+        CHECK("defg" == (char const*) v.atGet(0));
+        CHECK("abc" == (char const*) v.atGet(1));
+
+        v.atSet(0, "hi", 3);
+        CHECK(3 == v.atLen(0));
+        CHECK(4 == v.atLen(1));
+        CHECK("hi" == (char const*) v.atGet(0));
+        CHECK("abc" == (char const*) v.atGet(1));
+
+        v.atSet(0, nullptr, 0);
+        CHECK(0 == v.atLen(0));
+        CHECK(4 == v.atLen(1));
+        CHECK("abc" == (char const*) v.atGet(1));
+
+        v.remove(0);
+        CHECK(1 == v.size());
+        CHECK(4 == v.atLen(0));
+        CHECK("abc" == (char const*) v.atGet(0));
+
+        v.insert(1, 3);
+        CHECK(4 == v.size());
+        CHECK(4 == v.atLen(0));
+        CHECK("abc" == (char const*) v.atGet(0));
+        CHECK(0 == v.atLen(1));
+        CHECK(0 == v.atLen(2));
+        CHECK(0 == v.atLen(3));
+        v.atSet(3, "four", 5);
+        CHECK("four" == (char const*) v.atGet(3));
+        v.atSet(2, "three", 6);
+        CHECK("three" == (char const*) v.atGet(2));
+        v.atSet(1, "two", 4);
+        CHECK("two" == (char const*) v.atGet(1));
+        v.atSet(0, "one", 4);
+        CHECK("one" == (char const*) v.atGet(0));
+        CHECK("two" == (char const*) v.atGet(1));
+        CHECK("three" == (char const*) v.atGet(2));
+        CHECK("four" == (char const*) v.atGet(3));
+
+        v.remove(1, 2);
+        CHECK(2 == v.size());
+        CHECK(4 == v.atLen(0));
+        CHECK(5 == v.atLen(1));
+        CHECK("one" == (char const*) v.atGet(0));
+        CHECK("four" == (char const*) v.atGet(1));
+    }
+
+    Object::sweep();
+    Vec::compact();
+    CHECK(memAvail == gcMax());
+}
+
+#endif // DOCTEST
