@@ -75,38 +75,77 @@ void boss::failAt (void const* pc, void const* lr) {
     while (true) {}
 }
 
-static uint32_t bufferSpace [25 * 192 / 4];
-Pool boss::buffers (bufferSpace, sizeof bufferSpace);
+namespace boss::pool {
+    Buf* buffers;
+    uint8_t numBufs;
+    uint8_t numFree;
+    Queue freeBufs;
 
-Pool::Pool (void* ptr, size_t len)
-        : nBuf (len / sizeof (Buffer)), bufs ((Buffer*) ptr) {
-    assert(len / sizeof (Buffer) <= 256); // buffer id must fit in a uint8_t
-    assert(nBuf <= BUFLEN); // free chain must fit in buffer[0]
-    assert(((uintptr_t) ptr % 4) == 0);
-    init();
-}
+    void init (void* ptr, size_t len) {
+        buffers = (Buf*) ptr;
+        numBufs = len / sizeof (Buf);
+        numFree = numBufs - 1;
+        for (int i = 1; i < numBufs; ++i)
+            freeBufs.append(i);
+    }
 
-void Pool::init () {
-    for (int i = 0; i < nBuf-1; ++i)
-        tag(i) = i+1;
-    tag(nBuf-1) = 0;
-}
+    void deinit () {
+        buffers = nullptr;
+        numBufs = numFree = 0;
+        freeBufs = {};
+    }
 
-auto Pool::allocate () -> uint8_t* {
-    auto n = tag(0);
-    assert(n != 0);
-    tag(0) = tag(n);
-    tag(n) = 0;
-    return bufs[n].b;
-}
+    auto Buf::operator new (size_t bytes) -> void* {
+        (void) bytes; // TODO check that it fits
+        auto id = freeBufs.pull();
+        //TODO check != 0
+        --numFree;
+        return &Buf::at(id);
+    }
 
-auto Pool::items (uint8_t i) const -> int {
-    int n = 0;
-    do {
-        ++n;
-        i = tag(i);
-    } while (i != 0);
-    return n;
+    void Buf::operator delete (void* p) {
+        freeBufs.insert((Buf*) p);
+        ++numFree;
+    }
+
+    auto Buf::tag () -> Id_t& {
+        return buffers->data[this - buffers];
+    }
+
+    auto Buf::asId (void const* p) -> Id_t {
+        return (Buf const*) p - buffers;
+    }
+
+    auto Buf::at (Id_t id) -> Buf& {
+        return buffers[id];
+    }
+
+    auto Queue::pull () -> Id_t {
+        auto id = head;
+        if (id != 0) {
+            head = tag(id);
+            if (head == 0)
+                tail = 0;
+            tag(id) = 0;
+        }
+        return id;
+    }
+
+    void Queue::insert (Id_t id) {
+        tag(id) = head;
+        head = id;
+        if (tail == 0)
+            tail = head;
+    }
+
+    void Queue::append (Id_t id) {
+        tag(id) = 0;
+        if (tail != 0)
+            tag(tail) = id;
+        tail = id;
+        if (head == 0)
+            head = tail;
+    }
 }
 
 // resume all fibers whose time has come and return that count
@@ -131,7 +170,7 @@ auto Fiber::expire (pool::Queue& q, uint16_t now, uint16_t& limit) -> int {
     }
 }
 
-Fid_t Fiber::curr;
+Fiber::Fid_t Fiber::curr;
 pool::Queue Fiber::ready;
 pool::Queue Fiber::timers;
 
@@ -149,7 +188,7 @@ auto Fiber::runLoop () -> bool {
         if (f.result != -128)
             longjmp(f.context, 1);
         f.fun(f.arg);
-        buffers.release(f.id());
+        delete (pool::Buf*) &f;
     }
     return !timers.isEmpty();
 }
@@ -160,14 +199,13 @@ auto Fiber::create (void (*fun)(void*), void* arg) -> Fid_t {
             expire(timers, now, limit);
         };
 
-    auto fp = (Fiber*) buffers.allocate();
+    auto fp = (Fiber*) new pool::Buf;
     fp->timeout = (uint16_t) systick::millis() + 60'000; // TODO needed?
     fp->result = -128; // mark as not-started
     fp->fun = fun;
     fp->arg = arg;
-    auto id = buffers.idOf(fp);
-    ready.append(id);
-    return id;
+    ready.append(fp);
+    return fp->id();
 }
 
 auto resumeFixer (void* top) {
@@ -185,11 +223,11 @@ void Fiber::processPending () {
 }
 
 auto Fiber::suspend (pool::Queue& q, uint16_t ms) -> int {
-    auto fp = curr == 0 ? (Fiber*) buffers.allocate() : &at(curr);
+    auto fp = curr == 0 ? (Fiber*) new pool::Buf : &at(curr);
     curr = 0;
     fp->timeout = (uint16_t) systick::millis() + ms;
     fp->result = 0;
-    q.append(buffers.idOf(fp));
+    q.append(fp);
     if (setjmp(fp->context) == 0) {
 #if 0
         debugf("\tFS %d emp %d top %p data %p bytes %d\n",
@@ -223,3 +261,308 @@ void Semaphore::expire (uint16_t now, uint16_t& limit) {
     if (count < 0)
         count += Fiber::expire(*this, now, limit);
 }
+
+#if DOCTEST
+#include "../doctest/doctest.h"
+#include <cstdio>
+#include <cstring>
+
+namespace boss::pool {
+    doctest::String toString(Buf* p) {
+        char buf [20];
+        sprintf(buf, "Buf(%d)", (int) (p - buffers));
+        return buf;
+    }
+}
+
+using namespace boss;
+using namespace pool;
+
+void Queue::verify () const {
+    if (head == 0 && tail == 0)
+        return;
+    CAPTURE((int) numBufs);
+    Id_t tags [numBufs];
+    memset(tags, 0, sizeof tags);
+    for (auto curr = head; curr != 0; curr = tag(curr)) {
+        CAPTURE((int) curr);
+        CHECK(tags[curr] == 0);
+        tags[curr] = 1;
+
+        auto next = tag(curr);
+        if (next == 0)
+            CHECK(curr == tail);
+        else
+            CHECK(curr != tail);
+    }
+}
+
+TEST_CASE("buffer") {
+    uint8_t mem [5000];
+    init(mem, sizeof mem);
+
+    INFO("numBufs: ", (int) numBufs);
+    CHECK(numFree == numBufs - 1);
+
+    auto bp = new Buf;
+    CHECK(bp != nullptr);
+    CHECK(bp->id() != 0);
+
+    Queue q;
+    CHECK(q.isEmpty());
+
+    CHECK(q.pull() == 0);
+
+    q.append(bp);
+    CHECK(!q.isEmpty());
+
+    auto i = q.pull();
+    CHECK(i != 0);
+    CHECK(q.isEmpty());
+
+    auto& r = Buf::at(i);
+    CHECK(&r == bp);
+
+    freeBufs.verify();
+    deinit();
+}
+
+TEST_CASE("pool") {
+    uint8_t mem [5000];
+    init(mem, sizeof mem);
+
+    SUBCASE("new") {
+        auto bp = new Buf;
+        auto i = bp->id();
+        CHECK(i == 1);
+        CHECK(&Buf::at(i) == bp);
+
+        auto bp2 = new Buf;
+        CHECK(bp2->id() != 0);
+        CHECK(bp2 != bp);
+    }
+
+    SUBCASE("reuse deleted") {
+        auto p = new Buf;
+        delete p;
+        CHECK(new Buf == p);
+    }
+
+    SUBCASE("reuse in lifo order") {
+        auto p = new Buf, q = new Buf, r = new Buf;
+        delete p;
+        delete q;
+        delete r;
+        CHECK(new Buf == r);
+        CHECK(new Buf == q);
+        CHECK(new Buf == p);
+    }
+
+    freeBufs.verify();
+    deinit();
+}
+
+TEST_CASE("queue") {
+    uint8_t mem [5000];
+    init(mem, sizeof mem);
+
+    Queue q;
+
+    SUBCASE("insert one") {
+        q.insert(new Buf);
+        CHECK(q.pull() == 1);
+        CHECK(q.isEmpty());
+    }
+
+    SUBCASE("insert many") {
+        q.insert(new Buf);
+        q.insert(new Buf);
+        q.insert(new Buf);
+        CHECK(q.pull() == 3);
+        CHECK(q.pull() == 2);
+        CHECK(q.pull() == 1);
+        CHECK(q.isEmpty());
+    }
+
+    SUBCASE("append one") {
+        q.append(new Buf);
+        CHECK(q.pull() == 1);
+        CHECK(q.isEmpty());
+    }
+
+    SUBCASE("append many") {
+        q.append(new Buf);
+        q.append(new Buf);
+        q.append(new Buf);
+        CHECK(q.pull() == 1);
+        CHECK(q.pull() == 2);
+        CHECK(q.pull() == 3);
+        CHECK(q.isEmpty());
+    }
+
+    SUBCASE("remove") {
+        for (int i = 0; i < 5; ++i) {
+            auto p = new Buf;
+            CHECK(p->id() == i + 1);
+            q.append(p);
+        }
+
+        SUBCASE("none") {
+            q.remove([](int) { return false; });
+            for (int i = 0; i < 5; ++i)
+                CHECK(q.pull() == i + 1);
+            CHECK(q.isEmpty());
+        }
+
+        SUBCASE("one") {
+            q.remove([](int id) { return id == 3; });
+            q.verify();
+            CHECK(q.pull() == 1);
+            CHECK(q.pull() == 2);
+            CHECK(q.pull() == 4);
+            CHECK(q.pull() == 5);
+            CHECK(q.isEmpty());
+        }
+
+        SUBCASE("even") {
+            q.remove([](int id) { return id % 2 == 0; });
+            q.verify();
+            CHECK(q.pull() == 1);
+            CHECK(q.pull() == 3);
+            CHECK(q.pull() == 5);
+            CHECK(q.isEmpty());
+        }
+
+        SUBCASE("all") {
+            q.remove([](int) { return true; });
+            q.verify();
+            CHECK(q.isEmpty());
+        }
+    }
+
+    freeBufs.verify();
+    deinit();
+}
+
+TEST_CASE("systick") {
+    systick::init();
+
+    SUBCASE("ticking") {
+        auto t = systick::millis();
+        idle();
+        CHECK(t+1 == systick::millis());
+        idle();
+        CHECK(t+2 == systick::millis());
+    }
+
+    SUBCASE("micros same") {
+        auto t1 = systick::micros();
+        auto t2 = systick::micros();
+        auto t3 = systick::micros();
+        // might still fail, but the chance of that should be almost zero
+        CHECK(t1 <= t3);
+        CHECK(t3 - t1 <= 1);
+        CHECK((t1-t2) * (t2-t3) == 0); // one of those must be identical
+    }
+
+    SUBCASE("micros changed") {
+        auto t = systick::micros();
+        for (volatile int i = 0; i < 1000; ++i) {}
+        CHECK(t != systick::micros());
+    }
+
+    systick::deinit();
+}
+
+TEST_CASE("fiber") {
+    uint8_t mem [5000];
+    pool::init(mem, sizeof mem);
+
+    systick::init(1);
+
+    SUBCASE("no fibers") {
+        auto nItems = numFree;
+        while (Fiber::runLoop()) {}
+        CHECK(numFree == nItems);
+    }
+
+    SUBCASE("single timer") {
+        auto t = systick::millis();
+        auto nItems = numFree;
+        CHECK(Fiber::ready.isEmpty());
+
+        Fiber::create([](void*) {
+            for (int i = 0; i < 3; ++i)
+                Fiber::msWait(10);
+        });
+
+        CHECK(numFree == nItems - 1);
+        CHECK(Fiber::ready.isEmpty() == false);
+
+        auto busy = true;
+        for (int i = 0; i < 50; ++i) {
+            busy = Fiber::runLoop();
+            CHECK(Fiber::ready.isEmpty());
+            if (!busy)
+                break;
+            CHECK(numFree == nItems - 1);
+            CHECK(!Fiber::timers.isEmpty());
+            idle();
+        }
+
+        CHECK(!busy);
+        CHECK(numFree == nItems);
+        CHECK(systick::millis() - t == 30);
+    }
+
+    SUBCASE("multiple timers") {
+        static uint32_t t, n; // static so fiber lambda can use it w/o capture
+        t = systick::millis();
+
+        auto nItems = numFree;
+        CHECK(Fiber::ready.isEmpty());
+
+        constexpr auto N = 3;
+        constexpr auto S = "987";
+        for (int i = 0; i < N; ++i)
+            Fiber::create([](void* p) {
+                uint8_t ms = (uintptr_t) p;
+                for (int i = 0; i < 5; ++i) {
+                    Fiber::msWait(ms);
+                    //printf("ms  %d now %d\n", ms, systick::millis() - t);
+                    if ((systick::millis() - t) % ms == 0)
+                        ++n;
+                }
+            }, (void*)(uintptr_t) (S[i]-'0'));
+
+        CHECK(numFree == nItems - N);
+        CHECK(Fiber::ready.isEmpty() == false);
+
+        SUBCASE("run") {
+            auto busy = true;
+            for (int i = 0; i < 100; ++i) {
+                busy = Fiber::runLoop();
+                CHECK(Fiber::ready.isEmpty());
+                if (!busy)
+                    break;
+                CHECK(!Fiber::timers.isEmpty());
+                idle();
+            }
+
+            CHECK(n == 3 * 5);
+            CHECK(!busy);
+            CHECK(numFree == nItems);
+            CHECK(systick::millis() - t == 45);
+            CHECK(Fiber::ready.isEmpty());
+            CHECK(Fiber::timers.isEmpty());
+        }
+
+        SUBCASE("dump") {
+            CHECK(!Fiber::ready.isEmpty());
+            CHECK(Fiber::timers.isEmpty());
+        }
+    }
+
+    systick::deinit();
+}
+#endif // DOCTEST

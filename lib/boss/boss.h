@@ -23,11 +23,10 @@
 
 namespace boss::pool {
     using Id_t = uint8_t;
+    extern uint8_t numFree;
 
     void init (void* ptr, size_t len);
     void deinit ();
-
-    auto hasFree () -> bool;
 
     struct Buf {
         auto operator new (size_t bytes) -> void*;
@@ -82,52 +81,15 @@ namespace boss {
     void debugf (const char* fmt, ...);
     [[noreturn]] void failAt (void const*, void const*);
 
-    struct Pool {
-        constexpr static auto BUFLEN = 192;
-
-        Pool (void* ptr, size_t len);
-
-        auto idOf (void const* p) const -> uint8_t {
-            assert(bufs + 1 <= p && p < bufs + nBuf);
-            return ((uint8_t const*) p - bufs[0].b) / sizeof (Buffer);
-        }
-
-        auto tag (uint8_t i) -> uint8_t& { return bufs[0].b[i]; }
-        auto tag (uint8_t i) const -> uint8_t { return bufs[0].b[i]; }
-
-        auto hasFree () { return tag(0) != 0; }
-
-        void init ();
-        auto allocate () -> uint8_t*;
-        void release (uint8_t i) { tag(i) = tag(0); tag(0) = i; }
-        void releasePtr (uint8_t* p) { release(idOf(p)); }
-
-        auto items (uint8_t i) const -> int;
-
-        auto operator[] (uint8_t i) -> uint8_t* { return bufs[i].b; }
-    private:
-        uint8_t const nBuf;
-        // make sure there's always room for jmp_buf, even if it exceeds BUFLEN
-        alignas(8) union Buffer {
-            uint8_t f [(sizeof (jmp_buf) + 256) & ~7]; // TODO
-            uint8_t b [BUFLEN];
-        } *bufs;
-
-        static_assert(BUFLEN < 256, "buffer fill must fit in a uint8_t");
-        static_assert(sizeof (Buffer) % 8 == 0);
-    };
-
-    extern Pool buffers;
-
-    using Fid_t = pool::Id_t;
-
     struct Fiber {
-        static auto expire (pool::Queue& q, uint16_t now, uint16_t& limit) -> int;
+        using Fid_t = pool::Id_t;
 
-        auto id () const { return buffers.idOf(this); }
+        static auto expire (pool::Queue&, uint16_t now, uint16_t& limit) -> int;
+
+        auto id () const { return pool::Buf::asId(this); }
         void resume (int i) { result = i; ready.append(id()); }
 
-        static auto at (Fid_t i) -> Fiber& { return *(Fiber*) buffers[i]; }
+        static auto at (Fid_t i) -> Fiber& { return (Fiber&) pool::Buf::at(i); }
         static auto runLoop () -> bool;
         static auto create (void (*)(void*), void* =nullptr) -> Fid_t;
         static void processPending ();

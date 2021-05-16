@@ -2,11 +2,11 @@
 
 LIBS = ../../lib
 DIRS = hall-native boss monty extend arch-native pyvm
-CXXFLAGS = -std=c++17 -DNATIVE -Wall -Wextra
+CXXFLAGS = -std=c++17 -Wall -Wextra
 
 # everything below is essentially automatic
 
-CXXFLAGS += -DDOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING
+CXXFLAGS += -DNATIVE -DDOCTEST -DDOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING
 CXXFLAGS += $(patsubst %,-I$(LIBS)/%,$(DIRS))
 LDFLAGS += -pthread
 VPATH = $(patsubst %,$(LIBS)/%,$(DIRS))
