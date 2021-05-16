@@ -38,7 +38,7 @@ namespace boss::pool {
         static auto asId (void const*) -> Id_t;
         static auto at (Id_t) -> Buf&;
 
-        uint8_t data [512];
+        uint8_t data [512]; // TODO fix this, RasPi needs >256
     };
 
     struct Queue {

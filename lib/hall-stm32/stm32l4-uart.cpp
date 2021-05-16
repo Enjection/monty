@@ -45,7 +45,7 @@ struct Uart : Device {
 
     void init (char const* desc, uint32_t rate) {
         Pin::define(desc);
-        rxBuf = pool.allocate();
+        rxBuf = (new pool::Buf)->data;
 
         RCC(APB1ENR, dev.ena) = 1; // uart on
         RCC(AHB1ENR, dev.dma) = 1; // dma on
@@ -74,7 +74,7 @@ struct Uart : Device {
     void deinit () {
         RCC(APB1ENR, dev.ena) = 0; // uart off
         RCC(AHB1ENR, dev.dma) = 0; // dma off
-        pool.releasePtr(rxBuf); // TODO what about a TX in progress?
+        delete (pool::Buf*) rxBuf; // TODO what about a TX in progress?
     }
 
     void baud (uint32_t bd, uint32_t hz =systemHz()) const {
@@ -83,9 +83,9 @@ struct Uart : Device {
 
     auto rxNext () -> uint16_t { return RXSIZE - dmaRX(CNDTR); }
 
-    void txStart (uint8_t i) {
-        dmaTX(CNDTR) = pool.tag(i);
-        dmaTX(CMAR) = (uint32_t) pool[i];
+    void txStart (uint8_t const* ptr, uint16_t len) {
+        dmaTX(CNDTR) = len;
+        dmaTX(CMAR) = (uint32_t) ptr;
         devReg(CR) = (1<<6); // clear TC
         dmaTX(CCR, 0) = 1; // EN
     }
@@ -109,7 +109,8 @@ struct Uart : Device {
     void process () override {
         if (dmaTX(CCR, 0) && dmaTX(CNDTR) == 0) { // EN
             dmaTX(CCR, 0) = 0; // ~EN
-            pool.releasePtr((uint8_t*)(uint32_t) dmaTX(CMAR));
+            //TODO verify that ptr is a buffer
+            delete (pool::Buf*) dmaTX(CMAR);
             writers.post();
         }
     }
@@ -122,7 +123,7 @@ struct Uart : Device {
     UartInfo dev;
     Semaphore writers {1}, readers {0};
 protected:
-    constexpr static auto RXSIZE = pool.BUFLEN;
+    constexpr static auto RXSIZE = sizeof (pool::Buf);
     uint8_t* rxBuf;
 private:
     enum { AHB1ENR=0x48, APB1ENR=0x58 };
@@ -153,20 +154,18 @@ namespace hall::uart {
 
     void putc (int n, int c) {
         static uint8_t* buf;
-        static uint8_t fill;
+        static uint16_t fill;
 
         auto flush = [&]() {
-            auto i = pool.idOf(buf);
-            pool.tag(i) = fill;
             uarts[n-1].writers.pend();
-            uarts[n-1].txStart(i);
+            uarts[n-1].txStart(buf, fill);
             fill = 0;
         };
 
-        if (fill >= pool.BUFLEN)
+        if (fill >= sizeof (pool::Buf))
             flush();
         if (fill == 0)
-            buf = pool.allocate();
+            buf = (new pool::Buf)->data;
         buf[fill++] = c;
         if (c == '\n')
             flush();
