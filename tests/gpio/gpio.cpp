@@ -63,7 +63,7 @@ namespace gpio {
 
         // define multiple pins, return nullptr if ok, else ptr to error
         static auto define (char const*, Pin* =nullptr, int =0) -> char const*;
-        private:
+    private:
         enum { LEV0=0x34, SET0=0x1C, CLR0=0x28 };
         constexpr static Io32<0> GPIO {};
 
@@ -80,7 +80,7 @@ auto Pin::config (char const*) -> int {
     enum { SEL0=0x00, OUT=0x1 };
     pin = 12;
     GPIO(SEL0+4, 3*2, 3) = OUT; // TODO careful with 3-bit fields, don't span word boundaries
-    return 0; // TODO
+    return 0x100 + OUT; // IN is zero, but a valid result must always be > 0
 }
 
 #if DOCTEST
