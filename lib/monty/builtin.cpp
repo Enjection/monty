@@ -235,6 +235,8 @@ TEST_CASE("struct sizes") {
     // TODO incorrect formulas (size rounded up), but it works on 32b & 64b ...
     CHECK(2 * sizeof (void*) + 8 == sizeof (Range));
     CHECK(4 * sizeof (void*) == sizeof (Slice));
+
+    CHECK(2*sizeof (uint32_t) + 2*sizeof (void*) == sizeof (Buffer));
 }
 
 #endif // DOCTEST

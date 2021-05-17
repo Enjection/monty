@@ -229,16 +229,23 @@ def python(c, ignore=[], coverage=False, tests=""):
     if num != match:
         c.run("exit 1") # yuck, force an error ...
 
-@task(generate, help={"filter": 'filter tests by name (default: "*")'})
-def test(c, filter='*'):
+@task(generate,
+      help={"filter": 'filter tests by name (default: "*")',
+            "unity": 'run Unity tests (default is DocTest)'})
+def test(c, filter='*', unity=False):
     """run C++ tests natively"""
-    try:
-        r = c.run(pio("test -e native -f '%s'" % filter),
-                              hide='stdout', pty=True)
-    except Exception as e:
-        print(e.result.stdout)
+    if unity: # old unity tests
+        try:
+            r = c.run(pio("test -e native -f '%s'" % filter),
+                                hide='stdout', pty=True)
+        except Exception as e:
+            print(e.result.stdout)
+        else:
+            shortTestOutput(r)
     else:
-        shortTestOutput(r)
+        c.run(pio("run -e native -s"), pty=True)
+        c.run("cd tests/native && make clean main", hide=True)
+        c.run("cd tests/native && ./main -nv", pty=True)
 
 @task(generate)
 def flash(c):

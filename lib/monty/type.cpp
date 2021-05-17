@@ -725,6 +725,50 @@ void Inst::repr (Buffer& buf) const {
 #if DOCTEST
 #include <doctest.h>
 
+static char buf [250];
+static char* bufEnd;
+
+struct TestBuffer : Buffer {
+    TestBuffer () { bufEnd = buf; }
+    ~TestBuffer () override {
+        for (uint32_t i = 0; i < _fill && bufEnd < buf + sizeof buf - 1; ++i)
+            *bufEnd++ = begin()[i];
+        _fill = 0;
+        *bufEnd = 0;
+    }
+};
+
+TEST_CASE("repr") {
+    uint8_t memory [3*1024];
+    gcSetup(memory, sizeof memory);
+    uint32_t memAvail = gcMax();
+
+    { TestBuffer tb; CHECK(buf == bufEnd); }
+    CHECK("" == buf);
+
+    { TestBuffer tb; tb.print("<%d>", 42); }
+    CHECK("<42>" == buf);
+
+    TestBuffer {} << Value () << ' ' << 123 << " abc " << (Value) "def";
+    CHECK("_ 123 abc \"def\"" == buf);
+
+    TestBuffer {} << Null << ' ' << True << ' ' << False;
+    CHECK("null true false" == buf);
+
+    TestBuffer {} << Object {};
+    CHECK(strncmp("<<object> at ", buf, 13) == 0);
+
+    TestBuffer {} << Buffer::info;
+    CHECK("<type <buffer>>" == buf);
+
+    { TestBuffer tb; tb << tb; }
+    CHECK(strncmp("<<buffer> at ", buf, 13) == 0);
+
+    Object::sweep();
+    Vec::compact();
+    CHECK(memAvail == gcMax());
+}
+
 TEST_CASE("type") {
     uint8_t memory [3*1024];
     gcSetup(memory, sizeof memory);

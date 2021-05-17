@@ -398,3 +398,506 @@ namespace monty {
                 gcStats.moa, gcStats.mob, gcStats.mva, gcStats.mvb);
     }
 }
+
+#if DOCTEST
+#include <doctest.h>
+
+int created, destroyed, marked, failed;
+
+struct MarkObj : Object {
+    MarkObj (Object* o =0) : other (o) { ++created; }
+    ~MarkObj () override               { ++destroyed; }
+
+private:
+    void marker () const override      { ++marked; mark(other); }
+
+    Object* other;
+};
+
+// expose some methods just for testing
+struct TestVec : Vec {
+    using Vec::ptr;
+    using Vec::cap;
+    using Vec::adj;
+};
+
+TEST_CASE("mem") {
+    uint8_t memory [3*1024];
+    gcSetup(memory, sizeof memory);
+    uint32_t memAvail = gcMax();
+    created = destroyed = marked = failed = 0;
+    panicOutOfMemory = []() -> void* { ++failed; return nullptr; };
+
+    SUBCASE("sizes") {
+        CHECK(sizeof (void*) == sizeof (Object));
+        CHECK(2 * sizeof (void*) == sizeof (Vec));
+    }
+
+    SUBCASE("init") {
+        CHECK(sizeof memory > gcMax());
+        CHECK(sizeof memory - 50 < gcMax());
+    }
+
+    SUBCASE("new") {
+        MarkObj o1; // on the stack
+        CHECK(!o1.isCollectable());
+        CHECK(sizeof (MarkObj) == sizeof o1);
+        CHECK(memAvail == gcMax());
+
+        auto p1 = new MarkObj; // allocated in pool
+        CHECK(p1 != nullptr);
+        CHECK(p1->isCollectable());
+
+        auto avail1 = gcMax();
+        CHECK(memAvail > avail1);
+
+        auto p2 = new MarkObj; // second object in pool
+        CHECK(p2->isCollectable());
+        CHECK(p1 != p2);
+
+        auto avail2 = gcMax();
+        CHECK(avail1 > avail2);
+        CHECK(memAvail - avail1 == avail1 - avail2);
+
+        auto p3 = new (0) MarkObj; // same as without the extra size
+        CHECK(p3->isCollectable());
+
+        auto avail3 = gcMax();
+        CHECK(avail2 > avail3);
+        CHECK(avail1 - avail2 == avail2 - avail3);
+
+        auto p4 = new (20) MarkObj; // extra space at end of object
+        CHECK(p4->isCollectable());
+
+        auto avail4 = gcMax();
+        CHECK(avail3 > avail4);
+        CHECK(avail1 - avail2 < avail3 - avail4);
+    }
+
+    SUBCASE("markObj") {
+        auto p1 = new MarkObj;
+        CHECK(1 == created);
+
+        auto p2 = new MarkObj (p1);
+        CHECK(2 == created);
+
+        mark(p2);
+        CHECK(2 == marked);
+
+        mark(p2);
+        CHECK(2 == marked);
+
+        Object::sweep();
+        CHECK(0 == destroyed);
+
+        mark(p2);
+        CHECK(4 == marked); // now everything is marked again
+
+        Object::sweep();
+        CHECK(0 == destroyed);
+        Object::sweep();
+        CHECK(2 == destroyed);
+    }
+
+    SUBCASE("markThrough") {
+        auto p1 = new MarkObj;
+        MarkObj o1 (p1); // not allocated, but still traversed when marking
+        auto p2 = new MarkObj (&o1);
+        CHECK(3 == created);
+
+        mark(p2);
+        CHECK(3 == marked);
+
+        mark(p2);
+        CHECK(3 == marked);
+
+        Object::sweep();
+        CHECK(0 == destroyed);
+        Object::sweep();
+        CHECK(2 == destroyed);
+    }
+
+    SUBCASE("reuseObjs") {
+        auto p1 = new MarkObj;          // [ p1 ]
+        delete p1;                      // [ ]
+        CHECK(memAvail == gcMax());
+
+        auto p2 = new MarkObj;          // [ p2 ]
+        /* p3: */ new MarkObj;          // [ p3 p2 ]
+        delete p2;                      // [ p3 gap ]
+        CHECK(p1 == p2);
+        CHECK(memAvail > gcMax());
+
+        auto p4 = new MarkObj;          // [ p3 p4 ]
+        CHECK(p1 == p4);
+
+        Object::sweep();                // [ ]
+        CHECK(memAvail == gcMax());
+    }
+
+    SUBCASE("mergeNext") {
+        auto p1 = new MarkObj;
+        auto p2 = new MarkObj;
+        /* p3: */ new MarkObj;          // [ p3 p2 p1 ]
+
+        delete p1;
+        delete p2;                      // [ p3 gap ]
+
+        auto p4 = new (1) MarkObj;      // [ p3 p4 ]
+        (void) p4; // TODO changed: CHECK(p2 == p4);
+    }
+
+    SUBCASE("mergePrevious") {
+        auto p1 = new MarkObj;
+        auto p2 = new MarkObj;
+        auto p3 = new MarkObj;          // [ p3 p2 p1 ]
+
+        delete p2;                      // [ p3 gap p1 ]
+        delete p1;                      // [ p3 gap gap ]
+
+        auto p4 = new (1) MarkObj;      // [ p3 p4 ]
+        // TODO changed: CHECK(p2 == p4);
+
+        delete p4;                      // [ p3 gap ]
+        delete p3;                      // [ ]
+        CHECK(memAvail == gcMax());
+    }
+
+    SUBCASE("mergeMulti") {
+        auto p1 = new (100) MarkObj;
+        auto p2 = new (100) MarkObj;
+        auto p3 = new (100) MarkObj;
+        /* p4: */ new (100) MarkObj;    // [ p4 p3 p2 p1 ]
+
+        delete p3;                      // [ p4 gap p2 p1 ]
+        delete p2;                      // [ p4 gap gap p1 ]
+        delete p1;                      // [ p4 gap gap gap ]
+
+        auto p5 = new (300) MarkObj;    // [ p4 p5 ]
+        (void) p5; // TODO changed: CHECK(p3 == p5);
+    }
+
+    SUBCASE("outOfObjs") {
+#if 0 // can't test this anymore, since panic can't return
+        constexpr auto N = 400;
+        for (int i = 0; i < 12; ++i)
+            new (N) MarkObj;
+        CHECK(N > gcMax());
+        CHECK(12 == created);
+        CHECK(5 == failed);
+
+        destroyed += failed; // avoid assertion in tearDown()
+#endif
+    }
+
+    SUBCASE("newVec") {
+        {
+            TestVec v1;
+            CHECK(2 * sizeof (void*) == sizeof v1);
+            CHECK(nullptr == v1.ptr());
+            CHECK(0 == v1.cap());
+            CHECK(memAvail == gcMax());
+        }
+        CHECK(memAvail == gcMax());
+    }
+
+    SUBCASE("resizeVec") {
+        {
+            TestVec v1;
+            auto f = v1.adj(0);
+            CHECK(f);
+            CHECK(nullptr == v1.ptr());
+            CHECK(0 == v1.cap());
+            CHECK(memAvail == gcMax());
+
+            f = v1.adj(1);
+            CHECK(f);
+            CHECK(nullptr != v1.ptr());
+            CHECK(sizeof (void*) == v1.cap());
+            CHECK(memAvail > gcMax());
+
+            f = v1.adj(sizeof (void*));
+            CHECK(f);
+            CHECK(sizeof (void*) == v1.cap());
+
+            f = v1.adj(sizeof (void*) + 1);
+            CHECK(f);
+            CHECK(3 * sizeof (void*) == v1.cap());
+
+#if !NATIVE // FIXME crashes since change from size_t to uint32_t ???
+            f = v1.adj(1);
+            CHECK(f);
+            CHECK(sizeof (void*) == v1.cap());
+#endif
+        }
+        CHECK(memAvail == gcMax());
+    }
+
+    SUBCASE("reuseVecs") {
+        TestVec v1;
+        v1.adj(100);                    // [ v1 ]
+        TestVec v2;
+        v2.adj(20);                     // [ v1 v2 ]
+
+        auto a = gcMax();
+        CHECK(memAvail > a);
+        CHECK(v1.ptr() < v2.ptr());
+
+        v1.adj(0);                      // [ gap v2 ]
+        CHECK(a == gcMax());
+
+        TestVec v3;
+        v3.adj(20);                     // [ v3 gap v2 ]
+        CHECK(a == gcMax());
+
+        TestVec v4;
+        v4.adj(20);                     // [ v3 v4 gap v2 ]
+        CHECK(a == gcMax());
+
+        v3.adj(0);                      // [ gap v4 gap v2 ]
+        v4.adj(0);                      // [ gap gap v2 ]
+        CHECK(a == gcMax());
+
+        TestVec v5;
+        v5.adj(100);                    // [ v5 v2 ]
+        CHECK(a == gcMax());
+
+        v5.adj(40);                     // [ v5 gap v2 ]
+        CHECK(a == gcMax());
+
+        v5.adj(80);                     // [ v5 gap v2 ]
+        CHECK(a == gcMax());
+
+        v5.adj(100);                    // [ v5 v2 ]
+        CHECK(a == gcMax());
+
+        v5.adj(20);                     // [ v5 gap v2 ]
+        v1.adj(1);                      // [ v5 v1 gap v2 ]
+        CHECK(a == gcMax());
+
+        v1.adj(0);                      // [ v5 gap v2 ]
+        v5.adj(0);                      // [ gap v2 ]
+
+        v2.adj(0);                      // [ gap ]
+        auto b = gcMax();
+        CHECK(a < b);
+        CHECK(memAvail > b);
+
+        v1.adj(1);                      // [ v1 ]
+        CHECK(b < gcMax());
+
+        v1.adj(0);                      // [ ]
+        CHECK(memAvail == gcMax());
+    }
+
+    SUBCASE("compactVecs") {
+        TestVec v1;
+        v1.adj(20);                     // [ v1 ]
+        TestVec v2;
+        v2.adj(20);                     // [ v1 v2 ]
+
+        auto a = gcMax();
+
+        TestVec v3;
+        v3.adj(20);                     // [ v1 v2 v3 ]
+
+        auto b = gcMax();
+
+        TestVec v4;
+        v4.adj(20);                     // [ v1 v2 v3 v4 ]
+        TestVec v5;
+        v5.adj(20);                     // [ v1 v2 v3 v4 v5 ]
+
+        auto c = gcMax();
+        CHECK(b > c);
+
+        Vec::compact();                 // [ v1 v2 v3 v4 v5 ]
+        CHECK(c == gcMax());
+
+        v2.adj(0);                      // [ v1 gap v3 v4 v5 ]
+        v4.adj(0);                      // [ v1 gap v3 gap v5 ]
+        CHECK(c == gcMax());
+
+        Vec::compact();                 // [ v1 v3 v5 ]
+        CHECK(b == gcMax());
+
+        v1.adj(0);                      // [ gap v3 v5 ]
+        CHECK(b == gcMax());
+
+        Vec::compact();                 // [ v3 v5 ]
+        CHECK(a == gcMax());
+    }
+
+    SUBCASE("vecData") {
+        {
+            TestVec v1;                 // fill with 0xFF's
+            v1.adj(1000);
+            CHECK(1000 <= v1.cap());
+
+            memset(v1.ptr(), 0xFF, v1.cap());
+            CHECK(0xFF == v1.ptr()[0]);
+            CHECK(0xFF == v1.ptr()[v1.cap()-1]);
+        }
+
+        TestVec v2;
+        v2.adj(20);                     // [ v2 ]
+        auto p2 = v2.ptr();
+        auto n = v2.cap();
+        CHECK(p2 != nullptr);
+        CHECK(20 <= n);
+
+        p2[0] = 1;
+        p2[n-1] = 2;
+        CHECK(1 == p2[0]);
+        CHECK(0 == p2[1]);
+        CHECK(0 == p2[n-2]);
+        CHECK(2 == p2[n-1]);
+
+        v2.adj(40);                     // [ v2 ]
+        CHECK(p2 == v2.ptr());
+        CHECK(1 == p2[0]);
+        CHECK(2 == p2[n-1]);
+        CHECK(0 == p2[n]);
+        CHECK(0 == p2[ v2.cap()-1]);
+
+        v2.ptr()[n] = 11;
+        v2.ptr()[v2.cap()-1] = 22;
+        CHECK(11 == v2.ptr()[n]);
+        CHECK(22 == v2.ptr()[v2.cap()-1]);
+
+        TestVec v3;
+        v3.adj(20);                     // [ v2 v3 ]
+        auto p3 = v3.ptr();
+        p3[0] = 3;
+        p3[n-1] = 4;
+        CHECK(3 == p3[0]);
+        CHECK(4 == p3[n-1]);
+
+        TestVec v4;
+        v4.adj(20);                     // [ v2 v3 v4 ]
+        auto p4 = v4.ptr();
+        p4[0] = 5;
+        p4[n-1] = 6;
+        CHECK(5 == p4[0]);
+        CHECK(6 == p4[n-1]);
+
+        v3.adj(40);                     // [ v2 gap v4 v3 ]
+        CHECK(p3 != v3.ptr());
+        CHECK(3 == v3.ptr()[0]);
+        CHECK(4 == v3.ptr()[n-1]);
+        CHECK(0 == v3.ptr()[n]);
+        CHECK(0 == v3.ptr()[v3.cap()-1]);
+
+        v3.ptr()[n] = 33;
+        v3.ptr()[v3.cap()-1] = 44;
+        CHECK(33 == v3.ptr()[n]);
+        CHECK(44 == v3.ptr()[v3.cap()-1]);
+
+        auto a = gcMax();
+        Vec::compact();                 // [ v2 v4 v3 ]
+        CHECK(a < gcMax());
+
+        CHECK(p2 == v2.ptr());
+        CHECK(p3 == v4.ptr());
+        CHECK(p4 == v3.ptr());
+
+        CHECK(1 == p2[0]);
+        CHECK(22 == p2[ v2.cap()-1]);
+
+        CHECK(3 == v3.ptr()[0]);
+        CHECK(44 == v3.ptr()[v3.cap()-1]);
+
+        CHECK(5 == v4.ptr()[0]);
+        CHECK(6 == v4.ptr()[n-1]);
+
+        v2.adj(0);                      // [ gap v4 v3 ]
+        v4.adj(0);                      // [ gap gap v3 ]
+
+        Vec::compact();                 // [ v3 ]
+        CHECK(memAvail > gcMax());
+
+        CHECK(p2 == v3.ptr());
+
+        CHECK(3 == v3.ptr()[0]);
+        CHECK(44 == v3.ptr()[v3.cap()-1]);
+    }
+
+    SUBCASE("outOfVecs") {
+        TestVec v1;
+        auto f = v1.adj(999);
+        CHECK(f);
+        CHECK(0 == failed);
+
+        auto p = v1.ptr();
+        auto n = v1.cap();
+        auto a = gcMax();
+        CHECK(nullptr != p);
+        CHECK(999 < n);
+        CHECK(memAvail > a);
+
+        f = v1.adj(sizeof memory); // fail, vector should be the old one
+
+        CHECK(!f);
+        CHECK(0 < failed);
+        CHECK(p == v1.ptr());
+        CHECK(n == v1.cap());
+        CHECK(a == gcMax());
+    }
+
+    SUBCASE("gcRomOrRam") {
+#if 0 // can't test on native
+        struct RomObj {
+            virtual void blah () {} // virtual is romable
+        };
+        static const RomObj romObj;
+        static       RomObj ramObj;
+
+        struct DataObj {
+            virtual ~DataObj () {} // but not if virtual destructor (!)
+        };
+        static const DataObj dataObj;
+
+        struct BssObj { // with plain destructor, it needs run-time init (?)
+            ~BssObj () {}
+        };
+        static const BssObj bssObj;
+
+        //extern int _etext [];
+        extern int _sdata [];
+        extern int _edata [];
+        extern int _sbss [];
+        extern int _ebss [];
+
+        auto rom = (void*) &romObj;
+        CHECK(rom < _sdata);                  // in flash, i.e. .rodata
+
+        auto ram = (void*) &ramObj;                 // not const
+        CHECK(_sdata <= ram && ram < _edata); // pre-inited, i.e. in .data
+
+        auto data = (void*) &dataObj;
+        CHECK(_sdata <= data && data < _edata);
+
+        auto bss = (void*) &bssObj;
+        CHECK(_sbss <= bss && bss < _ebss);
+#endif
+
+        // work around the fact that Obj::Obj() is protected
+        Object stackObj;
+        auto heapObj = new Object;
+
+        auto heap = (void*) heapObj;
+        CHECK(memory <= heap);
+        CHECK(heap < memory + sizeof memory);
+
+        auto stack = (void*) &stackObj;
+        // heap is on the stack as well
+        //CHECK(heap <= stack);
+        CHECK(heap > stack);
+    }
+
+    Object::sweep();
+    Vec::compact();
+    CHECK(memAvail == gcMax());
+}
+
+#endif // DOCTEST

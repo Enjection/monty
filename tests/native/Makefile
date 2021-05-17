@@ -15,13 +15,11 @@ OBJS = $(patsubst %.cpp,%.o,$(notdir $(SRCS)))
 
 tdd: ; @ while ./tdd.py . $(LIBS); do :; done
 
-all: cls main
-	@ ./main -nv -ne
+all: cls main run
 
-cls: ; @ clear && date
-
-main: $(OBJS)
-	@ $(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+cls: 		  ; @ clear && date
+main: $(OBJS) ; @ $(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+run: 		  ; @ ./main -nv -ne
 
 %.o: %.cpp
 	@ echo $(CXX) $<
@@ -30,4 +28,6 @@ main: $(OBJS)
 dirs: ; @ echo $(patsubst %,$(LIBS)/%,$(DIRS))
 srcs: ; @ echo $(SRCS)
 
-clean: ; rm -f *.o main
+# keep main.o, as it is slow to compile and never changes
+clean: 	   ; GLOBIGNORE=main.o; rm -f *.o main
+distclean: ; rm -f *.o main

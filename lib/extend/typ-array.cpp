@@ -265,3 +265,315 @@ void Array::repr (Buffer& buf) const {
     for (uint32_t i = 0; i < n; ++i)
         buf.print("%02x", p[i]);
 }
+
+#if DOCTEST
+#include <doctest.h>
+
+TEST_CASE("array") {
+    uint8_t memory [3*1024];
+    gcSetup(memory, sizeof memory);
+    uint32_t memAvail = gcMax();
+    VecOf<int> v;
+
+    CHECK(0 == v.cap());
+    v.adj(25);
+
+    for (int i = 0; i < 20; ++i)
+        CHECK(0 == v[i]);
+
+    CHECK(0 == v[10]);
+    for (int i = 0; i < 10; ++i)
+        v.begin()[i] = 11 * i;
+
+    SUBCASE("vecOfTypeSizes") {
+        CHECK(2 * sizeof (void*) == sizeof (Vec));
+        CHECK(1 * sizeof (void*) + 8 == sizeof (VecOf<int>));
+        CHECK(1 * sizeof (void*) + 8 == sizeof (VecOf<Vec>));
+    }
+
+    SUBCASE("vecOfInited") {
+        CHECK(25 <= v.cap());
+        CHECK(30 > v.cap());
+
+        for (int i = 0; i < 10; ++i)
+            CHECK(11 * i == v[i]);
+        CHECK(0 == v[10]);
+    }
+
+    SUBCASE("vecOfMoveAndWipe") {
+        v.move(2, 3, 4);
+
+        static int m1 [] { 0, 11, 22, 33, 44, 55, 22, 33, 44, 99, 0, };
+        for (int i = 0; i < 11; ++i)
+            CHECK(m1[i] == v[i]);
+
+        v.wipe(2, 3);
+
+        static int m2 [] { 0, 11, 0, 0, 0, 55, 22, 33, 44, 99, 0, };
+        for (int i = 0; i < 11; ++i)
+            CHECK(m2[i] == v[i]);
+
+        v.move(4, 3, -2);
+
+        static int m3 [] { 0, 11, 0, 55, 22, 55, 22, 33, 44, 99, 0, };
+        for (int i = 0; i < 11; ++i)
+            CHECK(m3[i] == v[i]);
+    }
+
+    SUBCASE("vecOfCopyMove") {
+        VecOf<int> v2;
+        v2.adj(3);
+
+        v2[0] = 100;
+        v2[1] = 101;
+        v2[2] = 102;
+
+        CHECK(3 <= v2.cap());
+        CHECK(8 > v2.cap());
+    }
+
+    SUBCASE("arrayTypeSizes") {
+        CHECK(2 * sizeof (void*) + 8 == sizeof (Array));
+        CHECK(2 * sizeof (void*) + 8 == sizeof (List));
+        CHECK(2 * sizeof (void*) + 8 == sizeof (Set));
+        CHECK(3 * sizeof (void*) + 8 == sizeof (Dict));
+        CHECK(5 * sizeof (void*) + 8 == sizeof (Type));
+        CHECK(5 * sizeof (void*) + 8 == sizeof (Class));
+        CHECK(3 * sizeof (void*) + 8 == sizeof (Inst));
+    }
+
+    SUBCASE("arrayInsDel") {
+        static struct { char typ; int64_t min, max; int log; } tests [] = {
+            //    typ                     min  max                log
+            { 'P',                      0, 1,                   0 },
+            { 'T',                      0, 3,                   1 },
+            { 'N',                      0, 15,                  2 },
+            { 'b',                   -128, 127,                 3 },
+            { 'B',                      0, 255,                 3 },
+            { 'h',                 -32768, 32767,               4 },
+            { 'H',                      0, 65535,               4 },
+            { 'i',                 -32768, 32767,               4 },
+            { 'I',                      0, 65535,               4 },
+            { 'l',            -2147483648, 2147483647,          5 },
+            { 'L',                      0, 4294967295,          5 },
+            { 'q', -9223372036854775807-1, 9223372036854775807, 6 },
+        };
+        for (auto e : tests) {
+            //printf("e %c min %lld max %lld log %d\n", e.typ, e.min, e.max, e.log);
+
+            Array a (e.typ);
+            CHECK(0 == a.len());
+
+            constexpr auto N = 24;
+            a.insert(0, N);
+            CHECK(N == a.len());
+
+            int bytes = ((N << e.log) + 7) >> 3;
+            CHECK(bytes <= a.cap());
+            CHECK(bytes + 2 * sizeof (void*) >= a.cap());
+
+            for (uint32_t i = 0; i < a.len(); ++i)
+                CHECK(0 == (int) a.getAt(i));
+
+            a.setAt(0, Int::make(e.min));
+            a.setAt(1, Int::make(e.min - 1));
+            a.setAt(N-2, Int::make(e.max + 1));
+            a.setAt(N-1, Int::make(e.max));
+
+            CHECK(e.min == a.getAt(0).asInt());
+            CHECK(e.max == a.getAt(N-1).asInt());
+
+            // can't test for overflow using int64_t when storing ± 63-bit ints
+            if (e.max != 9223372036854775807) {
+                CHECK(e.min - 1 != a.getAt(1));
+                CHECK(e.max + 1 != a.getAt(N-2));
+                CHECK(e.min - 1 != a.getAt(1).asInt());
+                CHECK(e.max + 1 != a.getAt(N-2).asInt());
+            }
+
+            a.remove(8, 8);
+            CHECK(N-8 == a.len());
+            CHECK(e.min == a.getAt(0).asInt());
+            CHECK(e.max == a.getAt(N-8-1).asInt());
+
+            a.insert(0, 8);
+            CHECK(N == a.len());
+            CHECK(0 == (int) a.getAt(0));
+            CHECK(0 == (int) a.getAt(7));
+            CHECK(e.min == a.getAt(8).asInt());
+            CHECK(e.max == a.getAt(N-1).asInt());
+        }
+    }
+
+    SUBCASE("listInsDel") {
+        List l;
+        CHECK(0 == l.size());
+
+        l.insert(0, 5);
+        CHECK(5 == l.size());
+
+        for (auto e : l)
+            CHECK(e.isNil());
+
+        for (uint32_t i = 0; i < 5; ++i)
+            l[i] = 10 + i;
+
+        for (auto& e : l) {
+            auto i = &e - &l[0];
+            CHECK(10 + i == e);
+        }
+
+        l.insert(2, 3);
+        CHECK(8 == l.size());
+
+        static int m1 [] { 10, 11, 0, 0, 0, 12, 13, 14, };
+        for (auto& e : m1) {
+            auto i = &e - m1;
+            CHECK(e == l[i]);
+        }
+
+        l.remove(1, 5);
+        CHECK(3 == l.size());
+
+        static int m2 [] { 10, 13, 14, };
+        for (auto& e : m2) {
+            auto i = &e - m2;
+            CHECK(e == l[i]);
+        }
+
+        for (auto& e : l) {
+            auto i = &e - &l[0];
+            CHECK(m2[i] == e);
+        }
+    }
+
+    SUBCASE("setInsDel") {
+        Set s;
+        CHECK(0 == s.size());
+
+        for (int i = 20; i < 25; ++i)
+            s.has(i) = true;
+        CHECK(5 == s.size());     // 20 21 22 23 24
+
+        CHECK(!s.has(19));
+        CHECK(s.has(20));
+        CHECK(s.has(24));
+        CHECK(!s.has(25));
+
+        for (int i = 20; i < 25; ++i)
+            CHECK(s.has(i));
+
+        for (auto e : s) {
+            CHECK(20 <= (int) e);
+            CHECK((int) e < 25);
+        }
+
+        for (int i = 23; i < 28; ++i)
+            s.has(i) = false;
+        CHECK(3 == s.size());     // 20 21 22
+
+        CHECK(!s.has(19));
+        CHECK(s.has(20));
+        CHECK(s.has(22));
+        CHECK(!s.has(23));
+
+        for (int i = 20; i < 23; ++i)
+            CHECK(s.has(i));
+
+        for (int i = 19; i < 22; ++i)
+            s.has(i) = true;
+        CHECK(4 == s.size());     // 19 20 21 22
+
+        CHECK(!s.has(18));
+        CHECK(s.has(19));
+        CHECK(s.has(22));
+        CHECK(!s.has(23));
+
+        for (int i = 19; i < 23; ++i)
+            CHECK(s.has(i));
+
+        s.has("abc") = true;
+        s.has("def") = true;
+        CHECK(6 == s.size());     // 19 20 21 22 "abc" "def"
+
+        CHECK(!s.has(""));
+        CHECK(s.has("abc"));
+        CHECK(s.has("def"));
+        CHECK(!s.has("ghi"));
+
+        s.has("abc") = true; // no effect
+        s.has("ghi") = false; // no effect
+        CHECK(6 == s.size());     // 19 20 21 22 "abc" "def"
+
+        s.has("def") = false;
+        CHECK(5 == s.size());     // 19 20 21 22 "abc"
+        CHECK(s.has("abc"));
+        CHECK(!s.has("def"));
+        CHECK(!s.has("ghi"));
+    }
+
+    SUBCASE("dictInsDel") {
+        Dict d;
+        CHECK(0 == d.size());
+
+        for (int i = 0; i < 5; ++i)
+            d.at(10+i) = 30+i;
+        CHECK(5 == d.size());     // 10:30 11:31 12:32 13:33 14:34
+
+        CHECK(d.has(12));
+        CHECK(!d.has(15));
+
+        Value v;
+        v = d.at(12);
+        CHECK(!v.isNil());
+        CHECK(v.isInt()); // exists
+        v = d.at(15);
+        CHECK(v.isNil()); // doesn't exist
+
+        for (int i = 0; i < 5; ++i) {
+            Value e = d.at(10+i);
+            CHECK(30+i == e);
+        }
+
+        d.at(15) = 35;
+        CHECK(6 == d.size());     // 10:30 11:31 12:32 13:33 14:34 15:35
+        CHECK(d.has(15));
+
+        for (int i = 0; i < 6; ++i) {
+            Value e = d.at(10+i);
+            CHECK(30+i == e);
+        }
+
+        d.at(12) = 42;
+        CHECK(6 == d.size());     // 10:30 11:31 12:42 13:33 14:34 15:35
+        CHECK(d.has(12));
+        CHECK(42 == (Value) d.at(12));
+
+        d.at(11) = Value {};
+        CHECK(5 == d.size());     // 10:30 12:42 13:33 14:34 15:35
+        CHECK(!d.has(11));
+
+        static int m1 [] { 1030, 1242, 1333, 1434, 1535, };
+        for (auto e : m1) {
+            int k = e / 100, v = e % 100;
+            CHECK(v == (Value) d.at(k));
+        }
+
+#if 0
+        auto p = d.begin(); // a sneaky way to access the underlying VecOf<Value>
+        for (uint32_t i = 0; i < 2 * d.size(); ++i)
+            printf("%d, ", (int) p[i]);
+        printf("\n");
+#endif
+    }
+
+    CHECK(0 < v.cap());
+    v.adj(0);
+    CHECK(0 == v.cap());
+
+    Object::sweep();
+    Vec::compact();
+    CHECK(memAvail == gcMax());
+}
+
+#endif // DOCTEST
