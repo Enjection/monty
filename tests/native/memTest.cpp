@@ -1,5 +1,4 @@
-// TODO a first attempt to re-do the Vec & Obj classes with GC from scratch
-// this code is not useful yet, and not used anywhere - just doodlin' ...
+// Copied from monty/gc.c - works, with minor stubs (gsStats, panic, assert)
 
 #include <cstdint>
 #include <cstring>
