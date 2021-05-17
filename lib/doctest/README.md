@@ -19,4 +19,6 @@ TEST_CASE(...) {
 
 By keeping these tests as part of the actual source files, they can access any
 variables and functions defined statically, i.e. not mentioned in the headers.
-For a TDD workflow which runs these tests, see `../../tests/fiber/`.
+For a TDD workflow which runs these tests, see `../../tests/native/`.
+
+The `library.json` file prevents PlatformIO from creating an empty archive.

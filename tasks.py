@@ -243,7 +243,6 @@ def test(c, filter='*', unity=False):
         else:
             shortTestOutput(r)
     else:
-        c.run(pio("run -e native -s"), pty=True)
         c.run("cd tests/native && make clean main", hide=True)
         c.run("cd tests/native && ./main -nv", pty=True)
 
