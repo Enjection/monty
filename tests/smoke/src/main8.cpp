@@ -15,8 +15,8 @@ extern "C" int printf (const char* fmt, ...) {
 void boss::debugf (const char*, ...) __attribute__((alias ("printf")));
 
 int main () {
-    fastClock();
-    systick::init();
+    //fastClock();
+    //systick::init();
     uint8_t mem [5000];
     pool::init(mem, sizeof mem);
     uart::init(2, "A2:PU7,A15:PU3", 115200);
@@ -26,9 +26,14 @@ int main () {
 
     Fiber::create([](void*) {
         printf("%d Hz\n", systemHz());
-        for (int i = 0; true; ++i) {
-            Fiber::msWait(20);
+        for (int i = 0; true; ++i)
             printf("> %*u /\n", 76 - (i % 70), systick::millis());
+    });
+
+    Fiber::create([](void*) {
+        while (true) {
+            idle();
+            Fiber::suspend(Fiber::ready);
         }
     });
 
