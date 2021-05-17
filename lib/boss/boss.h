@@ -23,7 +23,7 @@
 
 namespace boss::pool {
     using Id_t = uint8_t;
-    extern uint8_t numFree;
+    extern uint8_t numFree, numBufs;
 
     void init (void* ptr, size_t len);
     void deinit ();

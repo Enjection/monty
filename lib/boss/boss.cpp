@@ -83,9 +83,8 @@ namespace boss::pool {
 
     void init (void* ptr, size_t len) {
         buffers = (Buf*) ptr;
-        numBufs = len / sizeof (Buf);
-        numFree = numBufs - 1;
-        for (int i = 1; i < numBufs; ++i)
+        numFree = numBufs = len / sizeof (Buf) - 1;
+        for (int i = 1; i <= numBufs; ++i)
             freeBufs.append(i);
     }
 
@@ -190,7 +189,7 @@ auto Fiber::runLoop () -> bool {
         f.fun(f.arg);
         delete (pool::Buf*) &f;
     }
-    return !timers.isEmpty();
+    return pool::numFree < pool::numBufs;
 }
 
 auto Fiber::create (void (*fun)(void*), void* arg) -> Fid_t {
@@ -288,7 +287,7 @@ void Queue::verify () const {
     if (head == 0 && tail == 0)
         return;
     CAPTURE((int) numBufs);
-    Id_t tags [numBufs];
+    Id_t tags [numBufs+1];
     memset(tags, 0, sizeof tags);
     for (auto curr = head; curr != 0; curr = tag(curr)) {
         CAPTURE((int) curr);
@@ -308,7 +307,7 @@ TEST_CASE("buffer") {
     init(mem, sizeof mem);
 
     INFO("numBufs: ", (int) numBufs);
-    CHECK(numFree == numBufs - 1);
+    CHECK(numFree == numBufs);
 
     auto bp = new Buf;
     CHECK(bp != nullptr);
