@@ -13,6 +13,10 @@ VPATH = $(patsubst %,$(LIBS)/%,$(DIRS))
 SRCS = $(wildcard *.cpp) $(foreach D,$(DIRS),$(wildcard $(LIBS)/$D/*.cpp))
 OBJS = $(patsubst %.cpp,%.o,$(notdir $(SRCS)))
 
+ifneq ($(wildcard /dev/gpiomem),)  
+CXXFLAGS += -DRASPI
+endif
+
 tdd: ; @ while ./tdd.py . $(LIBS); do :; done
 
 all: cls main run
@@ -29,5 +33,5 @@ dirs: ; @ echo $(patsubst %,$(LIBS)/%,$(DIRS))
 srcs: ; @ echo $(SRCS)
 
 # keep main.o, as it is slow to compile and never changes
-clean: 	   ; GLOBIGNORE=main.o; rm -f *.o main
+clean: 	   ; bash -c 'GLOBIGNORE=main.o; rm -f *.o main' # only works in bash
 distclean: ; rm -f *.o main
