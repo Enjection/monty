@@ -37,7 +37,7 @@ auto monty::vmImport (char const* name) -> uint8_t const* {
 }
 
 #else
-auto monty::vmLaunch (void const*) -> Stacklet* {
+auto monty::vmLaunch (void const*) -> Context* {
     return nullptr;
 }
 #endif
@@ -60,7 +60,7 @@ void arch::idle () {
 
 static void cleanup () {
     Event::triggers.clear();
-    Stacklet::ready.clear();
+    Context::ready.clear();
     Module::builtins.clear();
     Module::loaded.clear();
     qstrCleanup();
@@ -68,7 +68,7 @@ static void cleanup () {
 
 auto arch::done () -> int {
     cleanup();
-    Stacklet::gcAll();
+    Context::gcAll();
     //gcReport();
     //Object::dumpAll();
     //Vec::dumpAll();

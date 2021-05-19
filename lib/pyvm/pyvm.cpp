@@ -199,7 +199,7 @@ void Closure::repr (Buffer& buf) const {
 }
 
 // was: CG3 type <pyvm>
-struct PyVM : Stacklet {
+struct PyVM : Context {
     static Type info;
     auto type () const -> Type const& override { return info; }
     static Lookup const attrs;
@@ -229,7 +229,7 @@ struct PyVM : Stacklet {
     auto globals () const -> Module& { return _callee->_mo; }
 
     void marker () const override {
-        Stacklet::marker();
+        Context::marker();
         mark(_callee);
         _signal.marker();
     }
@@ -1045,7 +1045,7 @@ struct PyVM : Stacklet {
 };
 
 static auto currentVM () -> PyVM& {
-    Value v = Stacklet::current;
+    Value v = Context::current;
     return v.asType<PyVM>(); // TODO yuck
 }
 
@@ -1075,7 +1075,7 @@ Type   Closure::info (Q(0,"<closure>"));
 
 Type PyVM::info (Q(0,"<pyvm>"), &PyVM::attrs);
 
-auto monty::vmLaunch (void const* data) -> Stacklet* {
+auto monty::vmLaunch (void const* data) -> Context* {
     if (data == nullptr)
         return nullptr;
     auto init = Bytecode::load(data, Q(0,"__main__"));
@@ -1090,7 +1090,7 @@ auto monty::vmLaunch (void const* data) -> Stacklet* {
 }
 
 #else
-auto monty::vmLaunch (void const* data) -> Stacklet* {
+auto monty::vmLaunch (void const* data) -> Context* {
     return nullptr;
 }
 #endif

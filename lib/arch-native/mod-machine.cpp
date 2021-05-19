@@ -35,7 +35,7 @@ void timerHook () {
     if (ms > 0 && (t - start) / ms != last) {
         last = (t - start) / ms;
         if (tickerId > 0)
-            Stacklet::setPending(tickerId);
+            Context::setPending(tickerId);
     }
 }
 

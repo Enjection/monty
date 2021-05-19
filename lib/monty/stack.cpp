@@ -13,16 +13,16 @@ extern void timerHook ();
 
 using namespace monty;
 
-List Stacklet::ready;
-uint32_t volatile Stacklet::pending;
-Stacklet* Stacklet::current;
+List Context::ready;
+uint32_t volatile Context::pending;
+Context* Context::current;
 
 int Event::queued;
 Vector Event::triggers;
 
 static jmp_buf* resumer;
 
-void Stacklet::gcAll () {
+void Context::gcAll () {
     // careful to avoid infinite recursion: the "sys" module has "modules" as
     // one of its attributes, which is "Module::loaded", i.e. a dict which
     // chains to the built-in modules (see "qstr.cpp"), which includes "sys",
@@ -95,8 +95,8 @@ auto Event::set () -> Value {
     auto n = _queue.size();
     if (n > 0) {
         // insert all entries at head of ready and remove them from this event
-        Stacklet::ready.insert(0, n);
-        memcpy(Stacklet::ready.begin(), _queue.begin(), n * sizeof (Value));
+        Context::ready.insert(0, n);
+        memcpy(Context::ready.begin(), _queue.begin(), n * sizeof (Value));
         if (_id >= 0)
             queued -= n;
         assert(queued >= 0);
@@ -115,8 +115,8 @@ auto Event::wait (int ms) -> Value {
     if (remain <= 60000 && ms < remain)
         _deadline -= remain - ms; // deadline must happen sooner
 
-    assert(Stacklet::current != nullptr);
-    return Stacklet::current->suspend(_queue, ms);
+    assert(Context::current != nullptr);
+    return Context::current->suspend(_queue, ms);
 }
 
 // Timeouts use deadlines instead of down counters, as this avoids having to
@@ -141,12 +141,12 @@ auto Event::triggerExpired (uint32_t now) -> uint32_t {
     if (next == 0 || next > 60000) {
         next = 60000;
         while (n-- > 0) { // loop from the end because queue items may get deleted
-            auto& task = _queue[n].asType<Stacklet>();
+            auto& task = _queue[n].asType<Context>();
             uint16_t remain = task._transfer - now; // must be modulo 16-bit!
             if (remain == 0 || remain > 60000) { // can exceed deadline by max ≈ 5s
                 --queued;
                 _queue.remove(n);
-                Stacklet::ready.append(task);
+                Context::ready.append(task);
                 //task.timedOut(*this);
             } else if (next > remain)
                 next = remain;
@@ -171,7 +171,7 @@ void Event::repr (Buffer& buf) const {
     Object::repr(buf);
 }
 
-void Stacklet::resumeCaller (Value v) {
+void Context::resumeCaller (Value v) {
     if (_caller != nullptr)
         _caller->_transfer = v;
     else if (v.isOk())
@@ -181,23 +181,23 @@ void Stacklet::resumeCaller (Value v) {
     setPending(0);
 }
 
-void Stacklet::marker () const {
+void Context::marker () const {
     mark(_caller);
     _transfer.marker();
     List::marker();
 }
 
-void Stacklet::raise (Value v) {
+void Context::raise (Value v) {
     v.dump();
     assert(false); // TODO unhandled exception, can't continue
 }
 
-void Stacklet::exception (Value e) {
+void Context::exception (Value e) {
     assert(current != nullptr);
     current->raise(e);
 }
 
-void Stacklet::yield (bool fast) {
+void Context::yield (bool fast) {
     if (fast) {
         if (pending == 0)
             return; // don't yield if there are no pending triggers
@@ -210,12 +210,12 @@ void Stacklet::yield (bool fast) {
 
 // helper function to avoid stale register issues after setjmp return
 static auto resumeFixer (void* p) -> Value {
-    auto c = Stacklet::current;
+    auto c = Context::current;
     duff(p, (jmp_buf*) c->end() + 1, (uint8_t*) resumer - (uint8_t*) p);
     return c->_transfer.take();
 }
 
-auto Stacklet::suspend (Vector& queue, int ms) -> Value {
+auto Context::suspend (Vector& queue, int ms) -> Value {
     if (&queue != &Event::triggers) // special case: use as "do not append" mark
         queue.append(this);
 
@@ -240,7 +240,7 @@ auto Stacklet::suspend (Vector& queue, int ms) -> Value {
     return resumeFixer(&top + 1);
 }
 
-auto Stacklet::runLoop () -> bool {
+auto Context::runLoop () -> bool {
     jmp_buf bottom;
     if (resumer == nullptr)
         resumer = &bottom;
@@ -259,7 +259,7 @@ auto Stacklet::runLoop () -> bool {
                 flags >>= 1;
             }
 
-        current = (Stacklet*) &ready.pull().obj();
+        current = (Context*) &ready.pull().obj();
         if (current == nullptr)
             break;
 

@@ -95,7 +95,7 @@ extern "C" void __assert (char const* f, int l, char const* e) {
     __assert_func(f, l, "-", e);
 }
 
-struct LineSerial : Stacklet {
+struct LineSerial : Context {
     Event& incoming;
     char buf [100]; // TODO avoid hard limit for input line length
     uint32_t fill = 0;
@@ -108,10 +108,10 @@ struct LineSerial : Stacklet {
         console.handler() = []() {
             prevIsr();
             if (console.readable())
-                Stacklet::setPending(rxId);
+                Context::setPending(rxId);
             // TODO this triggers too often, even when there is no TX activity
             if (console.xmit.almostEmpty())
-                Stacklet::setPending(txId);
+                Context::setPending(txId);
         };
 
         outFun = writer;
@@ -330,7 +330,7 @@ static void di_cmd () {
 }
 
 static void ec_cmd () {
-    Stacklet::current = nullptr;
+    Context::current = nullptr;
 }
 
 static void ms_cmd () {
@@ -356,7 +356,7 @@ Command const commands [] = {
     { "bv    show build version"           , bv_cmd },
     { "di    show device info"             , di_cmd },
     { "ec    exit console task"            , ec_cmd },
-    { "gc    trigger GC"                   , Stacklet::gcAll },
+    { "gc    trigger GC"                   , Context::gcAll },
     { "gr    generate a GC report"         , gcReport },
 #if HAS_MRFS
     { "ls    list files in MRFS"           , mrfs::dump },
@@ -373,14 +373,14 @@ static auto execCmd (char const* buf) -> bool {
     for (auto& cmd : commands)
         if (memcmp(buf, cmd.desc, 2) == 0 && (buf[2] == 0 || buf[2] == ' ')) {
             cmd.f1(buf);
-            return Stacklet::current != nullptr;
+            return Context::current != nullptr;
         }
 #if HAS_PYVM
     auto data = vmImport(buf);
     if (data != nullptr) {
         auto p = vmLaunch(data);
         assert(p != nullptr);
-        Stacklet::ready.append(p);
+        Context::ready.append(p);
         return true;
     }
 #endif
@@ -389,7 +389,7 @@ static auto execCmd (char const* buf) -> bool {
     return true;
 }
 
-auto arch::cliTask() -> Stacklet* {
+auto arch::cliTask() -> Context* {
 #if HAS_PYVM
     auto task = vmLaunch((uint8_t const*) HexSerial::bootCmd());
     if (task != nullptr) {
@@ -449,7 +449,7 @@ void arch::idle () {
 }
 
 void arch::done () {
-    //monty::Stacklet::gcAll();
+    //monty::Context::gcAll();
     HexSerial::magic() = 0; // clear boot command buffer
     wait_ms(10);
     systemReset(); // will resume the cli task with a clean slate

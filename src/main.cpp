@@ -46,11 +46,11 @@ int main ([[maybe_unused]] int argc, [[maybe_unused]] char const** argv)
     auto task = arch::cliTask();
 #endif
     if (task != nullptr)
-        Stacklet::ready.append(task);
+        Context::ready.append(task);
     else
         printf("no task\n");
 
-    while (Stacklet::runLoop())
+    while (Context::runLoop())
         arch::idle();
 
 #ifndef NDEBUG

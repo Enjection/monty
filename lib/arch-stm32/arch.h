@@ -16,7 +16,7 @@ namespace arch {
     using namespace device;
     using namespace altpins;
 
-    auto cliTask () -> monty::Stacklet*;
+    auto cliTask () -> monty::Context*;
 
     void init (int =0);
     void idle ();
@@ -51,7 +51,7 @@ namespace arch {
 
         void trigger () {
             if (_id >= 0)
-                Stacklet::setPending(_id);
+                Context::setPending(_id);
         }
 
         template< size_t N >

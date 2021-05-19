@@ -9,7 +9,7 @@ using namespace monty;
 
 //CG1 bind gc
 static auto f_gc () -> Value {
-    Stacklet::gcAll();
+    Context::gcAll();
     return {};
 }
 
@@ -28,7 +28,7 @@ static auto f_gcstats () -> Value {
 
 //CG1 wrappers
 static Lookup::Item const sys_map [] = {
-    { Q(0,"ready"), Stacklet::ready },
+    { Q(0,"ready"), Context::ready },
     { Q(0,"modules"), Module::loaded },
     { Q(0,"builtins"), Module::builtins },
     { Q(0,"implementation"), Q(0,"monty") },

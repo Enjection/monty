@@ -164,7 +164,7 @@ static auto f_ticker (ArgVec const& args, int arg) -> Value {
             uint32_t t = msNow(); // TODO messy
             if (ms > 0 && (t - start) / ms != last) {
                 last = (t - start) / ms;
-                Stacklet::setPending(tickerId);
+                Context::setPending(tickerId);
             }
         };
     } else {

@@ -57,7 +57,7 @@ static auto f_iter (Object* obj) -> Value {
 //CG1 bind next arg
 static auto f_next (Value arg) -> Value {
     auto v = arg->next();
-    if (v.isNil() && Stacklet::current != nullptr)
+    if (v.isNil() && Context::current != nullptr)
         return Value {E::StopIteration};
     return v;
 }

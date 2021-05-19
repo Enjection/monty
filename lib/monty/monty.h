@@ -739,6 +739,10 @@ namespace monty {
 
     //CG1 type <stacklet>
     struct Stacklet : List {
+    };
+
+    //CG1 type <context>
+    struct Context : Stacklet {
         void repr (Buffer& buf) const override { Object::repr(buf); }
 
         auto iter () const -> Value override { return this; }
@@ -747,7 +751,7 @@ namespace monty {
 
         void marker () const override;
 
-        Stacklet* _caller =nullptr;
+        Context* _caller =nullptr;
         Value _transfer; // set to deadline while suspended
 
         void yield (bool =false);
@@ -771,7 +775,7 @@ namespace monty {
         }
 
         static List ready;
-        static Stacklet* current;
+        static Context* current;
         static volatile uint32_t pending;
     };
 
@@ -884,7 +888,7 @@ namespace monty {
 
 // defined outside of the Monty core itself, e.g. in main.cpp cq pyvm.cpp
     auto vmImport (char const* name) -> uint8_t const*;
-    auto vmLaunch (void const* data) -> Stacklet*;
+    auto vmLaunch (void const* data) -> Context*;
 
     auto nowAsTicks () -> uint32_t; // defined by the arch-dependent code
 }

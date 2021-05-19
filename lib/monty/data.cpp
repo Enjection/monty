@@ -99,7 +99,7 @@ Value::Value (E exc, char const* arg1, Value arg2) {
     Value v [] {arg1, arg2};
     auto n = *arg1 == 0 ? 0 : arg2.isNil() ? 1 : 2;
     *this = Exception::create(exc, {v, n});
-    Stacklet::exception(*this);
+    Context::exception(*this);
 }
 
 Value::operator char const* () const {
@@ -494,11 +494,11 @@ auto RawIter::stepper () -> Value {
             return ((List&) _obj.obj())[n]; // avoid keyed access
         return _obj->getAt(n);
     }
-    auto ctx = Stacklet::current;
+    auto ctx = Context::current;
     auto v = _pos->next();
-    if (v.isOk() || Stacklet::current == ctx)
+    if (v.isOk() || Context::current == ctx)
         return v;
-    Stacklet::current = ctx;
+    Context::current = ctx;
     return ctx->suspend();
 }
 
