@@ -1,5 +1,21 @@
 #include <monty.h>
 #include <arch.h>
+#include <boss.h>
+
+#if DOCTEST
+#include <doctest.h>
+#endif
+
+#if 0
+#include <cstdio>
+
+void boss::debugf (const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
+}
+#endif
 
 using namespace monty;
 
@@ -9,6 +25,12 @@ MAIN
 int main ([[maybe_unused]] int argc, [[maybe_unused]] char const** argv)
 #endif
 {
+#if DOCTEST
+    // must run before arch::init, because gcSetup is called in several tests
+    if (auto r = doctest::Context(argc, argv).run(); r != 0)
+        return r;
+#endif
+
 #if STM32L053xx
     arch::init(3*1024); // there's only 8 kB RAM ...
 #else

@@ -413,9 +413,21 @@ if not root: # the following tasks are NOT available for use out-of-tree
         os.environ.pop("PLATFORMIO_LIB_EXTRA_DIRS", None)
 
     @task
-    def x_tags(c):
+    def x_ctags(c):
         """update the (c)tags file"""
         c.run("ctags -R lib src tests")
+
+    @task(generate, help={"file": "name of the .py or .mpy file to run"})
+    def x_doctest(c, file="tests/py/hello.py"):
+        """run native build including doctest [tests/py/hello.py]"""
+        c.run(pio("run -e doctest -s"), pty=True)
+        testexe = ".pio/build/doctest/program" # for native builds
+        c.run("%s %s" % (testexe, compileIfOutdated(file)), pty=True)
+
+    @task
+    def x_tdd(c):
+        """continuous TDD builds and test runs"""
+        c.run("cd src && make tdd", pty=True)
 
     @task
     def x_version(c):
