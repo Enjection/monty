@@ -183,15 +183,18 @@ TEST_CASE("buffers") {
             Buf b1 = free.pull();
             Buf b2 = free.pull();
             Buf b3 = free.pull();
+            CHECK(free.head.id == 4);
+
             CHECK(b1.id == 1);
             CHECK(b2.id == 2);
             CHECK(b3.id == 3);
 
-            b3 = b1; // b3=1, b1=0, 3 freed
-            b1 = b2; // b1=2, b2=0
-            b2 = b3; // b2=1, b3=0
+            b3 = b1; // b3=#1, b1=0, #3 freed
+            b1 = b2; // b1=#2, b2=0
+            b2 = b3; // b2=#1, b3=0
+
             CHECK(free.head.id == 3);
-            // b2 freed (id 1), then b1 freed (id 2)
+            // on scope exit, b2 will be freed (#1), then b1 (#2)
         }
         CHECK(free.head.id == 2);
     }
