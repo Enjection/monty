@@ -1,5 +1,6 @@
 | Folder | Description |
 |-------:|-------------|
+| **buffers/** | an exploration of move semantics, shelved for now |
 | **embed/** | build empty Doctest app for F723 using PlatformIO |
 | **gpio/** | an Io32-style approach for the Raspberry Pi |
 | **native/** | running native tests for Monty with a Makefile and TDD |
