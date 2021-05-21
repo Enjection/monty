@@ -9,6 +9,7 @@ namespace buf {
 
         Buf () =default;
         Buf (void* p);
+        ~Buf();
 
         Buf (Buf& b);
         auto operator= (Buf&) -> Buf&;
@@ -66,6 +67,11 @@ namespace buf {
 
     Buf::Buf (Buf& b) : id (b.id) { b.id = 0; }
 
+    Buf::~Buf() {
+        if (id != 0)
+            free.insert(*this);
+    }
+
     auto Buf::operator= (Buf& b) -> Buf& {
         if (id != 0)
             free.insert(*this);
@@ -121,46 +127,76 @@ using namespace buf;
 TEST_CASE("buffers") {
     uint8_t mem [5000];
     init(mem, sizeof mem);
-    free.dump("init");
+    //free.dump("init");
 
-    CAPTURE((int) nBufs);
-    CAPTURE((int) free.head.id);
-    CAPTURE((int) free.tail);
+    SUBCASE("allocate and release") {
+        Buf b = free.pull();
+        CHECK(b);
+        CHECK(b.id == 1);
+        CHECK(b != nullptr);
+        CHECK(free.head.id == 2);
+    }
 
-    CHECK(nBufs == sizeof mem / Buf::SIZE);
-    CHECK(!free.isEmpty());
-    CHECK(free.head.id == 1);
+    SUBCASE("allocate and copy") {
+        CAPTURE((int) nBufs);
+        CAPTURE((int) free.head.id);
+        CAPTURE((int) free.tail);
 
-    Buf b;
-    CHECK(!b);
-    CHECK(b.id == 0);
-    CHECK(b == nullptr);
+        CHECK(nBufs == sizeof mem / Buf::SIZE);
+        CHECK(!free.isEmpty());
+        CHECK(free.head.id == 1);
 
-    b = free.pull();
-    CHECK(b);
-    CHECK(b.id == 1);
-    CHECK(b != nullptr);
-    CHECK(free.head.id == 2);
+        Buf b;
+        CHECK(!b);
+        CHECK(b.id == 0);
+        CHECK(b == nullptr);
 
-    Buf b2 = free.pull();
-    CHECK(b2);
-    CHECK(b2.id == 2);
-    CHECK(b2 != nullptr);
-    CHECK(free.head.id == 3);
+        b = free.pull();
+        CHECK(b);
+        CHECK(b.id == 1);
+        CHECK(b != nullptr);
+        // b gets release here, because it's not used anymore, only replaced (!)
+        CHECK(free.head.id == 1);
 
-    b = b2;
+        Buf b2 = free.pull();
+        CHECK(b2);
+        CHECK(b2.id == 1);
+        CHECK(b2 != nullptr);
+        CHECK(free.head.id == 2);
 
-    CHECK(b);
-    CHECK(b.id == 2);
-    CHECK(!b2);
-    CHECK(b2.id == 0);
-    CHECK(free.head.id == 1);
+        b = b2;
 
-    b = {};
-    CHECK(!b);
-    CHECK(b.id == 0);
+        CHECK(b);
+        CHECK(b.id == 1);
+        CHECK(!b2);
+        CHECK(b2.id == 0);
+        CHECK(free.head.id == 1);
 
-    free.dump("done");
+        b = {};
+        CHECK(!b);
+        CHECK(b.id == 0);
+        CHECK(free.head.id == 1);
+    }
+
+    SUBCASE("free in different order") {
+        {
+            Buf b1 = free.pull();
+            Buf b2 = free.pull();
+            Buf b3 = free.pull();
+            CHECK(b1.id == 1);
+            CHECK(b2.id == 2);
+            CHECK(b3.id == 3);
+
+            b3 = b1; // b3=1, b1=0, 3 freed
+            b1 = b2; // b1=2, b2=0
+            b2 = b3; // b2=1, b3=0
+            CHECK(free.head.id == 3);
+            // b2 freed (id 1), then b1 freed (id 2)
+        }
+        CHECK(free.head.id == 2);
+    }
+
+    //free.dump("done");
 }
 
 int main (int argc, char const** argv) {
