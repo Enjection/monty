@@ -5,4 +5,5 @@
 | **native/** | running native tests for Monty with a Makefile and TDD |
 | **py/** | Python scripts used for Monty's `inv python` and `inv runner` |
 | **smoke/** | minimal Hall & Boss tests for Nucleo-L432KC using PlatformIO |
+| **tdd/** | just `main.cpp`, no libraries, for rapid C++ exploration |
 | **unit/** | previous Unity-based C++ tests for Monty with `inv test -n` |
