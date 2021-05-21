@@ -17,7 +17,7 @@ ifneq ($(wildcard /dev/gpiomem),)
 CXXFLAGS += -DRASPI
 endif
 
-tdd: ; @ while ./tdd.py . $(LIBS); do :; done
+tdd: ; @ while ../../src/tdd.py . $(LIBS); do :; done
 
 all: cls main run
 
