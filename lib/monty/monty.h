@@ -31,7 +31,7 @@ namespace monty {
         static void sweep ();   // reclaim all unmarked objects
         static void dumpAll (); // like sweep, but only to print all obj+free
 
-        // JT's "Rule of 5"
+        // "Rule of 5"
         Obj (Obj&&) =delete;
         Obj (Obj const&) =delete;
         auto operator= (Obj&&) -> Obj& =delete;
@@ -62,7 +62,7 @@ namespace monty {
         auto slots () const -> uint32_t; // capacity in vecslots
         auto findSpace (uint32_t) -> void*; // hidden private type
 
-        // JT's "Rule of 5"
+        // "Rule of 5"
         Vec (Vec&&) =delete;
         Vec (Vec const&) =delete;
         auto operator= (Vec&&) -> Vec& =delete;

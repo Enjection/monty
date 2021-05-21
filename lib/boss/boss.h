@@ -42,7 +42,7 @@ namespace boss::pool {
     };
 
     struct Queue {
-        bool isEmpty () const { return head == 0; }
+        auto isEmpty () const -> bool { return head == 0; }
 
         auto pull () -> Id_t;
         void insert (Id_t id);
