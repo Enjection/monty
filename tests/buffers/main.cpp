@@ -32,7 +32,7 @@ namespace buf {
         void insert (Buf);
         void append (Buf);
 
-        void verify () const;
+        void dump (char const*) const;
     //private:
         Buf head {};
         uint8_t tail {0};
@@ -40,10 +40,11 @@ namespace buf {
 }
 
 #include <doctest.h>
+#include <cstdio>
 
 namespace buf {
     uint8_t* bufs;
-    Buf* tags;
+    Buf* chain;
     uint8_t nBufs;
     Queue free;
 
@@ -52,7 +53,7 @@ namespace buf {
         nBufs = len / Buf::SIZE;
 
         memset(bufs, 0, nBufs);
-        tags = (Buf*) ptr;
+        chain = (Buf*) ptr;
 
         Buf b;
         for (int i = 1; i < nBufs; ++i) {
@@ -78,7 +79,7 @@ namespace buf {
     }
 
     auto Buf::next () -> Buf& {
-        return tags[id];
+        return chain[id];
     }
 
     auto Queue::pull () -> Buf {
@@ -101,11 +102,17 @@ namespace buf {
 
     void Queue::append (Buf b) {
         b.next() = {};
-        if (tail != 0)
-            tags[tail] = b;
-        tail = b.id;
-        if (!head)
-            head = b;
+        auto& slot = head ? chain[tail] : head;
+        slot = b;
+        tail = slot.id;
+    }
+
+    void Queue::dump (char const* msg) const {
+        for (int i = head.id; i != 0; i = chain[i].id) {
+            printf("%s %d", msg, i);
+            msg = ",";
+        }
+        printf("\n");
     }
 }
 
@@ -114,6 +121,7 @@ using namespace buf;
 TEST_CASE("buffers") {
     uint8_t mem [5000];
     init(mem, sizeof mem);
+    free.dump("init");
 
     CAPTURE((int) nBufs);
     CAPTURE((int) free.head.id);
@@ -130,23 +138,29 @@ TEST_CASE("buffers") {
 
     b = free.pull();
     CHECK(b);
-    CHECK(b.id != 0);
+    CHECK(b.id == 1);
     CHECK(b != nullptr);
+    CHECK(free.head.id == 2);
 
     Buf b2 = free.pull();
     CHECK(b2);
+    CHECK(b2.id == 2);
     CHECK(b2 != nullptr);
-    CHECK(b.id != b2.id);
+    CHECK(free.head.id == 3);
 
-    uint8_t* p = b;
-    CHECK(p != nullptr);
+    b = b2;
+
+    CHECK(b);
+    CHECK(b.id == 2);
+    CHECK(!b2);
+    CHECK(b2.id == 0);
+    CHECK(free.head.id == 1);
 
     b = {};
     CHECK(!b);
     CHECK(b.id == 0);
 
-    uint8_t* q = b;
-    CHECK(q == nullptr);
+    free.dump("done");
 }
 
 int main (int argc, char const** argv) {
