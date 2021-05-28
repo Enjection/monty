@@ -739,6 +739,9 @@ namespace monty {
     //CG1 type <stacklet>
     struct Stacklet : List {
 
+        void yield (bool =false);
+        auto suspend (Vector& =Event::triggers, int ms =60000) -> Value;
+
         // see https://en.cppreference.com/w/c/atomic and
         // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
         static void setPending (uint32_t n) {
@@ -764,8 +767,6 @@ namespace monty {
         Context* _caller =nullptr;
         Value _transfer; // set to deadline while suspended
 
-        void yield (bool =false);
-        auto suspend (Vector& =Event::triggers, int ms =60000) -> Value;
         static auto runLoop () -> bool;
 
         virtual auto run () -> bool =0;

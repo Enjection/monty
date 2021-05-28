@@ -92,7 +92,7 @@ namespace hall::systick {
         return ticks;
     }
 
-    auto micros () -> uint16_t {
+    auto micros () -> uint32_t {
         struct timespec tv;
         clock_gettime(CLOCK_MONOTONIC, &tv);
         return tv.tv_nsec / 1000; // µs resolution

@@ -47,6 +47,7 @@ void Context::gcAll () {
     compact();
 }
 
+#if 0
 static void duff (void* dst, void const* src, size_t len) {
     //assert(((uintptr_t) dst & 3) == 0);
     //assert(((uintptr_t) src & 3) == 0);
@@ -72,6 +73,7 @@ static void duff (void* dst, void const* src, size_t len) {
     }
 #endif
 }
+#endif
 
 auto Event::regHandler () -> uint32_t {
     _id = triggers.find({});
@@ -116,7 +118,11 @@ auto Event::wait (int ms) -> Value {
         _deadline -= remain - ms; // deadline must happen sooner
 
     assert(Context::current != nullptr);
-    return Context::current->suspend(_queue, ms);
+    //FIXME? return Context::current->suspend(_queue, ms);
+    _queue.append(Context::current);
+    Context::current = nullptr;
+    Context::setPending(0);
+    return {};
 }
 
 // Timeouts use deadlines instead of down counters, as this avoids having to
@@ -197,31 +203,32 @@ void Context::exception (Value e) {
     current->raise(e);
 }
 
-void Context::yield (bool fast) {
+#if 0
+void Stacklet::yield (bool fast) {
     if (fast) {
         if (pending == 0)
             return; // don't yield if there are no pending triggers
-        assert(ready.find(this) >= ready.size());
-        ready.push(this);
+        assert(Context::ready.find(this) >= Context::ready.size());
+        Context::ready.push(this);
         suspend();
     } else
-        suspend(ready);
+        suspend(Context::ready);
 }
 
 // helper function to avoid stale register issues after setjmp return
-static auto resumeFixer (void* p) -> Value {
+auto stackletResumeFixer (void* p) -> Value {
     auto c = Context::current;
     duff(p, (jmp_buf*) c->end() + 1, (uint8_t*) resumer - (uint8_t*) p);
     return c->_transfer.take();
 }
 
-auto Context::suspend (Vector& queue, int ms) -> Value {
+auto Stacklet::suspend (Vector& queue, int ms) -> Value {
     if (&queue != &Event::triggers) // special case: use as "do not append" mark
         queue.append(this);
 
     if (ms > 60000)
         ms = 60000;
-    _transfer = (uint16_t) (nowAsTicks() + ms);
+    //FIXME _transfer = (uint16_t) (nowAsTicks() + ms);
 
     jmp_buf top;
 
@@ -237,8 +244,9 @@ auto Context::suspend (Vector& queue, int ms) -> Value {
     }
 
     // resuming: copy stack back in
-    return resumeFixer(&top + 1);
+    return stackletResumeFixer(&top + 1);
 }
+#endif
 
 auto Context::runLoop () -> bool {
     jmp_buf bottom;

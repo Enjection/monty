@@ -177,7 +177,7 @@ namespace hall::systick {
         } // ticked just now, spin one more time
     }
 
-    auto micros () -> uint16_t {
+    auto micros () -> uint32_t {
         // scaled to work with any clock rate multiple of 100 kHz
         while (true) {
             uint32_t t = ticks, n = SCB(0x8);
