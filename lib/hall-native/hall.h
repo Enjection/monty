@@ -6,19 +6,6 @@ namespace hall {
     void idle();
     [[noreturn]] void systemReset ();
 
-    struct Device {
-        uint8_t _id;
-
-        Device ();
-
-        virtual void interrupt () { pending |= 1<<_id; }
-        virtual void process () {}
-        virtual void expire (uint16_t, uint16_t&) {}
-
-        static auto dispatch () -> bool;
-        static volatile uint32_t pending;
-    };
-
     namespace systick {
         extern void (*expirer)(uint16_t,uint16_t&);
 

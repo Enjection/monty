@@ -14,7 +14,7 @@ extern void timerHook ();
 using namespace monty;
 
 List Context::ready;
-uint32_t volatile Context::pending;
+uint32_t volatile Stacklet::pending;
 Context* Context::current;
 
 int Event::queued;

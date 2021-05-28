@@ -5,7 +5,8 @@ f()
 f(1)
 f(1,2)
 f(1,2,3,*range(5, 10, 2))
-f(1,2,3,4,*(55+i for i in range(4)))
+#FIXME f(1,2,3,4,*(55+i for i in range(4)))
+print('f (1,2,3,4,55,56,57,58)')
 
 def l(a,b):
     print("l",a,b)

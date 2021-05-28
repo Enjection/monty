@@ -81,6 +81,19 @@ namespace boss {
     void debugf (const char* fmt, ...);
     [[noreturn]] void failAt (void const*, void const*);
 
+    struct Device {
+        uint8_t _id;
+
+        Device ();
+
+        virtual void interrupt () { pending |= 1<<_id; }
+        virtual void process () {}
+        virtual void expire (uint16_t, uint16_t&) {}
+
+        static auto dispatch () -> bool;
+        static volatile uint32_t pending;
+    };
+
     struct Fiber {
         using Fid_t = pool::Id_t;
 

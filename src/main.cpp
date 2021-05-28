@@ -1,6 +1,5 @@
 #include <monty.h>
 #include <arch.h>
-#include <boss.h>
 
 #if DOCTEST
 #include <doctest.h>

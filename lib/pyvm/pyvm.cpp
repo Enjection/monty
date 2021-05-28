@@ -946,6 +946,7 @@ struct PyVM : Context {
             num = exc;      // trigger soft-irq 1..31 (interrupt-safe)
         else
             _signal = exc;  // trigger exception or other outer-loop req
+        assert(num == 0);
         setPending(num);    // force inner loop exit
     }
 

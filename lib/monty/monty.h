@@ -1,9 +1,8 @@
 // Monty, a stackless VM - main header
 
 #pragma once
-#include <cstdint>
-#include <cstdlib>
 #include <cstring>
+#include <boss.h>
 
 extern "C" int printf (char const*, ...);
 
@@ -739,6 +738,17 @@ namespace monty {
 
     //CG1 type <stacklet>
     struct Stacklet : List {
+
+        // see https://en.cppreference.com/w/c/atomic and
+        // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
+        static void setPending (uint32_t n) {
+            __atomic_fetch_or(&pending, 1<<n, __ATOMIC_RELAXED);
+        }
+        static auto clearAllPending () -> uint32_t {
+            return __atomic_fetch_and(&pending, 0, __ATOMIC_RELAXED);
+        }
+
+        static volatile uint32_t pending;
     };
 
     //CG1 type <context>
@@ -765,18 +775,8 @@ namespace monty {
         static void exception (Value); // a safe way to current->raise()
         static void gcAll ();
 
-        // see https://en.cppreference.com/w/c/atomic and
-        // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
-        static void setPending (uint32_t n) {
-            __atomic_fetch_or(&pending, 1<<n, __ATOMIC_RELAXED);
-        }
-        static auto clearAllPending () -> uint32_t {
-            return __atomic_fetch_and(&pending, 0, __ATOMIC_RELAXED);
-        }
-
         static List ready;
         static Context* current;
-        static volatile uint32_t pending;
     };
 
     //CG1 type <module>

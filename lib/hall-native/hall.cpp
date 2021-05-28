@@ -3,6 +3,7 @@
 #include <ctime>
 
 using namespace hall;
+using namespace boss;
 
 namespace boss { void debugf (const char* fmt, ...); }
 using boss::debugf;

@@ -499,7 +499,9 @@ auto RawIter::stepper () -> Value {
     if (v.isOk() || Context::current == ctx)
         return v;
     Context::current = ctx;
-    return ctx->suspend();
+    //FIXME return ctx->suspend();
+    assert(false);
+    return {};
 }
 
 auto Range::len () const -> uint32_t {
