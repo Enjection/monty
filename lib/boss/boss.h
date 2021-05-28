@@ -79,7 +79,7 @@ namespace boss::pool {
 
 namespace boss {
     auto veprintf(void(*)(void*,int), void*, char const* fmt, va_list ap) -> int;
-    void debugf (const char* fmt, ...);
+    void debugf (const char* fmt, ...) __attribute__ ((weak));
     [[noreturn]] void failAt (void const*, void const*);
 
     struct Device {

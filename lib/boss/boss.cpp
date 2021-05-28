@@ -264,7 +264,7 @@ void Semaphore::expire (uint16_t now, uint16_t& limit) {
 #if DOCTEST
 #include <doctest.h>
 
-void boss::debugf (const char* fmt, ...) {
+void boss::debugf (const char* fmt, ...) __attribute__ ((weak)) {
     va_list ap;
     va_start(ap, fmt);
     vprintf(fmt, ap);
