@@ -1,6 +1,7 @@
 #include <cstdarg>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <setjmp.h>
 
 #if NATIVE
@@ -85,6 +86,8 @@ namespace boss {
         uint8_t _id;
 
         Device ();
+
+        void irqInstall (uint32_t irq) const;
 
         virtual void interrupt () { pending |= 1<<_id; }
         virtual void process () {}

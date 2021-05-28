@@ -22,6 +22,15 @@ Vector Event::triggers;
 
 static jmp_buf* resumer;
 
+struct Stacker : boss::Device {
+    void process () override {
+        if (gcCheck())
+            Context::gcAll();
+    }
+};
+
+Stacker stacker;
+
 void Context::gcAll () {
     // careful to avoid infinite recursion: the "sys" module has "modules" as
     // one of its attributes, which is "Module::loaded", i.e. a dict which

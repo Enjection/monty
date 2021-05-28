@@ -268,28 +268,13 @@ namespace hall {
         ~BlockIRQ () { asm ("cpsie i"); }
     };
 
-    struct Device {
-        uint8_t _id;
+    inline void nvicEnable (uint8_t irq) {
+        dev::NVIC(0x00+4*(irq>>5)) = 1 << (irq&0x1F);
+    }
 
-        Device ();
-
-        void irqInstall (uint32_t irq) const;
-
-        virtual void interrupt () { pending |= 1<<_id; }
-        virtual void process () {}
-        virtual void expire (uint16_t, uint16_t&) {}
-
-        static void nvicEnable (uint8_t irq) {
-            dev::NVIC(0x00+4*(irq>>5)) = 1 << (irq&0x1F);
-        }
-
-        static void nvicDisable (uint8_t irq) {
-            dev::NVIC(0x80+4*(irq>>5)) = 1 << (irq&0x1F);
-        }
-
-        static auto dispatch () -> bool;
-        static volatile uint32_t pending;
-    };
+    inline void nvicDisable (uint8_t irq) {
+        dev::NVIC(0x80+4*(irq>>5)) = 1 << (irq&0x1F);
+    }
 
     namespace systick {
         extern void (*expirer)(uint16_t,uint16_t&);

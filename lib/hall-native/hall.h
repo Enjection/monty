@@ -1,6 +1,6 @@
 #include "boss.h"
-#include <cstdio>
 #include <cstdlib>
+#include <cstdio>
 
 namespace hall {
     void idle();
