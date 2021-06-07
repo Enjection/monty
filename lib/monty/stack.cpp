@@ -22,6 +22,7 @@ Vector Event::triggers;
 
 static jmp_buf* resumer;
 
+#if 0
 struct Stacker : boss::Device {
     void process () override {
         if (gcCheck())
@@ -30,6 +31,7 @@ struct Stacker : boss::Device {
 };
 
 Stacker stacker;
+#endif
 
 void Context::gcAll () {
     // careful to avoid infinite recursion: the "sys" module has "modules" as

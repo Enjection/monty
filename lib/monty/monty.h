@@ -1,8 +1,9 @@
 // Monty, a stackless VM - main header
 
 #pragma once
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
-#include <boss.h>
 
 extern "C" int printf (char const*, ...);
 
