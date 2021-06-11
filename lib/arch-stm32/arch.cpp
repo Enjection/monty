@@ -139,7 +139,7 @@ struct LineSerial : Context {
             } else if (fill < sizeof buf - 1)
                 buf[fill++] = c;
         }
-        yield();
+        //FIXME broken during switch to fibers: yield();
         return true;
     }
 
