@@ -8,7 +8,6 @@ namespace monty {
         virtual void marker () const {} // called to mark all ref'd objects
 
         static auto inPool (void const* p) -> bool;
-        auto isCollectable () const { return inPool(this); }
 
         auto operator new (size_t bytes) -> void*;
         auto operator new (size_t bytes, uint32_t extra) -> void* {

@@ -2,13 +2,16 @@ int created, destroyed, marked, failed;
 
 struct MarkObj : Obj {
     MarkObj (Obj* o =0) : other (o) { ++created; }
-    ~MarkObj () override               { ++destroyed; }
+    ~MarkObj () override            { ++destroyed; }
 
 private:
-    void marker () const override      { ++marked; mark(other); }
+    void marker () const override   { ++marked; mark(other); }
 
     Obj* other;
 };
+
+static_assert(sizeof (void*) == sizeof (Obj));
+static_assert(2 * sizeof (void*) == sizeof (MarkObj));
 
 TEST_CASE("mem") {
     uint8_t memory [3*1024];
@@ -17,10 +20,6 @@ TEST_CASE("mem") {
     created = destroyed = marked = failed = 0;
     panicOutOfMemory = []() -> void* { ++failed; return nullptr; };
 
-    SUBCASE("sizes") {
-        CHECK(sizeof (void*) == sizeof (Obj));
-    }
-
     SUBCASE("init") {
         CHECK(sizeof memory > gcMax());
         CHECK(sizeof memory - 50 < gcMax());
@@ -28,19 +27,18 @@ TEST_CASE("mem") {
 
     SUBCASE("new") {
         MarkObj o1; // on the stack
-        CHECK(!o1.isCollectable());
-        CHECK(sizeof (MarkObj) == sizeof o1);
+        CHECK(!Obj::inPool(&o1));
         CHECK(memAvail == gcMax());
 
         auto p1 = new MarkObj; // allocated in pool
         CHECK(p1 != nullptr);
-        CHECK(p1->isCollectable());
+        CHECK(Obj::inPool(p1));
 
         auto avail1 = gcMax();
         CHECK(memAvail > avail1);
 
         auto p2 = new MarkObj; // second object in pool
-        CHECK(p2->isCollectable());
+        CHECK(Obj::inPool(p2));
         CHECK(p1 != p2);
 
         auto avail2 = gcMax();
@@ -48,14 +46,14 @@ TEST_CASE("mem") {
         CHECK(memAvail - avail1 == avail1 - avail2);
 
         auto p3 = new (0) MarkObj; // same as without the extra size
-        CHECK(p3->isCollectable());
+        CHECK(Obj::inPool(p3));
 
         auto avail3 = gcMax();
         CHECK(avail2 > avail3);
         CHECK(avail1 - avail2 == avail2 - avail3);
 
         auto p4 = new (20) MarkObj; // extra space at end of object
-        CHECK(p4->isCollectable());
+        CHECK(Obj::inPool(p4));
 
         auto avail4 = gcMax();
         CHECK(avail3 > avail4);

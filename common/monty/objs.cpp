@@ -71,7 +71,7 @@ static auto multipleOf (uint32_t n) -> uint32_t {
 }
 
 static auto obj2slot (Obj const& o) -> ObjSlot* {
-    return o.isCollectable() ? (ObjSlot*) ((uintptr_t) &o - PTR_SZ) : 0;
+    return Obj::inPool(&o) ? (ObjSlot*) ((uintptr_t) &o - PTR_SZ) : 0;
 }
 
 static void mergeFreeObjs (ObjSlot& slot) {
@@ -224,7 +224,7 @@ namespace monty {
     }
 
     void mark (Obj const& obj) {
-        if (obj.isCollectable()) {
+        if (Obj::inPool(&obj)) {
             auto p = obj2slot(obj);
             if (p != nullptr) {
                 if (p->isMarked())
