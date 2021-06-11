@@ -8,6 +8,8 @@ namespace monty {
 
     struct Vec {
         constexpr Vec () =default;
+        constexpr Vec (void const* data, uint32_t capa =0)
+                    : _data ((uint8_t*) data), _capa (capa) {}
         ~Vec () { (void) adj(0); }
 
         static auto inPool (void const* p) -> bool {
@@ -15,8 +17,8 @@ namespace monty {
         }
         static void compact (); // reclaim and compact unused vector space
 
-        auto cap () { return _capa; }
-        auto ptr () { return _data; }
+        auto cap () const { return _capa; }
+        auto ptr () const { return _data; }
         auto adj (size_t sz) -> bool;
     private:
         uint8_t* _data {nullptr};
