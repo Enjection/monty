@@ -183,7 +183,7 @@ namespace monty {
         }
     }
 
-    void gcSetup (void* base, uint32_t size) {
+    void objInit (void* base, size_t size) {
         assert(size > 2 * OS_SZ);
 
         // to get alignment right, simply increase base and decrease size a bit

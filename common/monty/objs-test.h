@@ -12,7 +12,7 @@ private:
 
 TEST_CASE("mem") {
     uint8_t memory [3*1024];
-    gcSetup(memory, sizeof memory);
+    objInit(memory, sizeof memory);
     uint32_t memAvail = gcMax();
     created = destroyed = marked = failed = 0;
     panicOutOfMemory = []() -> void* { ++failed; return nullptr; };

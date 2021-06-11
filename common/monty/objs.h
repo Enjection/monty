@@ -1,4 +1,6 @@
 namespace monty {
+    void objInit (void* ptr, size_t len);
+
     struct Obj {
         Obj () =default;
         virtual ~Obj () =default;
