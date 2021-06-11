@@ -1,7 +1,6 @@
 // FIXME wasL pyvm.cpp - virtual machine for bytecodes emitted by MicroPython
 
 #include "monty.h"
-#include "pyvm.h"
 #include <cassert>
 
 #ifndef NOPYVM
