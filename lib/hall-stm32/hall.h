@@ -3,13 +3,19 @@
 namespace hall {
     using namespace boss;
 
-    enum struct STM { F1, F3, F4, F7, G0, H7, L0, L4 };
+    enum struct STM { F1, F3, F4, F7, G0, G4, H7, L0, L4 };
 #if STM32F1
     constexpr auto FAMILY = STM::F1;
+#elif STM32F3
+    constexpr auto FAMILY = STM::F3;
 #elif STM32F4
     constexpr auto FAMILY = STM::F4;
 #elif STM32F7
     constexpr auto FAMILY = STM::F7;
+#elif STM32G0
+    constexpr auto FAMILY = STM::G0;
+#elif STM32G4
+    constexpr auto FAMILY = STM::G4;
 #elif STM32L0
     constexpr auto FAMILY = STM::L0;
 #elif STM32L4
