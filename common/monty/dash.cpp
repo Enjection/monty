@@ -6,6 +6,7 @@
 #include "dash.h"
 
 #include <cassert>
+#include <cstdlib> // needed for strtoll on linux
 
 extern "C" int printf (char const*, ...);
 
