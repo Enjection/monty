@@ -20,7 +20,7 @@ cmd_check () {
     true
 }
 
-cmd_t () { cd arch/native && make tdd; }
+cmd_t () { cd apps/native && make tdd; }
 
 cmd_TT () {
     while getopts abc: f; do
