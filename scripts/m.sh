@@ -4,6 +4,7 @@ set -e # exit on errors
 
 # commands are defined as "cmd_X () ...", descriptions are in variable "$cmd_X"
 cmd_check='    check installation requirements'
+cmd_g='        pass source code through the code generator'
 cmd_t='        run native tests as a continuous TDD loop'
 cmd_TT='       test command with "getopts abc: f"'
 
@@ -18,6 +19,10 @@ cmd_check () {
     tool_version g++     '-v  2>&1 | grep " ver"' &&
     tool_version fswatch '--version | head -1'    &&
     true
+}
+
+cmd_g () {
+    scripts/codegen.py -n qstr.h common/monty/ dash3.cpp +NATIVE qstr.cpp
 }
 
 cmd_t () { cd apps/native && make tdd; }
