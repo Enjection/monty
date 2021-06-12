@@ -22,7 +22,7 @@ cmd_check () {
 }
 
 cmd_g () {
-    scripts/codegen.py -n qstr.h common/monty/ dash3.cpp +NATIVE qstr.cpp
+    scripts/codegen.py "$@" qstr.h common/monty/ dash3.cpp qstr.cpp
 }
 
 cmd_t () { cd apps/native && make tdd; }
