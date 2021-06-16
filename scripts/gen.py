@@ -60,8 +60,8 @@ def parseAll(paths):
 def traverse(tree, state):
     # given a state object with methods in upper case, traverse the parse tree
     # and call the corresponding methods for each node if defined, or if there
-    # is an "anyNode" method, it call that instead - the return value will be
-    # used as generated output if non-null
+    # is an "anyNode" method, call that instead - the return value will be used
+    # as generated output if non-null
     fallback = getattr(state, "anyNode", None)
     for k, v in tree.items():
         state.fname = k
