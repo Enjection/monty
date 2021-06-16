@@ -21,9 +21,9 @@ def parse(text):
             if remaining > 0:
                 remaining -= 1
             elif remaining == 0 and (not nodes or nodes[-1][0]):
-                nodes.append((None, offset, lineNum, []))
+                nodes.append((None, l[:offset], lineNum, []))
             nodes[-1][-1].append(l)
-        elif l[offset:].startswith("//CG>"):
+        elif "//CG>" in l:
             assert remaining < 0
             remaining = 0
         else:
@@ -36,7 +36,7 @@ def parse(text):
             elif cmd[:1] != ":":
                 cmd = ":" + cmd
             assert cmd[1].isspace()
-            nodes.append((cmd[2:].split(), offset, lineNum, []))
+            nodes.append((cmd[2:].split(), l[:offset], lineNum, []))
     return nodes
 
 def parseAll(paths):
@@ -57,23 +57,60 @@ def parseAll(paths):
                 tree[fpath] = src
     return tree
 
+def emit(nodes):
+    # convert a list of nodes back to a multi-line string
+    lines = []
+    for cmd, prefix, lineNum, block in nodes:
+        if cmd:
+            n = len(block)
+            if n > 3:
+                head = '//CG<'
+            elif n > 0:
+                head = '//CG%d' % n
+            else:
+                head = '//CG:'
+            lines.append(prefix + ' '.join([head, *cmd]))
+            if block and block[0][:1].isspace():
+                lines += block # don't re-indent
+            else:
+                for b in block:
+                    lines.append(prefix + b)
+            if head[-1] == "<":
+                lines.append(prefix + "//CG>")
+        else:
+            lines += block
+    return "\n".join(lines)
+
+def emitAll(tree):
+    # replace files with updated versions, but only if they changed
+    for k, v in tree.items():
+        out = emit(v.nodes)
+        if out != v.text:
+            print(k, len(v.text), len(out))
+            with open(v.fpath, "w") as f:
+                f.write(out)
+
 def traverse(tree, state):
     # given a state object with methods in upper case, traverse the parse tree
     # and call the corresponding methods for each node if defined, or if there
     # is an "anyNode" method, call that instead - the return value will be used
     # as generated output if non-null
-    fallback = getattr(state, "anyNode", None)
+    anyNode = getattr(state, "anyNode", None)
+    allText = getattr(state, "allText", None)
     for k, v in tree.items():
         state.fname = k
         for node in v.nodes:
+            r = None
             if node[0]:
                 cmd, *args = node[0]
-                meth = getattr(state, cmd.upper(), fallback)
+                meth = getattr(state, cmd.upper(), anyNode)
                 if meth:
                     state.node = node
                     r = meth(node[-1], *args)
-                    if r is not None:
-                        node[-1][:] = r
+            elif allText:
+                r = allText(node[-1])
+            if r is not None:
+                node[-1][:] = r
     return state
 
 def opType(typ):
@@ -184,7 +221,7 @@ class Expand:
                             val = eval(''.join(fields[2:5]))
                             key = fields[1][6:].title().replace('_', '')
                             defs.append((val, key))
-        return ['%-20s = 0x%02X,' % (k, v) for v, k in sorted(defs)]
+        return ['%-22s = 0x%02X,' % (k, v) for v, k in sorted(defs)]
 
     def TYPE(self, block, tag, *args):
         # generate the header of an exposed type
@@ -229,15 +266,19 @@ class Stats:
             print(k, self.stats[k])
 
 def main():
+    # main application logic
     tree = parseAll(sys.argv[1:])
     for k, v in tree.items():
-        print(k, len(v.nodes))
+        n = len(v.nodes) // 2
+        if n > 0:
+            print(k, n)
     print()
     traverse(tree, Stats()).dump()
     print()
     traverse(tree, Expand())
     print()
     traverse(tree, Strip())
+    emitAll(tree)
 
 if __name__ == '__main__':
     main()
