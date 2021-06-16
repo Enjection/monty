@@ -12,7 +12,7 @@ from os import path
 class Attrs: pass
 
 def parse(text):
-    '''Split source text into a list of "//CG..." and text nodes'''
+    # split the suppliedsource code into a list of "//CG..." and text nodes
     nodes, remaining, lineNum = [], 0, 0
     for l in text.split("\n"):
         lineNum += 1
@@ -40,6 +40,7 @@ def parse(text):
     return nodes
 
 def parseAll(paths):
+    # load and parse all source files in the specified directories
     tree = {}
     for p in paths:
         if path.isdir(p):
@@ -57,6 +58,10 @@ def parseAll(paths):
     return tree
 
 def traverse(tree, state):
+    # given a state object with methods in upper case, traverse the parse tree
+    # and call the corresponding methods for each node if defined, or if there
+    # is an "anyNode" method, it call that instead - the return value will be
+    # used as generated output if non-null
     fallback = getattr(state, "anyNode", None)
     for k, v in tree.items():
         state.fname = k
@@ -67,14 +72,15 @@ def traverse(tree, state):
                 if meth:
                     state.node = node
                     r = meth(node[-1], *args)
-                    if r:
+                    if r is not None:
                         node[-1][:] = r
     return state
 
-class Expander:
+class Expand:
+    # expand directives which have no side-effects
 
     def ARGS(self, block, *args):
-        '''generate positional arg checks and conversions'''
+        # generate positional arg checks and conversions
         out, names, types, decls = [], [], "", {}
         for a in args:
             if a in ["?", "*"]:
@@ -99,7 +105,7 @@ class Expander:
         return out
 
     def BIND(self, block, fun, *args):
-        '''bind a function, i.e. define a callable function object wrapper'''
+        # bind a function, i.e. define a callable function object wrapper
         tmap = {"v":"Value", "i":"int", "o":"Object*", "s":"char const*"}
         out, params, types = [], [], ""
         for a in args:
@@ -114,7 +120,7 @@ class Expander:
         return ['static auto f_%s (%s) -> Value {' % (fun, ", ".join(params))]
 
     def KWARGS(self, block, *args):
-        '''generate option parsing code, i.e. keyword args'''
+        # generate option parsing code, i.e. keyword args
         out = ["Value %s;" % ", ".join(args),
             "for (int i = 0; i < args.kwNum(); ++i) {",
             "    auto k = args.kwKey(i), v = args.kwVal(i);",
@@ -127,7 +133,7 @@ class Expander:
         return out
 
     def OP(self, block, typ='', multi=0):
-        '''expand opcode functions'''
+        # expand opcode functions
         op = block[0].split()[1][2:]
         if 'q' in typ:
             fmt, arg, decl = ' %s', 'fetchQ()', 'Q arg'
@@ -144,7 +150,7 @@ class Expander:
         return ['void op%s (%s) {' % (op, decl)]
 
     def TYPE(self, block, tag, *args):
-        '''generate the header of an exposed type'''
+        # generate the header of an exposed type
         line = block[0].split()
         name, base = line[1], line[line.index(":")+1:-1]
         base = ' '.join(base) # accept multi-word, e.g. protected
@@ -163,7 +169,19 @@ class Expander:
         #print(block[0])
         return out
 
+class Strip:
+    # remove generated code where possible (some need to keep original code)
+    keepAll = [ "binops", "exceptions", "if", "module", "opcodes", "qstr" ]
+    keepOne = [ "bind", "op", "type", "wrap", "wrappers" ]
+    def anyNode(self, block, *args):
+        cmd = self.node[0][0]
+        if cmd in self.keepOne:
+            return block[:1]
+        if cmd not in self.keepAll:
+            return []
+
 class Stats:
+    # collect statistics, i.e. the type and number of directives in the input
     def __init__(self):
         self.stats = {}
     def anyNode(self, block, *args):
@@ -180,7 +198,9 @@ def main():
     print()
     traverse(tree, Stats()).dump()
     print()
-    traverse(tree, Expander())
+    traverse(tree, Expand())
+    print()
+    traverse(tree, Strip())
 
 if __name__ == '__main__':
     main()
