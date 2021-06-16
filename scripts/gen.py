@@ -76,6 +76,19 @@ def traverse(tree, state):
                         node[-1][:] = r
     return state
 
+def opType(typ):
+    if 'q' in typ:
+        return ' %s', 'fetchQ()', 'Q arg'
+    elif 'v' in typ:
+        return ' %u', 'fetchV()', 'int arg'
+    elif 'o' in typ:
+        return ' %d', 'fetchO()', 'int arg'
+    elif 's' in typ:
+        return ' %d', 'fetchO()-0x8000', 'int arg'
+    elif 'm' in typ:
+        return ' %d', '_ip[-1]', 'uint32_t arg'
+    return '', '', ''
+
 class Expand:
     # expand directives which have no side-effects
 
@@ -119,6 +132,24 @@ class Expand:
             params.insert(0, "ArgVec const& args")
         return ['static auto f_%s (%s) -> Value {' % (fun, ", ".join(params))]
 
+    def BINOPS(self, block, fname, count):
+        # parse the py/runtime0.h header
+        out, count = [""], int(count)
+        with open(fname, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('MP_BINARY_OP_'):
+                    item = line.split()[0][13:].title().replace('_', '')
+                    if len(out[-1]) + len(item) > 70:
+                        out.append("")
+                    if out[-1]:
+                        out[-1] += " "
+                    out[-1] += item
+                    count -= 1
+                    if count <= 0:
+                        break
+        return out
+
     def KWARGS(self, block, *args):
         # generate option parsing code, i.e. keyword args
         out = ["Value %s;" % ", ".join(args),
@@ -135,19 +166,25 @@ class Expand:
     def OP(self, block, typ='', multi=0):
         # expand opcode functions
         op = block[0].split()[1][2:]
-        if 'q' in typ:
-            fmt, arg, decl = ' %s', 'fetchQ()', 'Q arg'
-        elif 'v' in typ:
-            fmt, arg, decl = ' %u', 'fetchV()', 'int arg'
-        elif 'o' in typ:
-            fmt, arg, decl = ' %d', 'fetchO()', 'int arg'
-        elif 's' in typ:
-            fmt, arg, decl = ' %d', 'fetchO()-0x8000', 'int arg'
-        elif 'm' in typ:
-            fmt, arg, decl = ' %d', '_ip[-1]', 'uint32_t arg'
-        else:
-            fmt, arg, decl = '', '', ''
+        fmt, arg, decl = opType(typ)
         return ['void op%s (%s) {' % (op, decl)]
+
+    def OPCODES(self, block, fname):
+        # parse the py/bc0.h header
+        defs, bases = [], {}
+        with open(fname, 'r') as f:
+            for line in f:
+                if line.startswith('#define'):
+                    fields = line.split()
+                    if len(fields) > 3:
+                        if fields[3] == '//':
+                            bases['('+fields[1]] = '('+fields[2]
+                        if fields[3] == '+':
+                            fields[2] = bases[fields[2]]
+                            val = eval(''.join(fields[2:5]))
+                            key = fields[1][6:].title().replace('_', '')
+                            defs.append((val, key))
+        return ['%-20s = 0x%02X,' % (k, v) for v, k in sorted(defs)]
 
     def TYPE(self, block, tag, *args):
         # generate the header of an exposed type
