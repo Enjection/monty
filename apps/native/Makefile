@@ -5,4 +5,9 @@ LIBS = $(ROOT)/common
 DIRS = monty
 OPTS = -Wall -Wextra
 
+# not really an OS issue: clang on MacOS doesn't like this option
+ifeq ($(shell uname -s),Linux)
+OPTS += -Wno-cast-function-type
+endif
+
 include $(ROOT)/scripts/native.mk
