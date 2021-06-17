@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # This is Monty's code generator, driven by "//CG" and "Q()" directives.
 
-import os, sys
+import os, re, sys
 from os import path
 
 # node  = [[cmd, args...], offset, lineNum, block]
@@ -93,17 +93,17 @@ def emitAll(tree):
 def traverse(tree, state):
     # given a state object with methods in upper case, traverse the parse tree
     # and call the corresponding methods for each node if defined, or if there
-    # is an "anyNode" method, call that instead - the return value will be used
-    # as generated output if non-null
-    anyNode = getattr(state, "anyNode", None)
-    allText = getattr(state, "allText", None)
+    # is an "any_NODE" method, call that instead - the return value will be
+    # used as generated output if non-null
+    anyNode = getattr(state, "any_NODE", None)
+    allText = getattr(state, "all_TEXT", None)
     for k, v in tree.items():
         state.fname = k
         for node in v.nodes:
             r = None
             if node[0]:
                 cmd, *args = node[0]
-                meth = getattr(state, cmd.upper(), anyNode)
+                meth = getattr(state, cmd.upper().replace('-','_'), anyNode)
                 if meth:
                     state.node = node
                     r = meth(node[-1], *args)
@@ -243,11 +243,64 @@ class Expand:
         #print(block[0])
         return out
 
+class Qstr:
+    # this must be called three times: setup, replace, emit varyvec data
+
+    def __init__(self):
+        self.qstrMap = {}    # map string to id
+        self.qstrLen = []    # per id, the symbol length + 1
+        self.phase = 0
+
+    def step(self):
+        self.phase += 1
+        return self
+
+    def QSTR(self, block, off="0"):
+        # extract the initial qstrings, built into the VM
+        if self.phase == 0:
+            off, sep, pos = int(off), '"\\0"', 0
+            for s in block:
+                s = s.replace(sep, '')
+                s = s.split('"')[-2]
+                self.qstrMap[s] = off
+                s = '"%s"' % s
+                n = pos + len(eval(s)) + 1 # deal with backslashes
+                off += 1
+                self.qstrLen.append(n-pos)
+                pos = n
+
+    def q(self, s, a=None):
+        # generate a qstr reference with the proper ID assigned and filled in
+        if s in self.qstrMap:
+            i = self.qstrMap[s]
+        else:
+            i = len(self.qstrMap) + 1
+            self.qstrMap[s] = i
+            self.qstrLen.append(len(s) + 1)
+        return 'Q(%d,"%s")' % (i, s)
+
+    def any_NODE(self, block, *args):
+        # perform in-line qstr lookup and replacement
+        if self.phase == 1:
+            p = re.compile(r'\bQ\(\d+,"(.*?)"\)')
+            out = []
+            for s in block:
+                out.append(p.sub(lambda m: self.q(m.group(1)), s))
+            return out
+
+    def all_TEXT(self, block):
+        return self.any_NODE(block)
+
+    def QSTR_EMIT(self, block):
+        if self.phase == 2:
+            # TODO
+            print("qstr:", len(self.qstrMap), self.qstrLen[-1])
+
 class Strip:
     # remove generated code where possible (some need to keep original code)
     keepAll = [ "binops", "exceptions", "if", "module", "opcodes", "qstr" ]
     keepOne = [ "bind", "op", "type", "wrap", "wrappers" ]
-    def anyNode(self, block, *args):
+    def any_NODE(self, block, *args):
         cmd = self.node[0][0]
         if cmd in self.keepOne:
             return block[:1]
@@ -258,7 +311,7 @@ class Stats:
     # collect statistics, i.e. the type and number of directives in the input
     def __init__(self):
         self.stats = {}
-    def anyNode(self, block, *args):
+    def any_NODE(self, block, *args):
         cmd = self.node[0][0]
         self.stats[cmd] = self.stats.get(cmd, 0) + 1
     def dump(self):
@@ -276,6 +329,11 @@ def main():
     traverse(tree, Stats()).dump()
     print()
     traverse(tree, Expand())
+    print()
+    q = Qstr()
+    traverse(tree, q)
+    traverse(tree, q.step())
+    traverse(tree, q.step())
     print()
     traverse(tree, Strip())
     emitAll(tree)
