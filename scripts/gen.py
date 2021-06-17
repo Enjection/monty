@@ -92,11 +92,12 @@ def emitAll(tree):
 
 def traverse(tree, state):
     # given a state object with methods in upper case, traverse the parse tree
-    # and call the corresponding methods for each node if defined, or if there
-    # is an "any_NODE" method, call that instead - the return value will be
+    # and call the corresponding methods for each node if defined (if there is
+    # an "any_NODE" method, call that instead), and the "all_TEXT" method will
+    # be called for everything else, if it exists - the return value will be
     # used as generated output if non-null
-    anyNode = getattr(state, "any_NODE", None)
     allText = getattr(state, "all_TEXT", None)
+    anyNode = getattr(state, "any_NODE", allText)
     for k, v in tree.items():
         state.fname = k
         for node in v.nodes:
@@ -114,17 +115,12 @@ def traverse(tree, state):
     return state
 
 def opType(typ):
-    if 'q' in typ:
-        return ' %s', 'fetchQ()', 'Q arg'
-    elif 'v' in typ:
-        return ' %u', 'fetchV()', 'int arg'
-    elif 'o' in typ:
-        return ' %d', 'fetchO()', 'int arg'
-    elif 's' in typ:
-        return ' %d', 'fetchO()-0x8000', 'int arg'
-    elif 'm' in typ:
-        return ' %d', '_ip[-1]', 'uint32_t arg'
-    return '', '', ''
+    typeInfo = {'q': (' %s', 'fetchQ()',        'Q arg'       ),
+                'v': (' %u', 'fetchV()',        'int arg'     ),
+                'o': (' %d', 'fetchO()',        'int arg'     ),
+                's': (' %d', 'fetchO()-0x8000', 'int arg'     ),
+                'm': (' %d', '_ip[-1]',         'uint32_t arg')}
+    return typeInfo.get(typ, ('', '', ''))
 
 class Expand:
     # expand directives which have no side-effects
@@ -279,7 +275,7 @@ class Qstr:
             self.qstrLen.append(len(s) + 1)
         return 'Q(%d,"%s")' % (i, s)
 
-    def any_NODE(self, block, *args):
+    def all_TEXT(self, block, *args):
         # perform in-line qstr lookup and replacement
         if self.phase == 1:
             p = re.compile(r'\bQ\(\d+,"(.*?)"\)')
@@ -287,9 +283,6 @@ class Qstr:
             for s in block:
                 out.append(p.sub(lambda m: self.q(m.group(1)), s))
             return out
-
-    def all_TEXT(self, block):
-        return self.any_NODE(block)
 
     def QSTR_EMIT(self, block):
         if self.phase == 2:
