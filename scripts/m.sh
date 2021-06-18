@@ -32,7 +32,7 @@ cmd_generate () {
 }
 
 cmd_ogen () {
-    scripts/codegen.py "$@" qstr.h common/monty/ dash3.cpp qstr.cpp
+    scripts/codegen.py "$@" qstr.h common/monty/ dash3.cpp +NATIVE qstr.cpp
 }
 
 cmd_cpptests () { cd apps/nat-cpp && make tdd; }

@@ -7,6 +7,7 @@ using namespace monty;
 //CG: mod-list d
 
 static Lookup::Item const mod_map [] = {
+#if 1
 //CG: mod-list a
 };
 

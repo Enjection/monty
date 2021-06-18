@@ -5,7 +5,7 @@
 
 using namespace monty;
 
-constexpr auto IMPORT_PATH = "tests/py/%s.mpy";
+constexpr auto IMPORT_PATH = "../../v1.3/tests/py/%s.mpy";
 
 static auto loadFile (char const* name) -> uint8_t const* {
     auto fp = fopen(name, "rb");
