@@ -3,12 +3,16 @@
 set -e # exit on errors
 
 # commands are defined as "cmd_X () ...", descriptions are in variable "$cmd_X"
-cmd_check='    check installation requirements'
-cmd_g='        pass source code through the code generator'
-cmd_go='       pass source code through the code generator (old version)'
-cmd_tc='       run native C++ tests as a continuous TDD loop'
-cmd_tp='       run native Python++ tests as a continuous TDD loop'
-cmd_TT='       test command with "getopts abc: f"'
+help='
+  m cpptests  run native C++ tests as a continuous TDD loop
+  m pytests   run native Python++ tests as a continuous TDD loop
+
+  m gen       pass source code through the code generator
+  m ogen      pass source code through the code generator (old version)
+
+  m check     check installation requirements
+  m tt        self-test command with "getopts abc: f"
+'
 
 cmd_check () {
     tool_version uname   '-mrs'                   &&
@@ -23,19 +27,19 @@ cmd_check () {
     true
 }
 
-cmd_g () {
+cmd_generate () {
     scripts/gen.py "$@" common/monty/
 }
 
-cmd_go () {
+cmd_ogen () {
     scripts/codegen.py "$@" qstr.h common/monty/ dash3.cpp qstr.cpp
 }
 
-cmd_tc () { cd apps/nat-cpp && make tdd; }
+cmd_cpptests () { cd apps/nat-cpp && make tdd; }
 
-cmd_tp () { cd apps/nat-py && make tdd; }
+cmd_pytests () { cd apps/nat-py && make tdd; }
 
-cmd_TT () {
+cmd_tt () {
     while getopts abc: f; do
         case $f in
             a|b) flag=$f;;
@@ -78,18 +82,7 @@ cmd_T () echo T $#: "$@" .
 # extract all the "cmd_*" variables and return their suffix
 known_commands () { set | sed -n 's/cmd_\(.*\)=.*/\1/p'; }
 
-print_usage () {
-    local d cmd
-    echo 'Usage: m <cmd> ...'
-    echo
-    for d in $(known_commands | sort -f); do
-        eval cmd=\${cmd_$d}
-        case "$cmd" in
-          ?*) echo "    m $d$cmd" ;;
-        esac
-    done
-    echo
-}
+print_usage () echo "Usage: m <cmd> ...\n$help"
 
 # run first arg if it is a known command, else print usage info
 cmd=cmd_$1
