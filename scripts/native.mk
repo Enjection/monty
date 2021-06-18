@@ -21,13 +21,13 @@ tdd:
 	@ fswatch -h >/dev/null # make sure it's installed
 	@ while $(ROOT)/scripts/tdd.py . $(LIBS); do :; done
 
-all: cls run
+all: cls main run
 
 cls:
 	@ clear && date
 main: $(OBJS)
 	@ $(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
-run: main
+run:
 	@ ./main -nv -ne
 
 %.o: %.cpp

@@ -1082,7 +1082,7 @@ auto monty::vmLaunch (void const* data) -> Context* {
         return nullptr;
     auto init = Bytecode::load(data, Q(0,"__main__"));
     if (init == nullptr) {
-        auto mpy = nullptr; //FIXME vmImport((char const*) data);
+        auto mpy = vmImport((char const*) data);
         if (mpy != nullptr)
             init = Bytecode::load(mpy, Q(0,"__main__"));
         if (init == nullptr)
