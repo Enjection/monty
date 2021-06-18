@@ -13,6 +13,11 @@ ifneq ($(wildcard /dev/gpiomem),)
 CXXFLAGS += -DRASPI
 endif
 
+# not really an OS issue: clang on MacOS doesn't like this option
+ifeq ($(shell uname -s),Linux)
+OPTS += -Wno-cast-function-type
+endif
+
 tdd:
 	@ fswatch -h >/dev/null # make sure it's installed
 	@ while $(ROOT)/scripts/tdd.py . $(LIBS); do :; done

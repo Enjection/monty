@@ -5,6 +5,7 @@ set -e # exit on errors
 # commands are defined as "cmd_X () ...", descriptions are in variable "$cmd_X"
 cmd_check='    check installation requirements'
 cmd_g='        pass source code through the code generator'
+cmd_go='       pass source code through the code generator (old version)'
 cmd_t='        run native tests as a continuous TDD loop'
 cmd_TT='       test command with "getopts abc: f"'
 
@@ -22,11 +23,11 @@ cmd_check () {
 }
 
 cmd_g () {
-    case "$1" in
-        -o) cmd=scripts/codegen.py; shift ;;
-        *)  cmd=scripts/gen.py ;;
-    esac
-    $cmd "$@" qstr.h common/monty/ dash3.cpp qstr.cpp
+    scripts/gen.py "$@" common/monty/
+}
+
+cmd_go () {
+    scripts/codegen.py "$@" qstr.h common/monty/ dash3.cpp qstr.cpp
 }
 
 cmd_t () { cd apps/native && make tdd; }
