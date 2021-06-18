@@ -3,8 +3,6 @@
 #include "monty.h"
 #include <cassert>
 
-#ifndef NOPYVM
-
 #define SHOW_INSTR_PTR 0 // show instr ptr each time through inner loop
 //CG: off op_print # set to "on" to enable per-opcode debug output
 
@@ -1093,8 +1091,9 @@ auto monty::vmLaunch (void const* data) -> Context* {
     return new PyVM (*init);
 }
 
-#else
-auto monty::vmLaunch (void const* data) -> Context* {
-    return nullptr;
+#if DOCTEST
+#include <doctest.h>
+namespace {
+#include "pyvm-test.h"
 }
 #endif

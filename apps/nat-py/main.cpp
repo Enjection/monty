@@ -9,14 +9,14 @@ int main (int argc, char const** argv) {
     objInit(mem, sizeof mem);
     printf("main\n");
 
-    auto task = argc > 1 ? vmLaunch(argv[1]) : nullptr;
+    auto task = argc > 1 ? vmLaunch(argv[1]) : nullptr; // TODO clitask
     if (task != nullptr)
         Context::ready.append(task);
     else
         printf("no task\n");
 
     while (Context::runLoop())
-        ; // TODO
+        ; // TODO idling
 
     printf("done\n");
 }

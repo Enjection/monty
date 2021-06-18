@@ -1,4 +1,4 @@
-TEST_CASE("data") {
+TEST_CASE("dash") {
     uint8_t memory [3*1024];
     //FIXME, vecs and objs share memory, but they may not overlap!!
     vecInit(memory, sizeof memory);
