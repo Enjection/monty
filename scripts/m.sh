@@ -6,7 +6,7 @@ set -e # exit on errors
 cmd_check='    check installation requirements'
 cmd_g='        pass source code through the code generator'
 cmd_go='       pass source code through the code generator (old version)'
-cmd_t='        run native tests as a continuous TDD loop'
+cmd_tc='       run native C++ tests as a continuous TDD loop'
 cmd_TT='       test command with "getopts abc: f"'
 
 cmd_check () {
@@ -30,7 +30,7 @@ cmd_go () {
     scripts/codegen.py "$@" qstr.h common/monty/ dash3.cpp qstr.cpp
 }
 
-cmd_t () { cd apps/native && make tdd; }
+cmd_tc () { cd apps/native && make tdd; }
 
 cmd_TT () {
     while getopts abc: f; do
