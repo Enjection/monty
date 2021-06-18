@@ -31,7 +31,7 @@ cmd_go () {
     scripts/codegen.py "$@" qstr.h common/monty/ dash3.cpp qstr.cpp
 }
 
-cmd_tc () { cd apps/native && make tdd; }
+cmd_tc () { cd apps/nat-cpp && make tdd; }
 
 cmd_tp () { cd apps/nat-py && make tdd; }
 
