@@ -1,8 +1,7 @@
 # make-based TDD runner - everything below is essentially automatic
 
 CXXFLAGS = $(OPTS)
-CXXFLAGS += -DNATIVE -DDOCTEST -DDOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING
-CXXFLAGS += -std=c++17 -I$(ROOT)/libext/doctest/doctest
+CXXFLAGS += -DNATIVE -std=c++17
 CXXFLAGS += $(patsubst %,-I$(LIBS)/%,$(DIRS))
 LDFLAGS += -pthread
 VPATH = $(patsubst %,$(LIBS)/%,$(DIRS))

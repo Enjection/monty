@@ -7,6 +7,7 @@ cmd_check='    check installation requirements'
 cmd_g='        pass source code through the code generator'
 cmd_go='       pass source code through the code generator (old version)'
 cmd_tc='       run native C++ tests as a continuous TDD loop'
+cmd_tp='       run native Python++ tests as a continuous TDD loop'
 cmd_TT='       test command with "getopts abc: f"'
 
 cmd_check () {
@@ -31,6 +32,8 @@ cmd_go () {
 }
 
 cmd_tc () { cd apps/native && make tdd; }
+
+cmd_tp () { cd apps/nat-py && make tdd; }
 
 cmd_TT () {
     while getopts abc: f; do
