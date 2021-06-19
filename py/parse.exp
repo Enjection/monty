@@ -1,0 +1,27 @@
+/ -?\d{5,}/ {ADDR}/
+main
+1 {ADDR}
+2 {ADDR}
+3 {ADDR}
+4 {ADDR}
+5 {ADDR}
+TypeError("need more args",3) ["parse.py",8,"<module>"]
+6 {ADDR}
+7 {ADDR}
+8 {ADDR}
+9 {ADDR}
+TypeError("unknown option","huh") ["parse.py",18,"<module>"]
+10 {ADDR}
+11 {ADDR}
+12 {ADDR}
+13 {ADDR}
+14 {ADDR}
+15 {ADDR}
+20 5
+21 6
+22 7
+23 8
+24 9
+25 10
+TypeError("too many args",1) ["parse.py",38,"<module>"]
+done
