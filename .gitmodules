@@ -1,6 +1,6 @@
-[submodule "libext/doctest"]
-	path = libext/doctest
-	url = https://github.com/onqtam/doctest.git
-[submodule "libext/micropython"]
-	path = libext/micropython
+[submodule "lib/micropython"]
+	path = lib/micropython
 	url = https://github.com/micropython/micropython.git
+[submodule "lib/doctest"]
+	path = lib/doctest
+	url = https://github.com/onqtam/doctest.git
