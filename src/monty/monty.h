@@ -3,7 +3,7 @@
 
 namespace monty {
     //CG1 version
-    constexpr auto VERSION = "<stripped>";
+    constexpr auto VERSION = "v1.3-36-g46a4e43";
 }
 
 #include "vecs.h"

@@ -19,7 +19,7 @@ endif
 
 tdd:
 	@ fswatch -h >/dev/null # make sure it's installed
-	@ while $(ROOT)/scripts/tdd.py . $(LIBS); do :; done
+	@ while $(ROOT)/tools/tdd.py . $(LIBS); do :; done
 
 all: cls main run
 

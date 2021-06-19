@@ -1,4 +1,4 @@
-# use "m" for development: alias m=scripts/m.sh
+# use "m" for development: alias m=tools/m.sh
 
 all:
 	# T.B.D.

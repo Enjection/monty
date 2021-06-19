@@ -17,7 +17,7 @@ using namespace monty;
 Tuple const Tuple::emptyObj;
 Value const monty::Empty {Tuple::emptyObj};
 
-Type Inst::info (Q(0,"<instance>"));
+Type Inst::info (Q(168,"<instance>"));
 
 Lookup const Bytes::attrs;
 Lookup const Class::attrs;
@@ -260,7 +260,10 @@ auto Bytes::copy (Range const& r) const -> Value {
 }
 
 auto Bytes::create (ArgVec const& args, Type const*) -> Value {
-    //CG: args v
+    //CG3 args v
+    Value v;
+    auto ainfo = args.parse("v",&v);
+    if (ainfo.isObj()) return ainfo;
     const void* p = nullptr;
     uint32_t n = 0;
     if (v.isInt())
@@ -332,7 +335,10 @@ auto Str::getAt (Value k) const -> Value {
 }
 
 auto Str::create (ArgVec const& args, Type const*) -> Value {
-    //CG: args arg:s
+    //CG3 args arg:s
+    char const *arg;
+    auto ainfo = args.parse("s",&arg);
+    if (ainfo.isObj()) return ainfo;
     return new Str (arg);
 }
 
@@ -450,7 +456,10 @@ auto Tuple::copy (Range const& r) const -> Value {
 }
 
 auto Tuple::create (ArgVec const& args, Type const*) -> Value {
-    //CG: args ? arg
+    //CG3 args ? arg
+    Value arg;
+    auto ainfo = args.parse("?v",&arg);
+    if (ainfo.isObj()) return ainfo;
     return new Tuple (arg);
 }
 
@@ -505,7 +514,10 @@ auto List::store (Range const& r, Object const& v) -> Value {
 }
 
 auto List::create (ArgVec const& args, Type const*) -> Value {
-    //CG: args ? arg
+    //CG3 args ? arg
+    Value arg;
+    auto ainfo = args.parse("?v",&arg);
+    if (ainfo.isObj()) return ainfo;
     return new List (arg);
 }
 
@@ -548,7 +560,10 @@ auto Set::setAt (Value k, Value v) -> Value {
 }
 
 auto Set::create (ArgVec const& args, Type const*) -> Value {
-    //CG: args ? arg
+    //CG3 args ? arg
+    Value arg;
+    auto ainfo = args.parse("?v",&arg);
+    if (ainfo.isObj()) return ainfo;
     return new Set (arg);
 }
 
@@ -573,7 +588,7 @@ private:
     int _vtype;
 };
 
-Type DictView::info (Q(0,"<dictview>"));
+Type DictView::info (Q(169,"<dictview>"));
 
 // dict invariant: items layout is: N keys, then N values, with N == d.size()
 auto Dict::Proxy::operator= (Value v) -> Value {
@@ -668,11 +683,14 @@ auto Type::noFactory (ArgVec const&, const Type*) -> Value {
 }
 
 auto Type::create (ArgVec const& args, Type const*) -> Value {
-    //CG: args v
+    //CG3 args v
+    Value v;
+    auto ainfo = args.parse("v",&v);
+    if (ainfo.isObj()) return ainfo;
     switch (v.tag()) {
         case Value::Nil: break;
-        case Value::Int: return Q(0,"int");
-        case Value::Str: return Q(0,"str");
+        case Value::Int: return Q(94,"int");
+        case Value::Str: return Q(151,"str");
         case Value::Obj: return v->type()._name;
     }
     return {};
@@ -687,8 +705,8 @@ Class::Class (ArgVec const& args) : Type (args[1], nullptr, Inst::create) {
     if (args.size() > 2)
         _chain = &args[2].asType<Class>();
 
-    at(Q(0,"__name__")) = args[1];
-    at(Q(0,"__bases__")) = new Tuple ({args._vec, args.size()-2, args._off+2});
+    at(Q(23,"__name__")) = args[1];
+    at(Q(170,"__bases__")) = new Tuple ({args._vec, args.size()-2, args._off+2});
 
     args[0]->call({args._vec, args.size() - 2, args._off + 2});
 }
@@ -703,7 +721,10 @@ void Class::repr (Buffer& buf) const {
 }
 
 auto Super::create (ArgVec const& args, Type const*) -> Value {
-    //CG: args sclass sinst
+    //CG3 args sclass sinst
+    Value sclass, sinst;
+    auto ainfo = args.parse("vv",&sclass,&sinst);
+    if (ainfo.isObj()) return ainfo;
     return new Super (sclass, sinst);
 }
 
@@ -713,7 +734,7 @@ void Super::repr (Buffer& buf) const {
 
 Inst::Inst (ArgVec const& args, Class const& cls) : Dict (&cls) {
     Value self;
-    Value init = attr(Q(0,"__init__"), self);
+    Value init = attr(Q(17,"__init__"), self);
     if (init.isOk()) {
         // stuff "self" before the args passed in TODO is this always ok ???
         args[-1] = this;

@@ -4,8 +4,8 @@ set -e # exit on errors
 
 # commands are defined as "cmd_X () ...", descriptions are in variable "$cmd_X"
 help='
-  m cpptests  run native C++ tests as a continuous TDD loop
-  m pytests   run native Python++ tests as a continuous TDD loop
+  m cpp       run native C++ tests as a continuous TDD loop
+  m py        run native Python++ tests as a continuous TDD loop
 
   m gen       pass source code through the code generator
   m ogen      pass source code through the code generator (old version)
@@ -27,17 +27,17 @@ cmd_check () {
     true
 }
 
-cmd_generate () {
-    scripts/gen.py "$@" common/monty/
+cmd_gen () {
+    tools/gen.py "$@" src/monty/
 }
 
 cmd_ogen () {
-    scripts/codegen.py "$@" qstr.h common/monty/ dash3.cpp +NATIVE qstr.cpp
+    tools/codegen.py "$@" qstr.h src/monty/ dash3.cpp +NATIVE qstr.cpp
 }
 
-cmd_cpptests () { cd apps/nat-cpp && make tdd; }
+cmd_cpp () { cd apps/nat-cpp && make tdd; }
 
-cmd_pytests () { cd apps/nat-py && make tdd; }
+cmd_py () { cd apps/nat-py && make tdd; }
 
 cmd_tt () {
     while getopts abc: f; do
