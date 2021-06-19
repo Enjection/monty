@@ -72,7 +72,7 @@ error_msg () {
 
 #--- the rest is boilerplate ... ----------------------------------------------
 
-os=$(uname -s) # Darwin, Linux, etc
+#os=$(uname -s) # Darwin, Linux, etc
 
 # hidden "T" command to test proper argument quoting
 #  run as: m T a b '   c d   ' e
