@@ -54,7 +54,7 @@ namespace monty {
     enum UnOp : uint8_t { Pos, Neg, Inv, Not, Boln, Hash, Abso, Intg, };
 
     enum BinOp : uint8_t {
-        //CG< binops lib/micropython/py/runtime0.h 35
+        //CG< binops import/micropython/py/runtime0.h 35
         Less, More, Equal, LessEqual, MoreEqual, NotEqual, In, Is,
         ExceptionMatch, InplaceOr, InplaceXor, InplaceAnd, InplaceLshift,
         InplaceRshift, InplaceAdd, InplaceSubtract, InplaceMultiply,

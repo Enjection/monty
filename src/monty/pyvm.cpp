@@ -16,7 +16,7 @@ extern void timerHook ();
 using namespace monty;
 
 enum Op : uint8_t {
-    //CG< opcodes lib/micropython/py/bc0.h
+    //CG< opcodes import/micropython/py/bc0.h
     LoadConstString        = 0x10,
     LoadName               = 0x11,
     LoadGlobal             = 0x12,

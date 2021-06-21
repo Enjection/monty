@@ -1,6 +1,6 @@
-[submodule "lib/micropython"]
-	path = lib/micropython
-	url = https://github.com/micropython/micropython.git
-[submodule "lib/doctest"]
-	path = lib/doctest
+[submodule "import/doctest"]
+	path = import/doctest
 	url = https://github.com/onqtam/doctest.git
+[submodule "import/micropython"]
+	path = import/micropython
+	url = https://github.com/micropython/micropython.git
