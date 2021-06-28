@@ -1,6 +1,7 @@
-TARGET = firmware
+ROOT = ../..
+LIBS =
+DIRS =
 
-DEBUG = 0
 OPT = -Os -fno-rtti -fno-exceptions
 
 BUILD_DIR = build
@@ -25,19 +26,27 @@ C_DEFS =
 C_INCLUDES =
 CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
-ifeq ($(DEBUG), 1)
-CFLAGS += -g -gdwarf-2
-endif
-
+#CFLAGS += -g -gdwarf-2
 CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
 
 LDSCRIPT = ram.ld
 
-LIBS = -lc -lm -lnosys
+LDLIBS = -lc -lm -lnosys
 LIBDIR =
-LDFLAGS = $(MCU) --specs=nano.specs --specs=nosys.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
+LDFLAGS = $(MCU) --specs=nano.specs --specs=nosys.specs -T$(LDSCRIPT) $(LIBDIR) $(LDLIBS) -Wl,-Map=$(BUILD_DIR)/firmware.map,--cref -Wl,--gc-sections
 
-all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET).bin
+tdd:
+	@ fswatch -h >/dev/null # make sure it's installed
+	@ while $(ROOT)/tools/tdd.py . $(LIBS); do :; done
+
+all: cls main run
+
+cls:
+	@ clear && date
+main: $(BUILD_DIR)/firmware.elf
+	@ $(BIN) $(BUILD_DIR)/firmware.elf $(BUILD_DIR)/firmware.bin
+run:
+	@ st-flash --reset write $(BUILD_DIR)/firmware.bin 0x20000000 >/dev/null 2>&1
 
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(CXX_SOURCES:.cpp=.o)))
 vpath %.cpp $(sort $(dir $(CXX_SOURCES)))
@@ -46,10 +55,10 @@ $(BUILD_DIR)/%.o: %.cpp Makefile | $(BUILD_DIR)
 	@ echo C++ $<
 	@ $(CXX) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.cpp=.lst)) $< -o $@
 
-$(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) Makefile
+$(BUILD_DIR)/firmware.elf: $(OBJECTS) Makefile
 	@ echo LD $@
 	@ $(CXX) $(OBJECTS) $(LDFLAGS) -o $@
-	$(SZ) $@
+	@ $(SZ) $@
 
 $(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 	@ $(HEX) $< $@
@@ -62,10 +71,11 @@ $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 $(BUILD_DIR):
 	mkdir $@
 
-upload: all
-	st-flash --reset write $(BUILD_DIR)/$(TARGET).bin 0x20000000
+# used by tdd.py
+dirs: ; @ echo $(patsubst %,$(LIBS)/%,$(DIRS))
+srcs: ; @ echo $(SRCS)
 
 clean:
-	-rm -fR $(BUILD_DIR)
+	rm -rf $(BUILD_DIR)
 
 -include $(wildcard $(BUILD_DIR)/*.d)

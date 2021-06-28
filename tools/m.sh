@@ -37,8 +37,8 @@ cmd_ogen () {
 }
 
 cmd_cpp () { cd apps/nat-cpp && make tdd; }
-cmd_py  () { cd apps/nat-py && make tdd; }
-cmd_ram () { cd apps/emb-ram && make upload; }
+cmd_py  () { cd apps/nat-py  && make tdd; }
+cmd_ram () { cd apps/emb-ram && make tdd; }
 
 cmd_tt () {
     while getopts abc: f; do
