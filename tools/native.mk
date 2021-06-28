@@ -1,5 +1,10 @@
 # make-based TDD runner - everything below is essentially automatic
 
+# not really an OS issue: clang on MacOS doesn't like this option
+ifeq ($(shell uname -s),Linux)
+OPTS += -Wno-cast-function-type
+endif
+
 CXXFLAGS = $(OPTS)
 CXXFLAGS += -DNATIVE -std=c++17
 CXXFLAGS += $(patsubst %,-I$(LIBS)/%,$(DIRS))
@@ -10,11 +15,6 @@ OBJS = $(patsubst %.cpp,%.o,$(notdir $(SRCS)))
 
 ifneq ($(wildcard /dev/gpiomem),)  
 CXXFLAGS += -DRASPI
-endif
-
-# not really an OS issue: clang on MacOS doesn't like this option
-ifeq ($(shell uname -s),Linux)
-OPTS += -Wno-cast-function-type
 endif
 
 tdd:
