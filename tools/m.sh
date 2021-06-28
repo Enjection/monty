@@ -6,6 +6,7 @@ set -e # exit on errors
 help='
   m cpp       run native C++ tests as a continuous TDD loop
   m py        run native Python++ tests as a continuous TDD loop
+  m ram       run embedded C++ code in RAM
 
   m gen       pass source code through the code generator
   m ogen      pass source code through the code generator (old version)
@@ -36,8 +37,8 @@ cmd_ogen () {
 }
 
 cmd_cpp () { cd apps/nat-cpp && make tdd; }
-
-cmd_py () { cd apps/nat-py && make tdd; }
+cmd_py  () { cd apps/nat-py && make tdd; }
+cmd_ram () { cd apps/emb-ram && make upload; }
 
 cmd_tt () {
     while getopts abc: f; do

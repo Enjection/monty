@@ -1,4 +1,5 @@
 .pio/
+build/
 __pycache__/
 
 /kcov-out/
