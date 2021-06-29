@@ -5,8 +5,9 @@ set -e # exit on errors
 # commands are defined as "cmd_X () ...", descriptions are in variable "$cmd_X"
 help='
   m cpp       run native C++ tests as a continuous TDD loop
-  m py        run native Python++ tests as a continuous TDD loop
-  m ram       run embedded C++ code in RAM
+  m py        run native Python tests as a continuous TDD loop
+  m ram       upload embedded C++ code to RAM as a continuous TDD loop
+  m upy       upload embedded Python tests as a continuous TDD loop
 
   m gen       pass source code through the code generator
   m ogen      pass source code through the code generator (old version)
@@ -39,6 +40,7 @@ cmd_ogen () {
 cmd_cpp () { cd apps/nat-cpp && make tdd; }
 cmd_py  () { cd apps/nat-py  && make tdd; }
 cmd_ram () { cd apps/emb-ram && make tdd; }
+cmd_upy () { cd apps/emb-upy && make tdd; }
 
 cmd_tt () {
     while getopts abc: f; do
