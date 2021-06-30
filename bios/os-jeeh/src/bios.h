@@ -1,3 +1,10 @@
+namespace bios {
+    void led (int) const;
+    void delay (unsigned) const;
+    int printf (char const*, ...) const;
+    unsigned now () const;
+}
+
 struct Bios {
     virtual void led (int) const;
     virtual void delay (unsigned) const;
@@ -41,5 +48,10 @@ static void appInit () {
 }
 
 App app { App::MAGIC, appInit, _ebss, nullptr };
+
+void led (int on) { app.bios->led(on); }
+void delay (unsigned ms) { app.bios->delay(ms); }
+int printf (char const* fmt, ...) { return app.bios->printf(fmt, 12345); }
+unsigned now () { return app.bios->now(); }
 
 #endif // BIOS_MAIN

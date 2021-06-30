@@ -1,12 +1,14 @@
 #define BIOS_MAIN 1
 #include <bios.h>
 
+using namespace bios;
+
 void appMain () {
     while (true) {
-        OS.printf("<%d>\n", OS.now());
-        OS.led(1);
-        OS.delay(100);
-        OS.led(0);
-        OS.delay(900);
+        printf("<%d>\n", now());
+        led(1);
+        delay(100);
+        led(0);
+        delay(900);
     }
 }
