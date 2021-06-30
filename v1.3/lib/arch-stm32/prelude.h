@@ -10,7 +10,10 @@
 // from: STM32L4x2.svd
 
 //CG< periph
-constexpr auto ADC           = 0x50040000;  // ADC
+constexpr auto ADC1          = 0x50040000;  // ADC
+constexpr auto ADC2          = 0x50040100;  // ADC
+constexpr auto ADC3          = 0x50040200;  // ADC
+constexpr auto ADC123_COMMON = 0x50040300;  // ADC
 constexpr auto AES           = 0x50060000;  // AES
 constexpr auto CAN1          = 0x40006400;  // CAN
 constexpr auto COMP          = 0x40010200;  // COMP
@@ -85,6 +88,7 @@ constexpr auto RCC_APB1ENR = RCC + 0x58;
 enum struct IrqVec : uint8_t {
     //CG< irqvec
     ADC1                  =  18,  // ADC
+    ADC3                  =  47,  // ADC
     AES                   =  79,  // AES
     CAN1_RX0              =  20,  // CAN
     CAN1_RX1              =  21,  // CAN
@@ -92,10 +96,10 @@ enum struct IrqVec : uint8_t {
     CAN1_TX               =  19,  // CAN
     COMP                  =  64,  // COMP
     CRS                   =  82,  // CRS
-    DFSDM1                =  61,  // DFSDM
+    DFSDM1_FLT0           =  61,  // DFSDM
+    DFSDM1_FLT1           =  62,  // DFSDM
     DFSDM1_FLT2           =  63,  // DFSDM
     DFSDM1_FLT3           =  42,  // DFSDM
-    DFSDM2                =  62,  // DFSDM
     DMA1_CH1              =  11,  // DMA
     DMA1_CH2              =  12,  // DMA
     DMA1_CH3              =  13,  // DMA
@@ -118,14 +122,14 @@ enum struct IrqVec : uint8_t {
     EXTI9_5               =  23,  // EXTI
     EXTI15_10             =  40,  // EXTI
     FLASH                 =   4,  // FLASH
-    FPU                   =  81,  // VREF
+    FPU                   =  81,  // FPU
     I2C1_ER               =  32,  // I2C
     I2C1_EV               =  31,  // I2C
     I2C2_ER               =  34,  // I2C
     I2C2_EV               =  33,  // I2C
     I2C3_ER               =  73,  // I2C
     I2C3_EV               =  72,  // I2C
-    I2C4_ER               =  84,  // DFSDM
+    I2C4_ER               =  84,  // I2C
     I2C4_EV               =  83,  // I2C
     LCD                   =  78,  // LCD
     LPTIM1                =  65,  // LPTIM
