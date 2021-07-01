@@ -3,9 +3,43 @@
 
 #include <jee.h>
 
-UartBufDev<PinA<9>, PinB<7>, 100> console;
-PinK<3> backlight;
-PinI<1> led;
+#if STM32F103xB
+#define LED_ON 0
+
+#elif STM32F750xx
+#define UART_PINS PinA<9>,PinB<7>
+#define UART_DIV 2
+#define LED PinI<1>
+
+#elif DEVEBOX_H743
+#define UART_DIV 4
+#define LED PinA<1>
+#define LED_ON 0
+
+#elif STM32L432xx
+#define UART_PINS PinA<2>,PinA<15>
+#define LED PinB<3>
+
+#endif
+
+#ifndef UART_PINS
+#define UART_PINS PinA<9>,PinA<10>
+#endif
+
+#ifndef UART_DIV
+#define UART_DIV 1
+#endif
+
+#ifndef LED
+#define LED PinC<13>
+#endif
+
+#ifndef LED_ON
+#define LED_ON 1
+#endif
+
+UartBufDev<UART_PINS, 100> console;
+LED led;
 
 int printf(char const* fmt ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
@@ -17,9 +51,15 @@ int Bios::vprintf (char const* fmt, va_list ap) const {
     return 0;
 }
 
-void     Bios::led (int on) const        { ::led = on; }
-unsigned Bios::now () const              { return ticks; }
-void     Bios::delay (unsigned ms) const { wait_ms(ms); }
+void Bios::led (int on) const {
+    ::led = on ? LED_ON : 1-LED_ON;
+}
+unsigned Bios::now () const {
+    return ticks;
+}
+void Bios::delay (unsigned ms) const {
+    wait_ms(ms);
+}
 
 static void showDeviceInfo () {
     extern int g_pfnVectors [], _sidata [], _sdata [], _ebss [], _estack [];
@@ -55,9 +95,12 @@ static void showDeviceInfo () {
 
 int main() {
     console.init();
-    console.baud(115200, fullSpeedClock()/2);
+    console.baud(115200, fullSpeedClock() / UART_DIV);
 
+#if STM32F750xx
+    PinK<3> backlight;
     backlight.mode(Pinmode::out); // turn backlight off
+#endif
     led.mode(Pinmode::out);
 
     Bios const os;
@@ -65,7 +108,7 @@ int main() {
     auto& app = *(App*) 0x2000'1000;
     app.bios = &os;
     if (app.magic != 0x12340000) {
-        wait_ms(250);
+        wait_ms(500);
         printf("\r\n");
         showDeviceInfo();
     } else {
@@ -76,9 +119,9 @@ int main() {
 
     while (1) {
         console.putc('.');
-        led = 1;
+        led = LED_ON;
         wait_ms(100);
-        led = 0;
+        led = 1-LED_ON;
         wait_ms(400);
     }
 }
