@@ -25,10 +25,17 @@ LIBS = -lc -lm -lnosys
 LIBDIR =
 LDFLAGS = $(MCU) --specs=nano.specs --specs=nosys.specs -Tram.ld $(LIBDIR) $(LIBS) -Wl,--gc-sections
 
-all: build/firmware.bin
-
 OBJECTS = $(addprefix build/,$(notdir $(CXX_SOURCES:.cpp=.o)))
 vpath %.cpp $(sort $(dir $(CXX_SOURCES)))
+
+tdd:
+	@ fswatch -h >/dev/null # make sure it's installed
+	@ while ./tdd.py .; do :; done
+
+all: cls run
+
+cls:
+	@ clear && date
 
 build/%.o: %.cpp Makefile | build
 	@ echo c++ $<
@@ -45,7 +52,7 @@ build/%.bin: build/%.elf | build
 build:
 	mkdir $@
 
-upload: all
+run: build/firmware.bin
 	st-flash --reset write build/firmware.bin 0x20001000 >/dev/null 2>&1
 
 clean:
