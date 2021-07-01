@@ -39,7 +39,7 @@ __attribute__ ((section(".start")))
 App app { App::MAGIC, appInit, _ebss, nullptr };
 
 namespace bios {
-    int printf (char const* fmt, ...) {
+    int printf (char const* fmt ...) {
         va_list ap;
         va_start(ap, fmt);
         auto r = app.bios->vprintf(fmt, ap);
@@ -57,7 +57,7 @@ namespace bios {
 #else
 
 namespace bios {
-    int printf (char const*, ...);
+    int printf (char const* ...);
     void led (int);
     unsigned now ();
     void delay (unsigned);

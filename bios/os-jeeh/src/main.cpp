@@ -3,11 +3,11 @@
 
 #include <jee.h>
 
-UartBufDev< PinA<9>, PinB<7> > console;
+UartBufDev<PinA<9>, PinB<7>, 100> console;
 PinK<3> backlight;
 PinI<1> led;
 
-int printf(char const* fmt, ...) {
+int printf(char const* fmt ...) {
     va_list ap; va_start(ap, fmt); veprintf(console.putc, fmt, ap); va_end(ap);
     return 0;
 }
@@ -54,13 +54,11 @@ static void showDeviceInfo () {
 }
 
 int main() {
-    const auto hz = fullSpeedClock();
+    console.init();
+    console.baud(115200, fullSpeedClock()/2);
 
     backlight.mode(Pinmode::out); // turn backlight off
     led.mode(Pinmode::out);
-
-    console.init();
-    console.baud(115200, hz/2);
 
     Bios const os;
 
