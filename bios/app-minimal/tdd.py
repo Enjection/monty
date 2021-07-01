@@ -22,13 +22,12 @@ def setupWatcher():
 def main():
     last = 0
     for line in setupWatcher():
-        fn = line.strip()
-        bn = os.path.basename(fn)
-        ext = os.path.splitext(bn)[1]
+        bn = os.path.basename(line.strip())
         if bn == 'tdd.py':
             print(bn, "changed")
-            sys.exit()
+            return
 
+        ext = os.path.splitext(bn)[1]
         if ext in ['','.h','.cpp']:
             if time.monotonic() > last + 0.5:
                 cmd = ['make', 'all']
@@ -50,4 +49,4 @@ try:
     main()
 except KeyboardInterrupt:
     print()
-    sys.exit(2)
+    sys.exit(1)
