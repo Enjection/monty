@@ -1,12 +1,13 @@
-#define BIOS_MAIN 1
+#define BIOS_INIT 1
 #include <bios.h>
 
 using namespace bios;
 
-void appMain () {
+int main () {
+    printf("--- app: " __DATE__ " " __TIME__ "\n");
     while (true) {
-        printf("<%d>\n", now());
         led(1);
+        printf("<%d>\n", now());
         delay(100);
         led(0);
         delay(900);

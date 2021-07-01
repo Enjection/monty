@@ -1,7 +1,7 @@
 ENTRY(app)
 
 MEMORY {
-    RAM (xrw) : ORIGIN = 0x20001000, LENGTH = 63K
+    RAM (xrw) : ORIGIN = 0x20001000, LENGTH = 120K /* fits in F407 */
 }
 
 SECTIONS {

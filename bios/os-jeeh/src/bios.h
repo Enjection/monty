@@ -1,57 +1,66 @@
-namespace bios {
-    void led (int) const;
-    void delay (unsigned) const;
-    int printf (char const*, ...) const;
-    unsigned now () const;
-}
+#if BIOS_INIT || BIOS_MAIN
+
+#include <cstdarg>
 
 struct Bios {
+    virtual int vprintf (char const*, va_list) const;
     virtual void led (int) const;
-    virtual void delay (unsigned) const;
-    virtual int printf (char const*, ...) const;
     virtual unsigned now () const;
+    virtual void delay (unsigned) const;
 };
 
 struct App {
     constexpr static auto MAGIC = 0x12340000;
     int magic;
-    void (*init)();
+    int (*init)();
     void* ebss;
     Bios const* bios;
 };
 
-extern __attribute__ ((section(".start"))) App app;
-#define OS (*app.bios)
+#endif // BIOS_INIT || BIOS_MAIN
 
-#if BIOS_MAIN
-
-extern void appMain ();
+#if BIOS_INIT
 
 extern int _sbss [], _ebss [];
 
-static void appInit () {
+static int appInit () {
     for (auto p = _sbss; p != _ebss; ++p)
-        *p = 0;
-#if 0
-    extern void (*__preinit_array_start []) ();
-    extern void (*__preinit_array_end []) ();
-    for (auto p = __preinit_array_start; p != __preinit_array_end; ++p)
-        (*p)();
-    _init();
-#endif
-    extern void (*__init_array_start []) ();
-    extern void (*__init_array_end []) ();
-    for (auto p = __init_array_start; p != __init_array_end; ++p)
-        (*p)();
+        *p = 0; // clear BSS
 
-    appMain();
+    extern void (*__init_array_start[])(), (*__init_array_end[])();
+    for (auto p = __init_array_start; p != __init_array_end; ++p)
+        (*p)(); // call constructors
+
+    extern int main ();
+    return main();
 }
 
+__attribute__ ((section(".start")))
 App app { App::MAGIC, appInit, _ebss, nullptr };
 
-void led (int on) { app.bios->led(on); }
-void delay (unsigned ms) { app.bios->delay(ms); }
-int printf (char const* fmt, ...) { return app.bios->printf(fmt, 12345); }
-unsigned now () { return app.bios->now(); }
+namespace bios {
+    int printf (char const* fmt, ...) {
+        va_list ap;
+        va_start(ap, fmt);
+        auto r = app.bios->vprintf(fmt, ap);
+        va_end(ap);
+        return r;
+    }
 
-#endif // BIOS_MAIN
+    void led (int on) { app.bios->led(on); }
+
+    unsigned now () { return app.bios->now(); }
+
+    void delay (unsigned ms) { app.bios->delay(ms); }
+}
+
+#else
+
+namespace bios {
+    int printf (char const*, ...);
+    void led (int);
+    unsigned now ();
+    void delay (unsigned);
+}
+
+#endif // BIOS_INIT
