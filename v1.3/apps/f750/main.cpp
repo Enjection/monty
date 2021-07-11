@@ -131,8 +131,8 @@ void lcdTest () {
     bg.init();
     fg.init();
 
-    for (int y = 0; y < lcd::HEIGHT; ++y)
-        for (int x = 0; x < lcd::WIDTH; ++x)
+    for (int y = 0; y < lcd::HEIGHT/2; ++y)
+        for (int x = 0; x < lcd::WIDTH/2; ++x)
             bg(x, y) = x ^ y;
 
     for (int y = 0; y < lcd::HEIGHT; ++y)
@@ -683,7 +683,7 @@ static void app () {
     //spifTest(0);
     //spifTest(1); // wipe all
     //qspiTest();
-    //lcdTest();
+    lcdTest();
     //ethTest();
     //uartTest();
     //sdTest();
@@ -696,7 +696,7 @@ static void app () {
     //touchTest();
     //codecTest();
     //consoleTest();
-    parserTest();
+    //parserTest();
 }
 
 [[noreturn]] static void main2 () {
