@@ -1,6 +1,6 @@
 #define BIOS_INIT 1
 #include <bios.h>
-using bios::printf;
+using namespace bios;
 
 int main () {
     extern int _etext [], _sdata [], _ebss [];
@@ -8,10 +8,15 @@ int main () {
             &app, _etext, _sdata, _ebss);
 
     while (true) {
-        bios::led(1);
-        printf("<%d>\n", bios::now());
-        bios::delay(100);
-        bios::led(0);
-        bios::delay(900);
+        led(1);
+        printf("<%d>\n", now());
+        while (true)
+            if (auto ch = getch(); ch >= 0)
+                printf("%c", ch);
+            else
+                break;
+        delay(100);
+        led(0);
+        delay(900);
     }
 }

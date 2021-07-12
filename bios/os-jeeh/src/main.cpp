@@ -60,6 +60,9 @@ unsigned Bios::now () const {
 void Bios::delay (unsigned ms) const {
     wait_ms(ms);
 }
+int Bios::getch () const {
+    return console.readable() ? console.getc() : -1;
+}
 
 static void showDeviceInfo () {
     extern int g_pfnVectors [], _sidata [], _sdata [], _ebss [], _estack [];

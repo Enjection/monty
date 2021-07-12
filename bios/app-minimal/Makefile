@@ -1,4 +1,4 @@
-CFLAGS = -Os -fno-rtti -fno-exceptions
+CXXFLAGS = -std=c++17 -Os -fno-rtti -fno-exceptions
 
 CXX_SOURCES =  \
 	main.cpp \
@@ -39,7 +39,7 @@ cls:
 
 build/%.o: %.cpp Makefile | build
 	@ echo c++ $<
-	@ $(CC) -c $(CFLAGS) $< -o $@
+	@ $(CC) -c $(CFLAGS) $(CXXFLAGS) $< -o $@
 
 build/firmware.elf: $(OBJECTS) Makefile
 	@ echo ld $@

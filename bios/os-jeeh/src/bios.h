@@ -7,6 +7,7 @@ struct Bios {
     virtual void led (int) const;
     virtual unsigned now () const;
     virtual void delay (unsigned) const;
+    virtual int getch () const;
 };
 
 struct App {
@@ -52,6 +53,8 @@ namespace bios {
     unsigned now () { return app.bios->now(); }
 
     void delay (unsigned ms) { app.bios->delay(ms); }
+
+    int getch () { return app.bios->getch(); }
 }
 
 #else
@@ -61,6 +64,7 @@ namespace bios {
     void led (int);
     unsigned now ();
     void delay (unsigned);
+    int getch ();
 }
 
 #endif // BIOS_INIT
