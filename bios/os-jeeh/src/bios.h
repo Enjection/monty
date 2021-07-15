@@ -40,31 +40,29 @@ __attribute__ ((section(".start")))
 App app { App::MAGIC, appInit, _ebss, nullptr };
 
 namespace bios {
-    int printf (char const* fmt ...) {
-        va_list ap;
-        va_start(ap, fmt);
-        auto r = app.bios->vprintf(fmt, ap);
-        va_end(ap);
-        return r;
-    }
-
     void led (int on) { app.bios->led(on); }
-
     unsigned now () { return app.bios->now(); }
-
     void delay (unsigned ms) { app.bios->delay(ms); }
-
     int getch () { return app.bios->getch(); }
+}
+
+extern "C" int printf (char const* fmt ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    auto r = app.bios->vprintf(fmt, ap);
+    va_end(ap);
+    return r;
 }
 
 #else
 
 namespace bios {
-    int printf (char const* ...);
     void led (int);
     unsigned now ();
     void delay (unsigned);
     int getch ();
 }
+
+extern "C" int printf (char const* ...);
 
 #endif // BIOS_INIT

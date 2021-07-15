@@ -2,6 +2,7 @@ CXXFLAGS = -std=c++17 -Os -fno-rtti -fno-exceptions
 
 CXX_SOURCES =  \
 	main.cpp \
+	../../../jeeh/jee.cpp \
 
 PREFIX = arm-none-eabi-
 CC = $(PREFIX)g++
@@ -13,8 +14,8 @@ FPU = -mfpu=fpv5-sp-d16
 FLOAT-ABI = -mfloat-abi=hard
 MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
 
-C_DEFS =
-C_INCLUDES = -I../os-jeeh/src
+C_DEFS = -DSTM32F7
+C_INCLUDES = -I../os-jeeh/src -I../../../jeeh
 
 CFLAGS += $(MCU) $(C_DEFS) $(C_INCLUDES)
 CFLAGS += -Wall -fdata-sections -ffunction-sections

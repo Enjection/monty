@@ -6,6 +6,11 @@
 #if STM32F103xB
 #define LED_ON 0
 
+#elif STM32F723xx
+#define UART_PINS PinC<6>,PinC<7>
+#define UART_DIV 2
+#define LED PinB<1>
+
 #elif STM32F750xx
 #define UART_PINS PinA<9>,PinB<7>
 #define UART_DIV 2
