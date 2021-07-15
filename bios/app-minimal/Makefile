@@ -3,6 +3,7 @@ CXXFLAGS = -std=c++17 -Os -fno-rtti -fno-exceptions
 CXX_SOURCES =  \
 	main.cpp \
 	../../../jeeh/jee.cpp \
+	../../../jeeh/jee/text-font.cpp \
 
 PREFIX = arm-none-eabi-
 CC = $(PREFIX)g++
@@ -18,7 +19,7 @@ C_DEFS = -DSTM32F7
 C_INCLUDES = -I../os-jeeh/src -I../../../jeeh
 
 CFLAGS += $(MCU) $(C_DEFS) $(C_INCLUDES)
-CFLAGS += -Wall -fdata-sections -ffunction-sections
+CFLAGS += -Wall -fdata-sections -ffunction-sections -Wno-format
 #CFLAGS += -g -gdwarf-2
 CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
 
