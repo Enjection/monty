@@ -15,6 +15,8 @@ TextLcd< decltype(lcd) > text;
 Font11x16< decltype(text) > console2;
 //Font17x24< decltype(text) > console2;
 
+UartBufDev< PinC<12>, PinD<2> > wifiSerial;
+
 int lprintf(const char* fmt, ...) {
     va_list ap; va_start(ap, fmt); veprintf(console2.putc, fmt, ap); va_end(ap);
     return 0;
@@ -115,10 +117,17 @@ void initBacklight (int pct) {
 
 void testLcd () {
     lcd.clear();
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < 20; ++i)
         lprintf("hello %d\n", now());
-        delay(100);
-    }
+}
+
+void initWifi () {
+    wifiSerial.init();
+    wifiSerial.baud(1200, 216'000'000/4);
+
+    PinG<14> reset;
+    reset.mode(Pinmode::out);
+    reset = 0; delay(10); reset = 1;
 }
 
 int main () {
@@ -127,7 +136,7 @@ int main () {
             &app, _etext, _sdata, _ebss);
 
     initQspi();
-    testQspi();
+    //testQspi();
 
     initFsmc();
 
@@ -138,16 +147,14 @@ int main () {
     initBacklight(10);
     testLcd();
 
+    initWifi();
+
+    printf("loop:\n");
     while (true) {
-        led(1);
-        printf("<%d>\n", now());
-        while (true)
-            if (auto ch = getch(); ch >= 0)
-                printf("%c", ch);
-            else
-                break;
-        delay(100);
-        led(0);
-        delay(9900);
+        led(now()/500 & 1);
+        if (wifiSerial.readable())
+            printf("%c", wifiSerial.getc());
+        if (auto ch = getch(); ch >= 0)
+            wifiSerial.putc(ch);
     }
 }
